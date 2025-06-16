@@ -10,4 +10,9 @@ RCT_EXTERN_METHOD(simplePrompt:
     (NSString *)reason
     resolver:(RCTPromiseResolveBlock)resolve
     rejecter:(RCTPromiseRejectBlock)reject)
+
+RCT_EXTERN_METHOD(authenticateWithOptions:
+    (NSDictionary *)options
+    resolver:(RCTPromiseResolveBlock)resolve
+    rejecter:(RCTPromiseRejectBlock)reject)
 @end

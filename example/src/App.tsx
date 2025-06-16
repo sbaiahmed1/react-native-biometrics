@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import {
   isSensorAvailable,
   simplePrompt,
   createKeys,
   deleteKeys,
+  authenticateWithOptions,
   type BiometricSensorInfo,
 } from '@sbaiahmed1/react-native-biometrics';
 
@@ -52,10 +53,46 @@ export default function App() {
     }
   };
 
+  const handleAuthenticateWithOptions = async () => {
+    if (!sensorInfo?.available) {
+      Alert.alert('Error', 'Biometric sensor not available');
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const result = await authenticateWithOptions({
+        title: 'Enhanced Authentication',
+        subtitle: 'Verify your identity with advanced options',
+        description: 'This demonstrates the new enhanced authentication method',
+        cancelLabel: 'Not Now',
+        fallbackLabel: 'Use Password',
+        allowDeviceCredentials: true,
+        disableDeviceFallback: false,
+      });
+
+      console.log('Enhanced auth result:', result);
+
+      if (result.success) {
+        Alert.alert('Success', 'Enhanced authentication successful!');
+      } else {
+        Alert.alert(
+          'Failed',
+          `Authentication failed: ${result.error || 'Unknown error'}`
+        );
+      }
+    } catch (error) {
+      console.log('Enhanced auth error:', error);
+      Alert.alert('Error', 'Enhanced authentication failed');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleCreateKeys = async () => {
     setIsLoading(true);
     try {
-      const result = await createKeys();
+      await createKeys();
       Alert.alert('Success', 'Biometric keys created successfully!');
     } catch (error) {
       Alert.alert('Error', 'Failed to create keys');
@@ -67,7 +104,7 @@ export default function App() {
   const handleDeleteKeys = async () => {
     setIsLoading(true);
     try {
-      const result = await deleteKeys();
+      await deleteKeys();
       Alert.alert('Success', 'Biometric keys deleted successfully!');
     } catch (error) {
       Alert.alert('Error', 'Failed to delete keys');
@@ -128,6 +165,20 @@ export default function App() {
             {isLoading ? 'Processing...' : 'Delete Keys'}
           </Text>
         </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[
+            styles.button,
+            styles.enhancedButton,
+            isLoading && styles.buttonDisabled,
+          ]}
+          onPress={handleAuthenticateWithOptions}
+          disabled={isLoading || !sensorInfo?.available}
+        >
+          <Text style={styles.buttonText}>
+            {isLoading ? 'Processing...' : 'Enhanced Auth'}
+          </Text>
+        </TouchableOpacity>
       </View>
     </View>
   );
@@ -140,7 +191,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#f5f5f5',
   },
   result: {
-    color: 'red'
+    color: 'red',
   },
   title: {
     fontSize: 24,
@@ -184,6 +235,14 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
+  info: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 5,
+  },
+  buttonContainer: {
+    marginTop: 20,
+  },
   error: {
     color: '#FF3B30',
   },
@@ -193,5 +252,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#f0f0f0',
     padding: 10,
     borderRadius: 4,
+  },
+  enhancedButton: {
+    backgroundColor: '#34C759',
   },
 });

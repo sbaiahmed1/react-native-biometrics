@@ -8,6 +8,19 @@ export interface Spec extends TurboModule {
     error?: string;
   }>;
   simplePrompt(promptMessage: string): Promise<boolean>;
+  authenticateWithOptions(options: {
+    title?: string;
+    subtitle?: string;
+    description?: string;
+    fallbackLabel?: string;
+    cancelLabel?: string;
+    disableDeviceFallback?: boolean;
+    allowDeviceCredentials?: boolean;
+  }): Promise<{
+    success: boolean;
+    error?: string;
+    errorCode?: string;
+  }>;
   createKeys(): Promise<{
     publicKey: string;
   }>;

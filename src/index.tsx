@@ -12,6 +12,12 @@ export function simplePrompt(promptMessage: string): Promise<boolean> {
   return ReactNativeBiometrics.simplePrompt(promptMessage);
 }
 
+export function authenticateWithOptions(
+  options: BiometricAuthOptions
+): Promise<BiometricAuthResult> {
+  return ReactNativeBiometrics.authenticateWithOptions(options);
+}
+
 export function createKeys(): Promise<{
   publicKey: string;
 }> {
@@ -31,8 +37,20 @@ export type BiometricSensorInfo = {
   error?: string;
 };
 
+export type BiometricAuthOptions = {
+  title?: string;
+  subtitle?: string;
+  description?: string;
+  fallbackLabel?: string;
+  cancelLabel?: string;
+  disableDeviceFallback?: boolean;
+  allowDeviceCredentials?: boolean;
+};
+
 export type BiometricAuthResult = {
   success: boolean;
+  error?: string;
+  errorCode?: string;
 };
 
 export type KeyCreationResult = {

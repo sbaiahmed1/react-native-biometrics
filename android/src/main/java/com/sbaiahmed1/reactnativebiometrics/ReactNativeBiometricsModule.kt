@@ -10,6 +10,7 @@ import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.Arguments
 import com.facebook.react.bridge.ReactMethod
+import com.facebook.react.bridge.ReadableMap
 
 class ReactNativeBiometricsModule(reactContext: ReactApplicationContext) :
   ReactNativeBiometricsSpec(reactContext) {
@@ -66,6 +67,74 @@ class ReactNativeBiometricsModule(reactContext: ReactApplicationContext) :
         biometricPrompt.authenticate(promptInfo)
       } else {
         promise.reject("NO_ACTIVITY", "No active activity")
+      }
+    }
+  }
+
+  @ReactMethod
+  fun authenticateWithOptions(options: ReadableMap, promise: Promise) {
+    val executor = ContextCompat.getMainExecutor(context)
+    val result = Arguments.createMap()
+
+    val title = if (options.hasKey("title")) options.getString("title") else "Biometric Authentication"
+    val subtitle = if (options.hasKey("subtitle")) options.getString("subtitle") else "Please verify your identity"
+    val description = if (options.hasKey("description")) options.getString("description") else null
+    val cancelLabel = if (options.hasKey("cancelLabel")) options.getString("cancelLabel") else "Cancel"
+    val allowDeviceCredentials = if (options.hasKey("allowDeviceCredentials")) options.getBoolean("allowDeviceCredentials") else false
+    val disableDeviceFallback = if (options.hasKey("disableDeviceFallback")) options.getBoolean("disableDeviceFallback") else false
+
+    val authenticators = if (allowDeviceCredentials && !disableDeviceFallback) {
+      BiometricManager.Authenticators.BIOMETRIC_STRONG or BiometricManager.Authenticators.DEVICE_CREDENTIAL
+    } else {
+      BiometricManager.Authenticators.BIOMETRIC_STRONG
+    }
+
+    val promptInfoBuilder = BiometricPrompt.PromptInfo.Builder()
+      .setTitle(title!!)
+      .setSubtitle(subtitle!!)
+      .setAllowedAuthenticators(authenticators)
+
+    if (description != null) {
+      promptInfoBuilder.setDescription(description)
+    }
+
+    if (!allowDeviceCredentials || disableDeviceFallback) {
+      promptInfoBuilder.setNegativeButtonText(cancelLabel!!)
+    }
+
+    val promptInfo = promptInfoBuilder.build()
+
+    val callback = object : BiometricPrompt.AuthenticationCallback() {
+      override fun onAuthenticationSucceeded(authResult: BiometricPrompt.AuthenticationResult) {
+        result.putBoolean("success", true)
+        promise.resolve(result)
+      }
+
+      override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
+        result.putBoolean("success", false)
+        result.putString("error", errString.toString())
+        result.putString("errorCode", errorCode.toString())
+        promise.resolve(result)
+      }
+
+      override fun onAuthenticationFailed() {
+        result.putBoolean("success", false)
+        result.putString("error", "Authentication failed")
+        result.putString("errorCode", "AUTH_FAILED")
+        promise.resolve(result)
+      }
+    }
+
+    Handler(Looper.getMainLooper()).post {
+      val activity = currentActivity as? androidx.fragment.app.FragmentActivity
+      if (activity != null) {
+        val biometricPrompt = BiometricPrompt(activity, executor, callback)
+        biometricPrompt.authenticate(promptInfo)
+      } else {
+        result.putBoolean("success", false)
+        result.putString("error", "No active activity")
+        result.putString("errorCode", "NO_ACTIVITY")
+        promise.resolve(result)
       }
     }
   }
