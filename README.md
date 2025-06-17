@@ -1,16 +1,18 @@
 <div align="center">
   <h1>🔐 React Native Biometrics</h1>
-  <p><strong>A lightweight and unified React Native library for biometric authentication</strong></p>
+  <p><strong>A lightweight and unified React Native library for biometric authentication across iOS and Android</strong></p>
   
   <p>
     <img src="https://img.shields.io/npm/v/@sbaiahmed1/react-native-biometrics?style=for-the-badge&color=blue" alt="npm version" />
     <img src="https://img.shields.io/npm/dm/@sbaiahmed1/react-native-biometrics?style=for-the-badge&color=green" alt="downloads" />
     <img src="https://img.shields.io/github/license/sbaiahmed1/react-native-biometrics?style=for-the-badge&color=orange" alt="license" />
+    <img src="https://img.shields.io/github/stars/sbaiahmed1/react-native-biometrics?style=for-the-badge&color=yellow" alt="stars" />
   </p>
   
   <p>
     <img src="https://img.shields.io/badge/iOS-Face%20ID%20%7C%20Touch%20ID-blue?style=for-the-badge&logo=apple" alt="iOS Support" />
     <img src="https://img.shields.io/badge/Android-Fingerprint%20%7C%20Face-green?style=for-the-badge&logo=android" alt="Android Support" />
+    <img src="https://img.shields.io/badge/New%20Architecture-Ready-purple?style=for-the-badge" alt="New Architecture" />
   </p>
 </div>
 
@@ -29,11 +31,19 @@
 
 ## 📋 Requirements
 
-- React Native >= 0.68
-- iOS >= 11.0
-- Android API >= 23 (Android 6.0)
-- Xcode >= 12.0 (for iOS development)
-- Android SDK >= 23 (for Android development)
+| Platform | Minimum Version | Recommended |
+|----------|-----------------|-------------|
+| React Native | 0.68+ | 0.75+ |
+| iOS | 11.0+ | 15.0+ |
+| Android API | 23+ (Android 6.0) | 30+ (Android 11) |
+| Xcode | 12.0+ | 15.0+ |
+| Android SDK | 23+ | 34+ |
+
+### Supported Biometric Types
+
+- **iOS**: Face ID, Touch ID
+- **Android**: Fingerprint, Face Recognition, Iris Scanner
+- **Fallback**: Device PIN, Password, Pattern
 
 ## 🚀 Installation
 
@@ -60,6 +70,11 @@ yarn add @sbaiahmed1/react-native-biometrics
 cd ios && pod install
 ```
 
+3. **For React Native 0.60+, the library will auto-link. For older versions:**
+```bash
+react-native link @sbaiahmed1/react-native-biometrics
+```
+
 ### Android Setup
 
 1. **Add permissions to `android/app/src/main/AndroidManifest.xml`:**
@@ -71,12 +86,18 @@ cd ios && pod install
 2. **Ensure minimum SDK version in `android/app/build.gradle`:**
 ```gradle
 android {
-    compileSdkVersion 33
+    compileSdkVersion 34
     defaultConfig {
         minSdkVersion 23
-        targetSdkVersion 33
+        targetSdkVersion 34
     }
 }
+```
+
+3. **Add ProGuard rules (if using ProGuard) in `android/app/proguard-rules.pro`:**
+```proguard
+-keep class androidx.biometric.** { *; }
+-keep class com.sbaiahmed1.reactnativebiometrics.** { *; }
 ```
 
 ## 📖 Usage
@@ -91,16 +112,38 @@ import {
   setDebugMode
 } from '@sbaiahmed1/react-native-biometrics';
 
-// Enable debug mode for development
-await setDebugMode(true);
-
-// Check if biometric authentication is available
-const sensorInfo = await isSensorAvailable();
-if (sensorInfo.available) {
-  // Perform authentication
-  const result = await simplePrompt('Please authenticate to continue');
-  console.log('Authentication result:', result);
-}
+const BiometricAuth = () => {
+  const authenticate = async () => {
+    try {
+      // Enable debug mode for development
+      await setDebugMode(true);
+      
+      // Check if biometric authentication is available
+      const sensorInfo = await isSensorAvailable();
+      
+      if (sensorInfo.available) {
+        console.log(`✅ ${sensorInfo.biometryType} available`);
+        
+        // Perform authentication
+        const result = await simplePrompt('Please authenticate to continue');
+        
+        if (result) {
+          console.log('🎉 Authentication successful!');
+          // Navigate to secure content
+        } else {
+          console.log('❌ Authentication failed');
+        }
+      } else {
+        console.log('❌ Biometric authentication not available:', sensorInfo.error);
+        // Show alternative authentication method
+      }
+    } catch (error) {
+      console.error('💥 Authentication error:', error);
+    }
+  };
+  
+  return authenticate;
+};
 ```
 
 ### 🔍 Check Sensor Availability
@@ -693,8 +736,41 @@ We welcome contributions! Here's how you can help:
 This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) file for details.
 ---
 
+---
+
+## 🚀 Roadmap
+
+- [ ] **Enhanced Security**: Hardware-backed key attestation
+- [ ] **Biometric Templates**: Store and manage biometric templates
+- [ ] **Multi-factor Authentication**: Combine biometrics with other factors
+- [ ] **Advanced Fallbacks**: Custom fallback UI components
+- [ ] **Analytics**: Usage and security analytics
+- [ ] **Web Support**: Extend to React Native Web
+
+## 🙏 Acknowledgments
+
+- Built with [create-react-native-library](https://github.com/callstack/react-native-builder-bob)
+- Inspired by the React Native community's need for unified biometric authentication
+- Thanks to all contributors and users who help improve this library
+
+## 📊 Stats
+
+<div align="center">
+  <img src="https://img.shields.io/github/contributors/sbaiahmed1/react-native-biometrics?style=for-the-badge" alt="contributors" />
+  <img src="https://img.shields.io/github/last-commit/sbaiahmed1/react-native-biometrics?style=for-the-badge" alt="last commit" />
+  <img src="https://img.shields.io/github/issues/sbaiahmed1/react-native-biometrics?style=for-the-badge" alt="issues" />
+  <img src="https://img.shields.io/github/issues-pr/sbaiahmed1/react-native-biometrics?style=for-the-badge" alt="pull requests" />
+</div>
+
+---
+
 <div align="center">
   <p>Made with ❤️ by <a href="https://github.com/sbaiahmed1">@sbaiahmed1</a></p>
-  <p>Made with [create-react-native-library] (https://github.com/callstack/react-native-builder-bob)</p>
   <p>⭐ Star this repo if it helped you!</p>
+  
+  <p>
+    <a href="https://github.com/sbaiahmed1/react-native-biometrics/issues">Report Bug</a> ·
+    <a href="https://github.com/sbaiahmed1/react-native-biometrics/issues">Request Feature</a> ·
+    <a href="https://github.com/sbaiahmed1/react-native-biometrics/discussions">Discussions</a>
+  </p>
 </div>
