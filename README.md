@@ -95,10 +95,113 @@ const deleteBiometricKeys = async () => {
 };
 ```
 
+### Debugging Utilities
+
+```js
+import { 
+  getDiagnosticInfo, 
+  runBiometricTest, 
+  setDebugMode 
+} from '@sbaiahmed1/react-native-biometrics';
+
+// Get comprehensive diagnostic information
+const getDiagnostics = async () => {
+  try {
+    const info = await getDiagnosticInfo();
+    console.log('Platform:', info.platform);
+    console.log('OS Version:', info.osVersion);
+    console.log('Device Model:', info.deviceModel);
+    console.log('Biometric Capabilities:', info.biometricCapabilities);
+    console.log('Security Level:', info.securityLevel);
+    console.log('Keyguard Secure:', info.keyguardSecure);
+    console.log('Enrolled Biometrics:', info.enrolledBiometrics);
+  } catch (error) {
+    console.error('Failed to get diagnostic info:', error);
+  }
+};
+
+// Run comprehensive biometric functionality test
+const testBiometrics = async () => {
+  try {
+    const testResult = await runBiometricTest();
+    
+    if (testResult.success) {
+      console.log('All tests passed!');
+    } else {
+      console.log('Test failures:', testResult.errors);
+      console.log('Test warnings:', testResult.warnings);
+    }
+    
+    console.log('Test Results:', testResult.results);
+  } catch (error) {
+    console.error('Failed to run biometric test:', error);
+  }
+};
+
+// Enable debug logging
+const enableDebugging = async () => {
+  try {
+    await setDebugMode(true);
+    console.log('Debug mode enabled');
+  } catch (error) {
+    console.error('Failed to enable debug mode:', error);
+  }
+};
+```
+
 ## API Reference
 
-### `authenticateWithOptions(options)`
+### `getDiagnosticInfo()`
 
+Returns comprehensive diagnostic information about the device's biometric capabilities.
+
+**Returns:** `Promise<DiagnosticInfo>`
+
+```typescript
+type DiagnosticInfo = {
+  platform: string;           // 'iOS' or 'Android'
+  osVersion: string;          // Operating system version
+  deviceModel: string;        // Device model information
+  biometricCapabilities: string[];  // Available biometric types
+  securityLevel: string;      // 'SecureHardware' or 'Software'
+  keyguardSecure: boolean;    // Whether device lock is secure
+  enrolledBiometrics: string[]; // Currently enrolled biometric types
+  lastError?: string;         // Last error encountered (if any)
+};
+```
+
+### `runBiometricTest()`
+
+Runs a comprehensive test of biometric functionality and returns detailed results.
+
+**Returns:** `Promise<BiometricTestResult>`
+
+```typescript
+type BiometricTestResult = {
+  success: boolean;           // Overall test success
+  results: {
+    sensorAvailable: boolean;     // Biometric sensor availability
+    canAuthenticate: boolean;     // Authentication capability
+    hardwareDetected: boolean;    // Hardware detection
+    hasEnrolledBiometrics: boolean; // Enrolled biometrics check
+    secureHardware: boolean;      // Secure hardware availability
+  };
+  errors: string[];           // Critical errors found
+  warnings: string[];         // Non-critical warnings
+};
+```
+
+### `setDebugMode(enabled: boolean)`
+
+Enables or disables debug logging for the biometric library.
+
+**Parameters:**
+- `enabled` (boolean): Whether to enable debug mode
+
+**Returns:** `Promise<void>`
+
+### `authenticateWithOptions(options)`
+```
 Enhanced authentication with customizable options.
 
 **Parameters:**

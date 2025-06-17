@@ -30,6 +30,19 @@ export function deleteKeys(): Promise<{
   return ReactNativeBiometrics.deleteKeys();
 }
 
+// Debugging utilities
+export function getDiagnosticInfo(): Promise<DiagnosticInfo> {
+  return ReactNativeBiometrics.getDiagnosticInfo();
+}
+
+export function runBiometricTest(): Promise<BiometricTestResult> {
+  return ReactNativeBiometrics.runBiometricTest();
+}
+
+export function setDebugMode(enabled: boolean): Promise<void> {
+  return ReactNativeBiometrics.setDebugMode(enabled);
+}
+
 // Export types for TypeScript users
 export type BiometricSensorInfo = {
   available: boolean;
@@ -59,4 +72,28 @@ export type KeyCreationResult = {
 
 export type KeyDeletionResult = {
   success: boolean;
+};
+
+export type DiagnosticInfo = {
+  platform: string;
+  osVersion: string;
+  deviceModel: string;
+  biometricCapabilities: string[];
+  securityLevel: string;
+  keyguardSecure: boolean;
+  enrolledBiometrics: string[];
+  lastError?: string;
+};
+
+export type BiometricTestResult = {
+  success: boolean;
+  results: {
+    sensorAvailable: boolean;
+    canAuthenticate: boolean;
+    hardwareDetected: boolean;
+    hasEnrolledBiometrics: boolean;
+    secureHardware: boolean;
+  };
+  errors: string[];
+  warnings: string[];
 };

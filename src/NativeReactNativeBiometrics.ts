@@ -27,6 +27,30 @@ export interface Spec extends TurboModule {
   deleteKeys(): Promise<{
     success: boolean;
   }>;
+  // Debugging utilities
+  getDiagnosticInfo(): Promise<{
+    platform: string;
+    osVersion: string;
+    deviceModel: string;
+    biometricCapabilities: string[];
+    securityLevel: string;
+    keyguardSecure: boolean;
+    enrolledBiometrics: string[];
+    lastError?: string;
+  }>;
+  runBiometricTest(): Promise<{
+    success: boolean;
+    results: {
+      sensorAvailable: boolean;
+      canAuthenticate: boolean;
+      hardwareDetected: boolean;
+      hasEnrolledBiometrics: boolean;
+      secureHardware: boolean;
+    };
+    errors: string[];
+    warnings: string[];
+  }>;
+  setDebugMode(enabled: boolean): Promise<void>;
 }
 
 export default TurboModuleRegistry.getEnforcing<Spec>(

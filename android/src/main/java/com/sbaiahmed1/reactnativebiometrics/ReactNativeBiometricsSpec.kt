@@ -9,4 +9,12 @@ abstract class ReactNativeBiometricsSpec(reactContext: ReactApplicationContext) 
   ReactContextBaseJavaModule(reactContext), TurboModule {
   abstract fun isSensorAvailable(promise: Promise)
   abstract fun simplePrompt(reason: String, promise: Promise)
+  abstract fun authenticateWithOptions(options: com.facebook.react.bridge.ReadableMap, promise: Promise)
+  // Key management
+  abstract fun createKeys(promise: Promise)
+  abstract fun deleteKeys(promise: Promise)
+  // Debugging utilities
+  abstract fun getDiagnosticInfo(promise: Promise)
+  abstract fun runBiometricTest(promise: Promise)
+  abstract fun setDebugMode(enabled: Boolean, promise: Promise)
 }

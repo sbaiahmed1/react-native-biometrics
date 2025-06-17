@@ -1,18 +1,23 @@
 import { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  Alert,
+  ScrollView,
+  SafeAreaView,
+} from 'react-native';
 import {
   isSensorAvailable,
   simplePrompt,
   createKeys,
   deleteKeys,
   authenticateWithOptions,
-  type BiometricSensorInfo,
 } from '@sbaiahmed1/react-native-biometrics';
+import DebuggingExample from './DebuggingExample';
 
 export default function App() {
-  const [result, setResult] = useState<
-    BiometricSensorInfo['biometryType'] | undefined
-  >();
   const [sensorInfo, setSensorInfo] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -24,7 +29,6 @@ export default function App() {
     try {
       const info = await isSensorAvailable();
       console.log('info', info);
-      setResult(info.biometryType);
 
       setSensorInfo(info);
     } catch (error) {
@@ -114,73 +118,70 @@ export default function App() {
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>React Native Biometrics</Text>
-
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Multiply Test</Text>
-        <Text style={styles.result}>Result: {result}</Text>
-      </View>
-
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Biometric Sensor</Text>
-        <Text style={styles.info}>
-          Available: {sensorInfo?.available ? 'Yes' : 'No'}
-        </Text>
-        {sensorInfo?.biometryType && (
-          <Text style={styles.info}>Type: {sensorInfo.biometryType}</Text>
-        )}
-        {sensorInfo?.error && (
-          <Text style={styles.error}>Error: {sensorInfo.error}</Text>
-        )}
-      </View>
-
-      <View style={styles.buttonContainer}>
-        <TouchableOpacity
-          style={[styles.button, isLoading && styles.buttonDisabled]}
-          onPress={handleAuthenticate}
-          disabled={isLoading || !sensorInfo?.available}
-        >
-          <Text style={styles.buttonText}>
-            {isLoading ? 'Processing...' : 'Authenticate'}
+    <SafeAreaView style={styles.container}>
+      <ScrollView>
+        <DebuggingExample />
+        <Text style={styles.title}>React Native Biometrics</Text>
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Biometric Sensor</Text>
+          <Text style={styles.info}>
+            Available: {sensorInfo?.available ? 'Yes' : 'No'}
           </Text>
-        </TouchableOpacity>
+          {sensorInfo?.biometryType && (
+            <Text style={styles.info}>Type: {sensorInfo.biometryType}</Text>
+          )}
+          {sensorInfo?.error && (
+            <Text style={styles.error}>Error: {sensorInfo.error}</Text>
+          )}
+        </View>
 
-        <TouchableOpacity
-          style={[styles.button, isLoading && styles.buttonDisabled]}
-          onPress={handleCreateKeys}
-          disabled={isLoading}
-        >
-          <Text style={styles.buttonText}>
-            {isLoading ? 'Processing...' : 'Create Keys'}
-          </Text>
-        </TouchableOpacity>
+        <View style={styles.buttonContainer}>
+          <TouchableOpacity
+            style={[styles.button, isLoading && styles.buttonDisabled]}
+            onPress={handleAuthenticate}
+            disabled={isLoading || !sensorInfo?.available}
+          >
+            <Text style={styles.buttonText}>
+              {isLoading ? 'Processing...' : 'Authenticate'}
+            </Text>
+          </TouchableOpacity>
 
-        <TouchableOpacity
-          style={[styles.button, isLoading && styles.buttonDisabled]}
-          onPress={handleDeleteKeys}
-          disabled={isLoading}
-        >
-          <Text style={styles.buttonText}>
-            {isLoading ? 'Processing...' : 'Delete Keys'}
-          </Text>
-        </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.button, isLoading && styles.buttonDisabled]}
+            onPress={handleCreateKeys}
+            disabled={isLoading}
+          >
+            <Text style={styles.buttonText}>
+              {isLoading ? 'Processing...' : 'Create Keys'}
+            </Text>
+          </TouchableOpacity>
 
-        <TouchableOpacity
-          style={[
-            styles.button,
-            styles.enhancedButton,
-            isLoading && styles.buttonDisabled,
-          ]}
-          onPress={handleAuthenticateWithOptions}
-          disabled={isLoading || !sensorInfo?.available}
-        >
-          <Text style={styles.buttonText}>
-            {isLoading ? 'Processing...' : 'Enhanced Auth'}
-          </Text>
-        </TouchableOpacity>
-      </View>
-    </View>
+          <TouchableOpacity
+            style={[styles.button, isLoading && styles.buttonDisabled]}
+            onPress={handleDeleteKeys}
+            disabled={isLoading}
+          >
+            <Text style={styles.buttonText}>
+              {isLoading ? 'Processing...' : 'Delete Keys'}
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.button,
+              styles.enhancedButton,
+              isLoading && styles.buttonDisabled,
+            ]}
+            onPress={handleAuthenticateWithOptions}
+            disabled={isLoading || !sensorInfo?.available}
+          >
+            <Text style={styles.buttonText}>
+              {isLoading ? 'Processing...' : 'Enhanced Auth'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
