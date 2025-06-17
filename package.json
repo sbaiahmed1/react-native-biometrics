@@ -43,18 +43,26 @@
   "keywords": [
     "react-native",
     "ios",
-    "android"
+    "android",
+    "biometrics",
+    "biometric authentication",
+    "face id",
+    "touch id",
+    "fingerprint",
+    "react-native biometrics",
+    "authentication",
+    "security"
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/sbaiahmed1/sbaiahmed1-react-native-biometrics.git"
+    "url": "git+https://github.com/sbaiahmed1/react-native-biometrics.git"
   },
   "author": "Ahmed Sbai <ahmedclubust@gmail.com> (https://github.com/sbaiahmed1)",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/sbaiahmed1/sbaiahmed1-react-native-biometrics/issues"
+    "url": "https://github.com/sbaiahmed1/react-native-biometrics/issues"
   },
-  "homepage": "https://github.com/sbaiahmed1/sbaiahmed1-react-native-biometrics#readme",
+  "homepage": "https://github.com/sbaiahmed1/react-native-biometrics#readme",
   "publishConfig": {
     "registry": "https://registry.npmjs.org/"
   },
