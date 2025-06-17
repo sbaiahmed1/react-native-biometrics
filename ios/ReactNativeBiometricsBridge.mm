@@ -24,6 +24,10 @@ RCT_EXTERN_METHOD(deleteKeys:
     (RCTPromiseResolveBlock)resolve
     rejecter:(RCTPromiseRejectBlock)reject)
 
+RCT_EXTERN_METHOD(getAllKeys:
+    (RCTPromiseResolveBlock)resolve
+    rejecter:(RCTPromiseRejectBlock)reject)
+
 RCT_EXTERN_METHOD(getDiagnosticInfo:
     (RCTPromiseResolveBlock)resolve
     rejecter:(RCTPromiseRejectBlock)reject)

@@ -13,6 +13,7 @@ abstract class ReactNativeBiometricsSpec(reactContext: ReactApplicationContext) 
   // Key management
   abstract fun createKeys(promise: Promise)
   abstract fun deleteKeys(promise: Promise)
+  abstract fun getAllKeys(promise: Promise)
   // Debugging utilities
   abstract fun getDiagnosticInfo(promise: Promise)
   abstract fun runBiometricTest(promise: Promise)

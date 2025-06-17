@@ -1975,7 +1975,7 @@ SPEC CHECKSUMS:
   ReactAppDependencyProvider: 04d5eb15eb46be6720e17a4a7fa92940a776e584
   ReactCodegen: 041559ba76d00f6680dfa0916b3c791f4babe5ea
   ReactCommon: 1511ef100f1afa4c199fe52fe7a8d2529a41429a
-  ReactNativeBiometrics: 90271ee7c8149b2d00648c32ba675d2e85ee1a5d
+  ReactNativeBiometrics: 055bee2dcdd1dfcbb8071ddbf3a5f7eb78880334
   SocketRocket: d4aabe649be1e368d1318fdf28a022d714d65748
   Yoga: 50518ade05048235d91a78b803336dbb5b159d5d
 

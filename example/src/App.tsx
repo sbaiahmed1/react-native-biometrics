@@ -13,6 +13,7 @@ import {
   simplePrompt,
   createKeys,
   deleteKeys,
+  getAllKeys,
   authenticateWithOptions,
 } from '@sbaiahmed1/react-native-biometrics';
 import DebuggingExample from './DebuggingExample';
@@ -117,6 +118,33 @@ export default function App() {
     }
   };
 
+  const handleGetAllKeys = async () => {
+    setIsLoading(true);
+    try {
+      const result = await getAllKeys();
+      const keyCount = result.keys.length;
+
+      if (keyCount === 0) {
+        Alert.alert('Keys Info', 'No biometric keys found.');
+      } else {
+        const keyInfo = result.keys
+          .map(
+            (key, index) =>
+              `Key ${index + 1}:\nAlias: ${key.alias}\nPublic Key: ${key.publicKey.substring(0, 50)}...`
+          )
+          .join('\n\n');
+
+        Alert.alert('All Keys', `Found ${keyCount} key(s):\n\n${keyInfo}`, [
+          { text: 'OK' },
+        ]);
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Failed to retrieve keys');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView>
@@ -163,6 +191,16 @@ export default function App() {
           >
             <Text style={styles.buttonText}>
               {isLoading ? 'Processing...' : 'Delete Keys'}
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.button, isLoading && styles.buttonDisabled]}
+            onPress={handleGetAllKeys}
+            disabled={isLoading}
+          >
+            <Text style={styles.buttonText}>
+              {isLoading ? 'Processing...' : 'Get All Keys'}
             </Text>
           </TouchableOpacity>
 

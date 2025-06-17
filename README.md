@@ -220,7 +220,7 @@ const authScenarios = {
 Manage cryptographic keys for secure biometric operations.
 
 ```typescript
-import { createKeys, deleteKeys } from '@sbaiahmed1/react-native-biometrics';
+import { createKeys, deleteKeys, getAllKeys } from '@sbaiahmed1/react-native-biometrics';
 
 // Create biometric keys for secure operations
 const createBiometricKeys = async () => {
@@ -250,6 +250,29 @@ const deleteBiometricKeys = async () => {
     }
   } catch (error) {
     console.error('💥 Failed to delete keys:', error);
+  }
+};
+
+// Retrieve all stored biometric keys
+const getAllBiometricKeys = async () => {
+  try {
+    const result = await getAllKeys();
+    
+    console.log(`📋 Found ${result.keys.length} stored keys`);
+    
+    result.keys.forEach((key, index) => {
+      console.log(`🔑 Key ${index + 1}:`);
+      console.log(`   Alias: ${key.alias}`);
+      console.log(`   Public Key: ${key.publicKey.substring(0, 50)}...`);
+      if (key.creationDate) {
+        console.log(`   Created: ${key.creationDate}`);
+      }
+    });
+    
+    return result.keys;
+  } catch (error) {
+    console.error('💥 Failed to retrieve keys:', error);
+    return [];
   }
 };
 
@@ -481,6 +504,22 @@ function deleteKeys(): Promise<DeleteResult>
 
 type DeleteResult = {
   success: boolean;          // Whether deletion succeeded
+}
+```
+
+#### `getAllKeys()`
+
+Retrieves all stored cryptographic keys.
+
+```typescript
+function getAllKeys(): Promise<GetAllKeysResult>
+
+type GetAllKeysResult = {
+  keys: Array<{
+    alias: string;           // Key identifier/alias
+    publicKey: string;       // Base64 encoded public key
+    creationDate?: string;   // Key creation date (if available)
+  }>;
 }
 ```
 

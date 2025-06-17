@@ -27,6 +27,13 @@ export interface Spec extends TurboModule {
   deleteKeys(): Promise<{
     success: boolean;
   }>;
+  getAllKeys(): Promise<{
+    keys: Array<{
+      alias: string;
+      publicKey: string;
+      createdAt?: string;
+    }>;
+  }>;
   // Debugging utilities
   getDiagnosticInfo(): Promise<{
     platform: string;

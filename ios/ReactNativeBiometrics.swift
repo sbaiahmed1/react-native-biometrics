@@ -1,6 +1,8 @@
 import Foundation
 import LocalAuthentication
 import React
+import Security
+import CryptoKit
 
 @objc(ReactNativeBiometrics)
 class ReactNativeBiometrics: NSObject {
@@ -315,13 +317,71 @@ class ReactNativeBiometrics: NSObject {
                   rejecter reject: @escaping RCTPromiseRejectBlock) {
     debugLog("createKeys called")
     
-    // For now, return a placeholder implementation
-    // In a real implementation, this would generate cryptographic keys using Keychain
-    let result: [String: Any] = [
-      "publicKey": "placeholder-public-key"
+    let keyTag = "ReactNativeBiometricsKey"
+    let keyTagData = keyTag.data(using: .utf8)!
+    
+    // Delete existing key if it exists
+    let deleteQuery: [String: Any] = [
+      kSecClass as String: kSecClassKey,
+      kSecAttrApplicationTag as String: keyTagData
+    ]
+    SecItemDelete(deleteQuery as CFDictionary)
+    debugLog("Deleted existing key (if any)")
+    
+    // Create access control for biometric authentication
+    guard let accessControl = SecAccessControlCreateWithFlags(
+      kCFAllocatorDefault,
+      kSecAttrAccessibleWhenUnlockedThisDeviceOnly,
+      [.biometryAny, .privateKeyUsage],
+      nil
+    ) else {
+      debugLog("createKeys failed - Could not create access control")
+      reject("CREATE_KEYS_ERROR", "Could not create access control", nil)
+      return
+    }
+    
+    // Key generation parameters
+    let keyAttributes: [String: Any] = [
+      kSecAttrKeyType as String: kSecAttrKeyTypeRSA,
+      kSecAttrKeySizeInBits as String: 2048,
+      kSecAttrTokenID as String: kSecAttrTokenIDSecureEnclave,
+      kSecPrivateKeyAttrs as String: [
+        kSecAttrIsPermanent as String: true,
+        kSecAttrApplicationTag as String: keyTagData,
+        kSecAttrAccessControl as String: accessControl
+      ]
     ]
     
-    debugLog("Keys created successfully")
+    var error: Unmanaged<CFError>?
+    guard let privateKey = SecKeyCreateRandomKey(keyAttributes as CFDictionary, &error) else {
+      let errorDescription = error?.takeRetainedValue().localizedDescription ?? "Unknown error"
+      debugLog("createKeys failed - Key generation error: \(errorDescription)")
+      reject("CREATE_KEYS_ERROR", "Key generation failed: \(errorDescription)", nil)
+      return
+    }
+    
+    // Get public key
+    guard let publicKey = SecKeyCopyPublicKey(privateKey) else {
+      debugLog("createKeys failed - Could not extract public key")
+      reject("CREATE_KEYS_ERROR", "Could not extract public key", nil)
+      return
+    }
+    
+    // Export public key
+    guard let publicKeyData = SecKeyCopyExternalRepresentation(publicKey, &error) else {
+      let errorDescription = error?.takeRetainedValue().localizedDescription ?? "Unknown error"
+      debugLog("createKeys failed - Public key export error: \(errorDescription)")
+      reject("CREATE_KEYS_ERROR", "Public key export failed: \(errorDescription)", nil)
+      return
+    }
+    
+    let publicKeyBase64 = (publicKeyData as Data).base64EncodedString()
+    
+    let result: [String: Any] = [
+      "publicKey": publicKeyBase64
+    ]
+    
+    debugLog("Keys created successfully with tag: \(keyTag)")
     resolve(result)
   }
   
@@ -330,14 +390,148 @@ class ReactNativeBiometrics: NSObject {
                   rejecter reject: @escaping RCTPromiseRejectBlock) {
     debugLog("deleteKeys called")
     
-    // For now, return a placeholder implementation
-    // In a real implementation, this would delete stored cryptographic keys from Keychain
-    let result: [String: Any] = [
-      "success": true
+    let keyTag = "ReactNativeBiometricsKey"
+    let keyTagData = keyTag.data(using: .utf8)!
+    
+    // Query to find the key
+    let query: [String: Any] = [
+      kSecClass as String: kSecClassKey,
+      kSecAttrApplicationTag as String: keyTagData
     ]
     
-    debugLog("Keys deleted successfully")
-    resolve(result)
+    // Check if key exists first
+    let checkStatus = SecItemCopyMatching(query as CFDictionary, nil)
+    
+    if checkStatus == errSecItemNotFound {
+      debugLog("No key found with tag '\(keyTag)' - nothing to delete")
+      let result: [String: Any] = [
+        "success": true
+      ]
+      resolve(result)
+      return
+    }
+    
+    // Delete the key
+    let deleteStatus = SecItemDelete(query as CFDictionary)
+    
+    switch deleteStatus {
+    case errSecSuccess:
+      debugLog("Key with tag '\(keyTag)' deleted successfully")
+      
+      // Verify deletion
+      let verifyStatus = SecItemCopyMatching(query as CFDictionary, nil)
+      if verifyStatus == errSecItemNotFound {
+        let result: [String: Any] = [
+          "success": true
+        ]
+        debugLog("Keys deleted and verified successfully")
+        resolve(result)
+      } else {
+        debugLog("deleteKeys failed - Key still exists after deletion attempt")
+        reject("DELETE_KEYS_ERROR", "Key deletion verification failed", nil)
+      }
+      
+    case errSecItemNotFound:
+      debugLog("No key found with tag '\(keyTag)' - nothing to delete")
+      let result: [String: Any] = [
+        "success": true
+      ]
+      resolve(result)
+      
+    default:
+      let errorMessage = SecCopyErrorMessageString(deleteStatus, nil) as String? ?? "Unknown error"
+      debugLog("deleteKeys failed - Keychain error: \(errorMessage) (status: \(deleteStatus))")
+      reject("DELETE_KEYS_ERROR", "Keychain deletion failed: \(errorMessage)", nil)
+    }
+  }
+
+  @objc
+  func getAllKeys(_ resolve: @escaping RCTPromiseResolveBlock,
+                  rejecter reject: @escaping RCTPromiseRejectBlock) {
+    debugLog("getAllKeys called")
+    
+    // Query to find all keys in the Keychain
+    let query: [String: Any] = [
+      kSecClass as String: kSecClassKey,
+      kSecMatchLimit as String: kSecMatchLimitAll,
+      kSecReturnAttributes as String: true,
+      kSecReturnRef as String: true
+    ]
+    
+    var result: CFTypeRef?
+    let status = SecItemCopyMatching(query as CFDictionary, &result)
+    
+    switch status {
+    case errSecSuccess:
+      guard let items = result as? [[String: Any]] else {
+        debugLog("getAllKeys failed - Invalid result format")
+        reject("GET_ALL_KEYS_ERROR", "Invalid result format", nil)
+        return
+      }
+      
+      var keysList: [[String: Any]] = []
+      
+      for item in items {
+        // Filter for our biometric keys
+        if let keyTag = item[kSecAttrApplicationTag as String] as? Data,
+           let keyTagString = String(data: keyTag, encoding: .utf8),
+           (keyTagString.contains("ReactNativeBiometrics") || keyTagString.contains("Biometric")) {
+          
+          // Get the key reference
+          if let keyRef = item[kSecValueRef as String] {
+            do {
+              // Export the public key
+              let publicKeyQuery: [String: Any] = [
+                kSecClass as String: kSecClassKey,
+                kSecValueRef as String: keyRef,
+                kSecReturnData as String: true
+              ]
+              
+              var publicKeyData: CFTypeRef?
+              let publicKeyStatus = SecItemCopyMatching(publicKeyQuery as CFDictionary, &publicKeyData)
+              
+              if publicKeyStatus == errSecSuccess,
+                 let keyData = publicKeyData as? Data {
+                let publicKeyString = keyData.base64EncodedString()
+                
+                let keyInfo: [String: Any] = [
+                  "alias": keyTagString,
+                  "publicKey": publicKeyString
+                  // Note: iOS Keychain doesn't provide creation date easily
+                  // You could store this separately if needed
+                ]
+                
+                keysList.append(keyInfo)
+                debugLog("Found key with tag: \(keyTagString)")
+              } else {
+                debugLog("Failed to export public key for tag: \(keyTagString)")
+              }
+            } catch {
+              debugLog("Error processing key \(keyTagString): \(error.localizedDescription)")
+            }
+          }
+        }
+      }
+      
+      let resultDict: [String: Any] = [
+        "keys": keysList
+      ]
+      
+      debugLog("getAllKeys completed successfully, found \(keysList.count) keys")
+      resolve(resultDict)
+      
+    case errSecItemNotFound:
+      debugLog("getAllKeys completed - No keys found")
+      let resultDict: [String: Any] = [
+        "keys": []
+      ]
+      resolve(resultDict)
+      
+    default:
+      let errorMessage = SecCopyErrorMessageString(status, nil) as String? ?? "Unknown error"
+      debugLog("getAllKeys failed - Keychain error: \(errorMessage) (status: \(status))")
+      reject("GET_ALL_KEYS_ERROR", "Keychain query failed: \(errorMessage)", nil)
+    }
   }
 
   private func debugLog(_ message: String) {

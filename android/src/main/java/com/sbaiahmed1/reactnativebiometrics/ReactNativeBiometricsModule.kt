@@ -11,6 +11,20 @@ import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.Arguments
 import com.facebook.react.bridge.ReactMethod
 import com.facebook.react.bridge.ReadableMap
+import java.security.KeyPairGenerator
+import java.security.KeyStore
+import java.security.spec.RSAKeyGenParameterSpec
+import android.security.keystore.KeyGenParameterSpec
+import android.security.keystore.KeyProperties
+import java.security.PublicKey
+import android.util.Base64
+import java.security.NoSuchAlgorithmException
+import java.security.InvalidAlgorithmParameterException
+import java.security.KeyStoreException
+import java.security.cert.CertificateException
+import java.io.IOException
+import java.security.UnrecoverableKeyException
+import java.security.NoSuchProviderException
 
 class ReactNativeBiometricsModule(reactContext: ReactApplicationContext) :
   ReactNativeBiometricsSpec(reactContext) {
@@ -353,14 +367,65 @@ class ReactNativeBiometricsModule(reactContext: ReactApplicationContext) :
   override fun createKeys(promise: Promise) {
     debugLog("createKeys called")
     try {
-      // For now, return a placeholder implementation
-      // In a real implementation, this would generate cryptographic keys
+      val keyAlias = "ReactNativeBiometricsKey"
+      
+      // Check if key already exists
+      val keyStore = KeyStore.getInstance("AndroidKeyStore")
+      keyStore.load(null)
+      
+      if (keyStore.containsAlias(keyAlias)) {
+        debugLog("Key already exists, deleting existing key")
+        keyStore.deleteEntry(keyAlias)
+      }
+      
+      // Generate new key pair
+      val keyPairGenerator = KeyPairGenerator.getInstance(KeyProperties.KEY_ALGORITHM_RSA, "AndroidKeyStore")
+      
+      val keyGenParameterSpec = KeyGenParameterSpec.Builder(
+        keyAlias,
+        KeyProperties.PURPOSE_SIGN or KeyProperties.PURPOSE_VERIFY
+      )
+        .setDigests(KeyProperties.DIGEST_SHA256)
+        .setSignaturePaddings(KeyProperties.SIGNATURE_PADDING_RSA_PKCS1)
+        .setKeySize(2048)
+        .setUserAuthenticationRequired(true)
+        .setUserAuthenticationValidityDurationSeconds(-1) // Require auth for every use
+        .build()
+      
+      keyPairGenerator.initialize(keyGenParameterSpec)
+      val keyPair = keyPairGenerator.generateKeyPair()
+      
+      // Get public key and encode it
+      val publicKey = keyPair.public
+      val publicKeyBytes = publicKey.encoded
+      val publicKeyString = Base64.encodeToString(publicKeyBytes, Base64.DEFAULT)
+      
       val result = Arguments.createMap()
-      result.putString("publicKey", "placeholder-public-key")
-      debugLog("Keys created successfully")
+      result.putString("publicKey", publicKeyString)
+      
+      debugLog("Keys created successfully with alias: $keyAlias")
       promise.resolve(result)
+      
+    } catch (e: NoSuchAlgorithmException) {
+      debugLog("createKeys failed - Algorithm not supported: ${e.message}")
+      promise.reject("CREATE_KEYS_ERROR", "Algorithm not supported: ${e.message}", e)
+    } catch (e: InvalidAlgorithmParameterException) {
+      debugLog("createKeys failed - Invalid parameters: ${e.message}")
+      promise.reject("CREATE_KEYS_ERROR", "Invalid key parameters: ${e.message}", e)
+    } catch (e: NoSuchProviderException) {
+      debugLog("createKeys failed - Provider not found: ${e.message}")
+      promise.reject("CREATE_KEYS_ERROR", "KeyStore provider not found: ${e.message}", e)
+    } catch (e: KeyStoreException) {
+      debugLog("createKeys failed - KeyStore error: ${e.message}")
+      promise.reject("CREATE_KEYS_ERROR", "KeyStore error: ${e.message}", e)
+    } catch (e: CertificateException) {
+      debugLog("createKeys failed - Certificate error: ${e.message}")
+      promise.reject("CREATE_KEYS_ERROR", "Certificate error: ${e.message}", e)
+    } catch (e: IOException) {
+      debugLog("createKeys failed - IO error: ${e.message}")
+      promise.reject("CREATE_KEYS_ERROR", "IO error: ${e.message}", e)
     } catch (e: Exception) {
-      debugLog("createKeys failed: ${e.message}")
+      debugLog("createKeys failed - Unexpected error: ${e.message}")
       promise.reject("CREATE_KEYS_ERROR", "Failed to create keys: ${e.message}", e)
     }
   }
@@ -369,15 +434,113 @@ class ReactNativeBiometricsModule(reactContext: ReactApplicationContext) :
   override fun deleteKeys(promise: Promise) {
     debugLog("deleteKeys called")
     try {
-      // For now, return a placeholder implementation
-      // In a real implementation, this would delete stored cryptographic keys
-      val result = Arguments.createMap()
-      result.putBoolean("success", true)
-      debugLog("Keys deleted successfully")
-      promise.resolve(result)
+      val keyAlias = "ReactNativeBiometricsKey"
+      
+      // Access the Android KeyStore
+      val keyStore = KeyStore.getInstance("AndroidKeyStore")
+      keyStore.load(null)
+      
+      // Check if the key exists
+      if (keyStore.containsAlias(keyAlias)) {
+        // Delete the key
+        keyStore.deleteEntry(keyAlias)
+        debugLog("Key with alias '$keyAlias' deleted successfully")
+        
+        // Verify deletion
+        if (!keyStore.containsAlias(keyAlias)) {
+          val result = Arguments.createMap()
+          result.putBoolean("success", true)
+          debugLog("Keys deleted and verified successfully")
+          promise.resolve(result)
+        } else {
+          debugLog("deleteKeys failed - Key still exists after deletion attempt")
+          promise.reject("DELETE_KEYS_ERROR", "Key deletion verification failed", null)
+        }
+      } else {
+        // Key doesn't exist, but this is not necessarily an error
+        debugLog("No key found with alias '$keyAlias' - nothing to delete")
+        val result = Arguments.createMap()
+        result.putBoolean("success", true)
+        promise.resolve(result)
+      }
+      
+    } catch (e: KeyStoreException) {
+      debugLog("deleteKeys failed - KeyStore error: ${e.message}")
+      promise.reject("DELETE_KEYS_ERROR", "KeyStore error: ${e.message}", e)
+    } catch (e: CertificateException) {
+      debugLog("deleteKeys failed - Certificate error: ${e.message}")
+      promise.reject("DELETE_KEYS_ERROR", "Certificate error: ${e.message}", e)
+    } catch (e: IOException) {
+      debugLog("deleteKeys failed - IO error: ${e.message}")
+      promise.reject("DELETE_KEYS_ERROR", "IO error: ${e.message}", e)
     } catch (e: Exception) {
-      debugLog("deleteKeys failed: ${e.message}")
+      debugLog("deleteKeys failed - Unexpected error: ${e.message}")
       promise.reject("DELETE_KEYS_ERROR", "Failed to delete keys: ${e.message}", e)
+    }
+  }
+
+  @ReactMethod
+  override fun getAllKeys(promise: Promise) {
+    debugLog("getAllKeys called")
+    try {
+      val keyStore = KeyStore.getInstance("AndroidKeyStore")
+      keyStore.load(null)
+      
+      val keysList = Arguments.createArray()
+      val aliases = keyStore.aliases()
+      
+      while (aliases.hasMoreElements()) {
+        val alias = aliases.nextElement()
+        
+        // Filter for our biometric keys (you can adjust this filter as needed)
+        if (alias.contains("ReactNativeBiometrics") || alias.contains("Biometric")) {
+          try {
+            val keyEntry = keyStore.getEntry(alias, null)
+            if (keyEntry is KeyStore.PrivateKeyEntry) {
+              val publicKey = keyEntry.certificate.publicKey
+              val publicKeyBytes = publicKey.encoded
+              val publicKeyString = Base64.encodeToString(publicKeyBytes, Base64.DEFAULT)
+              
+              val keyInfo = Arguments.createMap()
+              keyInfo.putString("alias", alias)
+              keyInfo.putString("publicKey", publicKeyString)
+              // Note: Android KeyStore doesn't provide creation date easily
+              // You could store this separately if needed
+              
+              keysList.pushMap(keyInfo)
+              debugLog("Found key with alias: $alias")
+            }
+          } catch (e: Exception) {
+            debugLog("Error processing key $alias: ${e.message}")
+            // Continue with other keys
+          }
+        }
+      }
+      
+      val result = Arguments.createMap()
+      result.putArray("keys", keysList)
+      
+      debugLog("getAllKeys completed successfully, found ${keysList.size()} keys")
+      promise.resolve(result)
+      
+    } catch (e: KeyStoreException) {
+      debugLog("getAllKeys failed - KeyStore error: ${e.message}")
+      promise.reject("GET_ALL_KEYS_ERROR", "KeyStore error: ${e.message}", e)
+    } catch (e: CertificateException) {
+      debugLog("getAllKeys failed - Certificate error: ${e.message}")
+      promise.reject("GET_ALL_KEYS_ERROR", "Certificate error: ${e.message}", e)
+    } catch (e: IOException) {
+      debugLog("getAllKeys failed - IO error: ${e.message}")
+      promise.reject("GET_ALL_KEYS_ERROR", "IO error: ${e.message}", e)
+    } catch (e: NoSuchAlgorithmException) {
+      debugLog("getAllKeys failed - Algorithm error: ${e.message}")
+      promise.reject("GET_ALL_KEYS_ERROR", "Algorithm error: ${e.message}", e)
+    } catch (e: UnrecoverableKeyException) {
+      debugLog("getAllKeys failed - Unrecoverable key error: ${e.message}")
+      promise.reject("GET_ALL_KEYS_ERROR", "Unrecoverable key error: ${e.message}", e)
+    } catch (e: Exception) {
+      debugLog("getAllKeys failed - Unexpected error: ${e.message}")
+      promise.reject("GET_ALL_KEYS_ERROR", "Failed to get all keys: ${e.message}", e)
     }
   }
 

@@ -30,6 +30,16 @@ export function deleteKeys(): Promise<{
   return ReactNativeBiometrics.deleteKeys();
 }
 
+export function getAllKeys(): Promise<{
+  keys: Array<{
+    alias: string;
+    publicKey: string;
+    creationDate?: string;
+  }>;
+}> {
+  return ReactNativeBiometrics.getAllKeys();
+}
+
 // Debugging utilities
 export function getDiagnosticInfo(): Promise<DiagnosticInfo> {
   return ReactNativeBiometrics.getDiagnosticInfo();
@@ -72,6 +82,14 @@ export type KeyCreationResult = {
 
 export type KeyDeletionResult = {
   success: boolean;
+};
+
+export type GetAllKeysResult = {
+  keys: Array<{
+    alias: string;
+    publicKey: string;
+    creationDate?: string;
+  }>;
 };
 
 export type DiagnosticInfo = {
