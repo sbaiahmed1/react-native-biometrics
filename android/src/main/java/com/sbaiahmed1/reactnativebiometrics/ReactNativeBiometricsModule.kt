@@ -492,7 +492,8 @@ class ReactNativeBiometricsModule(reactContext: ReactApplicationContext) :
       while (aliases.hasMoreElements()) {
         val alias = aliases.nextElement()
         
-        // Filter for our biometric keys (you can adjust this filter as needed)
+        // Filter for our biometric keys
+        // as far as I go in the dev, if i add other keys
         if (alias.contains("ReactNativeBiometrics") || alias.contains("Biometric")) {
           try {
             val keyEntry = keyStore.getEntry(alias, null)

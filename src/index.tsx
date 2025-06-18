@@ -1,10 +1,6 @@
 import ReactNativeBiometrics from './NativeReactNativeBiometrics';
 
-export function isSensorAvailable(): Promise<{
-  available: boolean;
-  biometryType?: BiometricSensorInfo['biometryType'];
-  error?: string;
-}> {
+export function isSensorAvailable(): Promise<BiometricSensorInfo> {
   return ReactNativeBiometrics.isSensorAvailable();
 }
 
@@ -18,25 +14,15 @@ export function authenticateWithOptions(
   return ReactNativeBiometrics.authenticateWithOptions(options);
 }
 
-export function createKeys(): Promise<{
-  publicKey: string;
-}> {
+export function createKeys(): Promise<KeyCreationResult> {
   return ReactNativeBiometrics.createKeys();
 }
 
-export function deleteKeys(): Promise<{
-  success: boolean;
-}> {
+export function deleteKeys(): Promise<KeyDeletionResult> {
   return ReactNativeBiometrics.deleteKeys();
 }
 
-export function getAllKeys(): Promise<{
-  keys: Array<{
-    alias: string;
-    publicKey: string;
-    creationDate?: string;
-  }>;
-}> {
+export function getAllKeys(): Promise<GetAllKeysResult> {
   return ReactNativeBiometrics.getAllKeys();
 }
 
@@ -88,7 +74,6 @@ export type GetAllKeysResult = {
   keys: Array<{
     alias: string;
     publicKey: string;
-    creationDate?: string;
   }>;
 };
 

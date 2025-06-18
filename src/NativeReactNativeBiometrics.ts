@@ -31,7 +31,6 @@ export interface Spec extends TurboModule {
     keys: Array<{
       alias: string;
       publicKey: string;
-      createdAt?: string;
     }>;
   }>;
   // Debugging utilities
