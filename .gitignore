@@ -2,9 +2,6 @@
 #
 .DS_Store
 
-# XDE
-.expo/
-
 # VSCode
 .vscode/
 jsconfig.json
@@ -87,3 +84,6 @@ nitrogen/
 
 *.xcsettings
 .bundle
+
+# Tests and coverage
+coverage/

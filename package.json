@@ -89,6 +89,7 @@
     "react-native": "0.79.2",
     "react-native-builder-bob": "^0.40.12",
     "release-it": "^17.10.0",
+    "ts-jest": "^29.4.0",
     "turbo": "^1.10.7",
     "typescript": "^5.8.3"
   },
@@ -100,13 +101,6 @@
     "example"
   ],
   "packageManager": "yarn@3.6.1",
-  "jest": {
-    "preset": "react-native",
-    "modulePathIgnorePatterns": [
-      "<rootDir>/example/node_modules",
-      "<rootDir>/lib/"
-    ]
-  },
   "commitlint": {
     "extends": [
       "@commitlint/config-conventional"
