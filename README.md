@@ -1,14 +1,14 @@
 <div align="center">
   <h1>🔐 React Native Biometrics</h1>
   <p><strong>A lightweight and unified React Native library for biometric authentication across iOS and Android</strong></p>
-  
+
   <p>
     <img src="https://img.shields.io/npm/v/@sbaiahmed1/react-native-biometrics?style=for-the-badge&color=blue" alt="npm version" />
     <img src="https://img.shields.io/npm/dm/@sbaiahmed1/react-native-biometrics?style=for-the-badge&color=green" alt="downloads" />
     <img src="https://img.shields.io/github/license/sbaiahmed1/react-native-biometrics?style=for-the-badge&color=orange" alt="license" />
     <img src="https://img.shields.io/github/stars/sbaiahmed1/react-native-biometrics?style=for-the-badge&color=yellow" alt="stars" />
   </p>
-  
+
   <p>
     <img src="https://img.shields.io/badge/iOS-Face%20ID%20%7C%20Touch%20ID-blue?style=for-the-badge&logo=apple" alt="iOS Support" />
     <img src="https://img.shields.io/badge/Android-Fingerprint%20%7C%20Face-green?style=for-the-badge&logo=android" alt="Android Support" />
@@ -28,16 +28,13 @@
 - 📦 **Lightweight** - Minimal dependencies and optimized for performance
 - 🎯 **TypeScript** - Full TypeScript support with detailed type definitions
 - 🔄 **New Architecture** - Compatible with React Native's new architecture
+- ✅ **Old Architecture** - Compatible with React Native's old architecture
 
 ## 📋 Requirements
 
 | Platform | Minimum Version | Recommended |
 |----------|-----------------|-------------|
 | React Native | 0.68+ | 0.75+ |
-| iOS | 11.0+ | 15.0+ |
-| Android API | 23+ (Android 6.0) | 30+ (Android 11) |
-| Xcode | 12.0+ | 15.0+ |
-| Android SDK | 23+ | 34+ |
 
 ### Supported Biometric Types
 
@@ -117,16 +114,16 @@ const BiometricAuth = () => {
     try {
       // Enable debug mode for development
       await setDebugMode(true);
-      
+
       // Check if biometric authentication is available
       const sensorInfo = await isSensorAvailable();
-      
+
       if (sensorInfo.available) {
         console.log(`✅ ${sensorInfo.biometryType} available`);
-        
+
         // Perform authentication
         const result = await simplePrompt('Please authenticate to continue');
-        
+
         if (result) {
           console.log('🎉 Authentication successful!');
           // Navigate to secure content
@@ -141,7 +138,7 @@ const BiometricAuth = () => {
       console.error('💥 Authentication error:', error);
     }
   };
-  
+
   return authenticate;
 };
 ```
@@ -156,7 +153,7 @@ import { isSensorAvailable } from '@sbaiahmed1/react-native-biometrics';
 const checkBiometrics = async () => {
   try {
     const sensorInfo = await isSensorAvailable();
-    
+
     if (sensorInfo.available) {
       console.log('✅ Biometric authentication available');
       console.log('📱 Type:', sensorInfo.biometryType);
@@ -181,7 +178,7 @@ import { simplePrompt } from '@sbaiahmed1/react-native-biometrics';
 const authenticate = async () => {
   try {
     const result = await simplePrompt('Please authenticate to continue');
-    
+
     if (result) {
       console.log('✅ Authentication successful!');
       // Proceed with authenticated action
@@ -212,7 +209,7 @@ const enhancedAuth = async () => {
       allowDeviceCredentials: true,    // Allow PIN/password fallback
       disableDeviceFallback: false,    // Enable fallback options
     });
-    
+
     if (result.success) {
       console.log('✅ Authentication successful!');
       // User authenticated successfully
@@ -237,7 +234,7 @@ const authScenarios = {
     allowDeviceCredentials: false,
     disableDeviceFallback: true,
   },
-  
+
   // Flexible authentication (with fallbacks)
   flexibleAuth: {
     title: 'Secure Access',
@@ -246,7 +243,7 @@ const authScenarios = {
     disableDeviceFallback: false,
     fallbackLabel: 'Use Passcode',
   },
-  
+
   // Custom branded experience
   brandedAuth: {
     title: 'MyApp Security',
@@ -271,7 +268,7 @@ const createBiometricKeys = async () => {
     const result = await createKeys();
     console.log('✅ Keys created successfully');
     console.log('🔑 Public key:', result.publicKey);
-    
+
     // Store the public key for server-side verification
     await storePublicKeyOnServer(result.publicKey);
   } catch (error) {
@@ -283,7 +280,7 @@ const createBiometricKeys = async () => {
 const deleteBiometricKeys = async () => {
   try {
     const result = await deleteKeys();
-    
+
     if (result.success) {
       console.log('✅ Keys deleted successfully');
       // Clean up any stored references
@@ -300,9 +297,9 @@ const deleteBiometricKeys = async () => {
 const getAllBiometricKeys = async () => {
   try {
     const result = await getAllKeys();
-    
+
     console.log(`📋 Found ${result.keys.length} stored keys`);
-    
+
     result.keys.forEach((key, index) => {
       console.log(`🔑 Key ${index + 1}:`);
       console.log(`   Alias: ${key.alias}`);
@@ -311,7 +308,7 @@ const getAllBiometricKeys = async () => {
         console.log(`   Created: ${key.creationDate}`);
       }
     });
-    
+
     return result.keys;
   } catch (error) {
     console.error('💥 Failed to retrieve keys:', error);
@@ -327,21 +324,21 @@ const keyLifecycleExample = async () => {
     if (!sensorInfo.available) {
       throw new Error('Biometric authentication not available');
     }
-    
+
     // 2. Create keys for the user
     const keyResult = await createKeys();
     console.log('🔐 Biometric keys created for user');
-    
+
     // 3. Perform authenticated operations
     const authResult = await authenticateWithOptions({
       title: 'Verify Identity',
       subtitle: 'Authenticate to access secure features',
     });
-    
+
     if (authResult.success) {
       console.log('🎉 User authenticated with biometric keys');
     }
-    
+
     // 4. Clean up when user logs out
     // await deleteKeys();
   } catch (error) {
@@ -355,17 +352,17 @@ const keyLifecycleExample = async () => {
 Comprehensive debugging tools to help troubleshoot biometric authentication issues.
 
 ```typescript
-import { 
-  getDiagnosticInfo, 
-  runBiometricTest, 
-  setDebugMode 
+import {
+  getDiagnosticInfo,
+  runBiometricTest,
+  setDebugMode
 } from '@sbaiahmed1/react-native-biometrics';
 
 // 🔍 Get comprehensive diagnostic information
 const getDiagnostics = async () => {
   try {
     const info = await getDiagnosticInfo();
-    
+
     console.log('📱 Platform:', info.platform);
     console.log('🔢 OS Version:', info.osVersion);
     console.log('📲 Device Model:', info.deviceModel);
@@ -373,11 +370,11 @@ const getDiagnostics = async () => {
     console.log('🛡️ Security Level:', info.securityLevel);
     console.log('🔒 Keyguard Secure:', info.keyguardSecure);
     console.log('👆 Enrolled Biometrics:', info.enrolledBiometrics);
-    
+
     if (info.lastError) {
       console.log('⚠️ Last Error:', info.lastError);
     }
-    
+
     return info;
   } catch (error) {
     console.error('💥 Failed to get diagnostic info:', error);
@@ -389,19 +386,19 @@ const testBiometrics = async () => {
   try {
     console.log('🧪 Running biometric tests...');
     const testResult = await runBiometricTest();
-    
+
     if (testResult.success) {
       console.log('✅ All tests passed!');
     } else {
       console.log('❌ Test failures detected:');
       testResult.errors.forEach(error => console.log('  🚫', error));
-      
+
       if (testResult.warnings.length > 0) {
         console.log('⚠️ Test warnings:');
         testResult.warnings.forEach(warning => console.log('  ⚠️', warning));
       }
     }
-    
+
     // Detailed test results
     console.log('📊 Test Results:');
     console.log('  🔍 Sensor Available:', testResult.results.sensorAvailable);
@@ -409,7 +406,7 @@ const testBiometrics = async () => {
     console.log('  🔧 Hardware Detected:', testResult.results.hardwareDetected);
     console.log('  👆 Has Enrolled Biometrics:', testResult.results.hasEnrolledBiometrics);
     console.log('  🛡️ Secure Hardware:', testResult.results.secureHardware);
-    
+
     return testResult;
   } catch (error) {
     console.error('💥 Failed to run biometric test:', error);
@@ -422,11 +419,11 @@ const debugModeExample = async () => {
     // Enable debug logging
     await setDebugMode(true);
     console.log('🐛 Debug mode enabled - all operations will be logged');
-    
+
     // Perform some operations (they will now be logged)
     await isSensorAvailable();
     await simplePrompt('Debug test authentication');
-    
+
     // Disable debug logging
     await setDebugMode(false);
     console.log('🔇 Debug mode disabled');
@@ -438,16 +435,16 @@ const debugModeExample = async () => {
 // 🔍 Complete diagnostic workflow
 const runDiagnosticWorkflow = async () => {
   console.log('🚀 Starting comprehensive biometric diagnostics...');
-  
+
   // 1. Enable debug mode
   await setDebugMode(true);
-  
+
   // 2. Get device information
   const diagnostics = await getDiagnostics();
-  
+
   // 3. Run functionality tests
   const testResults = await testBiometrics();
-  
+
   // 4. Generate report
   const report = {
     timestamp: new Date().toISOString(),
@@ -459,12 +456,12 @@ const runDiagnosticWorkflow = async () => {
       warnings: testResults?.warnings?.length || 0,
     }
   };
-  
+
   console.log('📋 Diagnostic Report:', JSON.stringify(report, null, 2));
-  
+
   // 5. Disable debug mode
   await setDebugMode(false);
-  
+
   return report;
 };
 ```
@@ -511,7 +508,8 @@ await configure({
 Checks if biometric authentication is available on the device.
 
 ```typescript
-function isSensorAvailable(): Promise<SensorInfo>
+const isSensorAvailable = (): Promise<SensorInfo> => {
+};
 
 type SensorInfo = {
   available: boolean;        // Whether biometric auth is available
@@ -525,7 +523,8 @@ type SensorInfo = {
 Performs basic biometric authentication with a custom message.
 
 ```typescript
-function simplePrompt(reason: string): Promise<boolean>
+const simplePrompt = (reason: string): Promise<boolean> => {
+};
 ```
 
 **Parameters:**
@@ -538,11 +537,12 @@ function simplePrompt(reason: string): Promise<boolean>
 Enhanced authentication with customizable options and detailed results.
 
 ```typescript
-function authenticateWithOptions(options: AuthOptions): Promise<AuthResult>
+const authenticateWithOptions = (options: AuthOptions): Promise<AuthResult> => {
+};
 
 type AuthOptions = {
   title?: string;                    // Dialog title
-  subtitle?: string;                 // Dialog subtitle  
+  subtitle?: string;                 // Dialog subtitle
   description?: string;              // Additional description
   cancelLabel?: string;              // Cancel button text
   fallbackLabel?: string;            // Fallback button text
@@ -564,7 +564,8 @@ type AuthResult = {
 Generates cryptographic keys for secure biometric operations. Optionally accepts a custom key alias.
 
 ```typescript
-function createKeys(keyAlias?: string): Promise<KeyResult>
+const createKeys = (keyAlias?: string): Promise<KeyResult> => {
+};
 
 type KeyResult = {
   publicKey: string;         // Generated public key
@@ -597,7 +598,8 @@ try {
 Deletes previously created cryptographic keys. Optionally accepts a custom key alias.
 
 ```typescript
-function deleteKeys(keyAlias?: string): Promise<DeleteResult>
+const deleteKeys = (keyAlias?: string): Promise<DeleteResult> => {
+};
 
 type DeleteResult = {
   success: boolean;          // Whether deletion succeeded
@@ -630,7 +632,8 @@ try {
 Retrieves all stored cryptographic keys.
 
 ```typescript
-function getAllKeys(): Promise<GetAllKeysResult>
+const getAllKeys = (): Promise<GetAllKeysResult> => {
+};
 
 type GetAllKeysResult = {
   keys: Array<{
@@ -648,7 +651,8 @@ type GetAllKeysResult = {
 Returns comprehensive diagnostic information about the device's biometric capabilities.
 
 ```typescript
-function getDiagnosticInfo(): Promise<DiagnosticInfo>
+const getDiagnosticInfo = (): Promise<DiagnosticInfo> => {
+};
 
 type DiagnosticInfo = {
   platform: string;                 // 'iOS' or 'Android'
@@ -667,7 +671,8 @@ type DiagnosticInfo = {
 Runs a comprehensive test of biometric functionality and returns detailed results.
 
 ```typescript
-function runBiometricTest(): Promise<BiometricTestResult>
+const runBiometricTest = (): Promise<BiometricTestResult> => {
+};
 
 type BiometricTestResult = {
   success: boolean;                 // Overall test success
@@ -688,7 +693,8 @@ type BiometricTestResult = {
 Enables or disables debug logging for the biometric library.
 
 ```typescript
-function setDebugMode(enabled: boolean): Promise<void>
+const setDebugMode = (enabled: boolean): Promise<void> => {
+};
 ```
 
 **Parameters:**
@@ -793,7 +799,7 @@ We welcome contributions! Here's how you can help:
 
 - 🐛 **Bug Reports**: Include device info, OS version, and reproduction steps
 - ✨ **Feature Requests**: Describe the use case and expected behavior
-- 🔧 **Pull Requests**: 
+- 🔧 **Pull Requests**:
   - Follow existing code style
   - Add tests for new features
   - Update documentation
@@ -873,7 +879,7 @@ This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) 
 <div align="center">
   <p>Made with ❤️ by <a href="https://github.com/sbaiahmed1">@sbaiahmed1</a></p>
   <p>⭐ Star this repo if it helped you!</p>
-  
+
   <p>
     <a href="https://github.com/sbaiahmed1/react-native-biometrics/issues">Report Bug</a> ·
     <a href="https://github.com/sbaiahmed1/react-native-biometrics/issues">Request Feature</a> ·
