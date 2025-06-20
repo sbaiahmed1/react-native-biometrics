@@ -1,4 +1,4 @@
-#import <React/RCTBridgeModule.h>
+#import "React/RCTBridgeModule.h"
 
 @interface RCT_EXTERN_MODULE(ReactNativeBiometrics, NSObject)
 
@@ -17,11 +17,13 @@ RCT_EXTERN_METHOD(authenticateWithOptions:
     rejecter:(RCTPromiseRejectBlock)reject)
 
 RCT_EXTERN_METHOD(createKeys:
-    (RCTPromiseResolveBlock)resolve
+    (NSString *)keyAlias
+    resolver:(RCTPromiseResolveBlock)resolve
     rejecter:(RCTPromiseRejectBlock)reject)
 
 RCT_EXTERN_METHOD(deleteKeys:
-    (RCTPromiseResolveBlock)resolve
+    (NSString *)keyAlias
+    resolver:(RCTPromiseResolveBlock)resolve
     rejecter:(RCTPromiseRejectBlock)reject)
 
 RCT_EXTERN_METHOD(getAllKeys:
@@ -40,4 +42,14 @@ RCT_EXTERN_METHOD(setDebugMode:
     (BOOL)enabled
     resolver:(RCTPromiseResolveBlock)resolve
     rejecter:(RCTPromiseRejectBlock)reject)
+
+RCT_EXTERN_METHOD(configureKeyAlias:
+    (NSString *)keyAlias
+    resolver:(RCTPromiseResolveBlock)resolve
+    rejecter:(RCTPromiseRejectBlock)reject)
+
+RCT_EXTERN_METHOD(getDefaultKeyAlias:
+    (RCTPromiseResolveBlock)resolve
+    rejecter:(RCTPromiseRejectBlock)reject)
+
 @end

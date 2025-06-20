@@ -7,6 +7,28 @@ import CryptoKit
 @objc(ReactNativeBiometrics)
 class ReactNativeBiometrics: NSObject {
   
+  private var configuredKeyAlias: String?
+  
+  override init() {
+    super.init()
+    // Load configured key alias from UserDefaults
+    configuredKeyAlias = UserDefaults.standard.string(forKey: "ReactNativeBiometricsKeyAlias")
+  }
+  
+  private func getKeyAlias(_ customAlias: String? = nil) -> String {
+    if let customAlias = customAlias {
+      return customAlias
+    }
+    
+    if let configuredAlias = configuredKeyAlias {
+      return configuredAlias
+    }
+    
+    // Generate app-specific default key alias
+    let bundleId = Bundle.main.bundleIdentifier ?? "unknown"
+    return "\(bundleId).ReactNativeBiometricsKey"
+  }
+  
   @objc
   static func requiresMainQueueSetup() -> Bool {
     return false
@@ -180,7 +202,7 @@ class ReactNativeBiometrics: NSObject {
       "securityLevel": getSecurityLevel(),
       "keyguardSecure": context.canEvaluatePolicy(.deviceOwnerAuthentication, error: &error),
       "enrolledBiometrics": getEnrolledBiometrics(),
-      "lastError": error?.localizedDescription
+      "lastError": error?.localizedDescription ?? ""
     ]
     
     resolve(result)
@@ -255,6 +277,35 @@ class ReactNativeBiometrics: NSObject {
     resolve(nil)
   }
   
+  @objc
+  func configureKeyAlias(_ keyAlias: NSString,
+                         resolver resolve: @escaping RCTPromiseResolveBlock,
+                         rejecter reject: @escaping RCTPromiseRejectBlock) {
+    debugLog("configureKeyAlias called with: \(keyAlias)")
+    
+    // Validate key alias
+    let aliasString = keyAlias as String
+    if aliasString.isEmpty {
+      reject("INVALID_KEY_ALIAS", "Key alias cannot be empty", nil)
+      return
+    }
+    
+    // Store the configured key alias
+    configuredKeyAlias = aliasString
+    UserDefaults.standard.set(aliasString, forKey: "ReactNativeBiometricsKeyAlias")
+    
+    debugLog("Key alias configured successfully: \(aliasString)")
+    resolve(nil)
+  }
+  
+  @objc
+  func getDefaultKeyAlias(_ resolve: @escaping RCTPromiseResolveBlock,
+                          rejecter reject: @escaping RCTPromiseRejectBlock) {
+    let defaultAlias = getKeyAlias()
+    debugLog("getDefaultKeyAlias returning: \(defaultAlias)")
+    resolve(defaultAlias)
+  }
+  
   // MARK: - Private Helper Methods
   
   private func getBiometricCapabilities() -> [String] {
@@ -313,11 +364,12 @@ class ReactNativeBiometrics: NSObject {
   }
   
   @objc
-  func createKeys(_ resolve: @escaping RCTPromiseResolveBlock,
+  func createKeys(_ keyAlias: NSString?,
+                  resolver resolve: @escaping RCTPromiseResolveBlock,
                   rejecter reject: @escaping RCTPromiseRejectBlock) {
-    debugLog("createKeys called")
+    debugLog("createKeys called with keyAlias: \(keyAlias ?? "default")")
     
-    let keyTag = "ReactNativeBiometricsKey"
+    let keyTag = getKeyAlias(keyAlias as String?)
     let keyTagData = keyTag.data(using: .utf8)!
     
     // Delete existing key if it exists
@@ -342,8 +394,8 @@ class ReactNativeBiometrics: NSObject {
     
     // Key generation parameters
     let keyAttributes: [String: Any] = [
-      kSecAttrKeyType as String: kSecAttrKeyTypeRSA,
-      kSecAttrKeySizeInBits as String: 2048,
+      kSecAttrKeyType as String: kSecAttrKeyTypeECSECPrimeRandom,
+      kSecAttrKeySizeInBits as String: 256,
       kSecAttrTokenID as String: kSecAttrTokenIDSecureEnclave,
       kSecPrivateKeyAttrs as String: [
         kSecAttrIsPermanent as String: true,
@@ -386,11 +438,12 @@ class ReactNativeBiometrics: NSObject {
   }
   
   @objc
-  func deleteKeys(_ resolve: @escaping RCTPromiseResolveBlock,
+  func deleteKeys(_ keyAlias: NSString?,
+                  resolver resolve: @escaping RCTPromiseResolveBlock,
                   rejecter reject: @escaping RCTPromiseRejectBlock) {
-    debugLog("deleteKeys called")
+    debugLog("deleteKeys called with keyAlias: \(keyAlias ?? "default")")
     
-    let keyTag = "ReactNativeBiometricsKey"
+    let keyTag = getKeyAlias(keyAlias as String?)
     let keyTagData = keyTag.data(using: .utf8)!
     
     // Query to find the key
@@ -475,40 +528,34 @@ class ReactNativeBiometrics: NSObject {
         // Filter for our biometric keys
         if let keyTag = item[kSecAttrApplicationTag as String] as? Data,
            let keyTagString = String(data: keyTag, encoding: .utf8),
-           (keyTagString.contains("ReactNativeBiometrics") || keyTagString.contains("Biometric")) {
+           (keyTagString.contains(getKeyAlias())) {
           
           // Get the key reference
-          if let keyRef = item[kSecValueRef as String] {
-            do {
-              // Export the public key
-              let publicKeyQuery: [String: Any] = [
-                kSecClass as String: kSecClassKey,
-                kSecValueRef as String: keyRef,
-                kSecReturnData as String: true
+          guard let keyRef = item[kSecValueRef as String] as! SecKey? else {
+            debugLog("Failed to get key reference for tag: \(keyTagString)")
+            continue
+          }
+          
+          // Get the public key from the private key reference
+          if let publicKey = SecKeyCopyPublicKey(keyRef) {
+            // Export the public key data
+            var error: Unmanaged<CFError>?
+            if let publicKeyData = SecKeyCopyExternalRepresentation(publicKey, &error) {
+              let publicKeyString = (publicKeyData as Data).base64EncodedString()
+              
+              let keyInfo: [String: Any] = [
+                "alias": keyTagString,
+                "publicKey": publicKeyString
               ]
               
-              var publicKeyData: CFTypeRef?
-              let publicKeyStatus = SecItemCopyMatching(publicKeyQuery as CFDictionary, &publicKeyData)
-              
-              if publicKeyStatus == errSecSuccess,
-                 let keyData = publicKeyData as? Data {
-                let publicKeyString = keyData.base64EncodedString()
-                
-                let keyInfo: [String: Any] = [
-                  "alias": keyTagString,
-                  "publicKey": publicKeyString
-                  // Note: iOS Keychain doesn't provide creation date easily
-                  // You could store this separately if needed
-                ]
-                
-                keysList.append(keyInfo)
-                debugLog("Found key with tag: \(keyTagString)")
-              } else {
-                debugLog("Failed to export public key for tag: \(keyTagString)")
-              }
-            } catch {
-              debugLog("Error processing key \(keyTagString): \(error.localizedDescription)")
+              keysList.append(keyInfo)
+              debugLog("Found key with tag: \(keyTagString)")
+            } else {
+              let errorDescription = error?.takeRetainedValue().localizedDescription ?? "Unknown error"
+              debugLog("Failed to export public key for tag: \(keyTagString) - \(errorDescription)")
             }
+          } else {
+            debugLog("Failed to get public key for tag: \(keyTagString)")
           }
         }
       }

@@ -21,12 +21,13 @@ export interface Spec extends TurboModule {
     error?: string;
     errorCode?: string;
   }>;
-  createKeys(): Promise<{
+  createKeys(keyAlias?: string | null): Promise<{
     publicKey: string;
   }>;
-  deleteKeys(): Promise<{
+  deleteKeys(keyAlias?: string | null): Promise<{
     success: boolean;
   }>;
+  configureKeyAlias(keyAlias: string): Promise<void>;
   getAllKeys(): Promise<{
     keys: Array<{
       alias: string;
@@ -57,6 +58,7 @@ export interface Spec extends TurboModule {
     warnings: string[];
   }>;
   setDebugMode(enabled: boolean): Promise<void>;
+  getDefaultKeyAlias(): Promise<string>;
 }
 
 export default TurboModuleRegistry.getEnforcing<Spec>(

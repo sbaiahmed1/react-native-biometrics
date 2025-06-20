@@ -471,6 +471,39 @@ const runDiagnosticWorkflow = async () => {
 
 ## 📚 API Reference
 
+### Configuration Methods
+
+#### `configureKeyAlias(keyAlias: string)`
+Configures a custom key alias for biometric key storage. This enhances security by allowing app-specific key aliases instead of using a shared hardcoded alias.
+
+```javascript
+import { configureKeyAlias } from '@sbaiahmed1/react-native-biometrics';
+
+// Configure a custom key alias
+await configureKeyAlias('com.myapp.biometric.main');
+```
+
+#### `getDefaultKeyAlias()`
+Returns the current default key alias. If no custom alias is configured, returns an app-specific default based on bundle ID (iOS) or package name (Android).
+
+```javascript
+import { getDefaultKeyAlias } from '@sbaiahmed1/react-native-biometrics';
+
+const defaultAlias = await getDefaultKeyAlias();
+console.log('Current key alias:', defaultAlias);
+```
+
+#### `configure(config: BiometricConfig)`
+Configures the library with a configuration object.
+
+```javascript
+import { configure } from '@sbaiahmed1/react-native-biometrics';
+
+await configure({
+  keyAlias: 'com.myapp.biometric.main'
+});
+```
+
 ### Core Functions
 
 #### `isSensorAvailable()`
@@ -526,27 +559,69 @@ type AuthResult = {
 
 ### Key Management
 
-#### `createKeys()`
+#### `createKeys(keyAlias?: string)`
 
-Generates cryptographic keys for secure biometric operations.
+Generates cryptographic keys for secure biometric operations. Optionally accepts a custom key alias.
 
 ```typescript
-function createKeys(): Promise<KeyResult>
+function createKeys(keyAlias?: string): Promise<KeyResult>
 
 type KeyResult = {
   publicKey: string;         // Generated public key
 }
 ```
 
-#### `deleteKeys()`
+**Example:**
+```javascript
+import { createKeys } from '@sbaiahmed1/react-native-biometrics';
 
-Deletes previously created cryptographic keys.
+// Create keys with default (configured) alias
+try {
+  const result = await createKeys();
+  console.log('Keys created successfully:', result.publicKey);
+} catch (error) {
+  console.error('Error creating keys:', error);
+}
+
+// Create keys with custom alias
+try {
+  const result = await createKeys('com.myapp.biometric.backup');
+  console.log('Keys created with custom alias:', result.publicKey);
+} catch (error) {
+  console.error('Error creating keys:', error);
+}
+```
+
+#### `deleteKeys(keyAlias?: string)`
+
+Deletes previously created cryptographic keys. Optionally accepts a custom key alias.
 
 ```typescript
-function deleteKeys(): Promise<DeleteResult>
+function deleteKeys(keyAlias?: string): Promise<DeleteResult>
 
 type DeleteResult = {
   success: boolean;          // Whether deletion succeeded
+}
+```
+
+**Example:**
+```javascript
+import { deleteKeys } from '@sbaiahmed1/react-native-biometrics';
+
+// Delete keys with default (configured) alias
+try {
+  const result = await deleteKeys();
+  console.log('Keys deleted successfully');
+} catch (error) {
+  console.error('Error deleting keys:', error);
+}
+
+// Delete keys with custom alias
+try {
+  const result = await deleteKeys('com.myapp.biometric.backup');
+  console.log('Keys deleted with custom alias');
+} catch (error) {
+  console.error('Error deleting keys:', error);
 }
 ```
 
@@ -731,10 +806,41 @@ We welcome contributions! Here's how you can help:
 - Add JSDoc comments for public APIs
 - Ensure debug logging for new methods
 
+## 🔒 Security
+
+This library implements several security measures:
+
+- **Hardware-backed keys**: Uses the device's secure hardware when available
+- **Biometric validation**: Requires actual biometric authentication
+- **Key isolation**: Keys are stored in the device's secure keystore
+- **No key export**: Private keys never leave the secure hardware
+- **App-specific key aliases**: Each app uses unique key aliases to prevent cross-app key access
+
+### Key Alias Security Enhancement
+
+**Previous versions** used a hardcoded key alias (`"ReactNativeBiometricsKey"`) shared across all apps, which posed security risks:
+- Multiple apps could potentially access each other's biometric keys
+- Key collisions could occur between different applications
+
+**Current version** implements secure, app-specific key aliases:
+- **Default aliases** are automatically generated using bundle ID (iOS) or package name (Android)
+- **Custom aliases** can be configured for different security contexts
+- **Key isolation** ensures each app's biometric keys are properly separated
+
+```javascript
+// Configure app-specific key alias
+await configureKeyAlias('com.myapp.biometric.main');
+
+// Get current default alias (auto-generated if not configured)
+const alias = await getDefaultKeyAlias();
+// Returns: "com.myapp.ReactNativeBiometrics"
+```
+
+For detailed security information, see [KEY_ALIAS_SECURITY.md](./KEY_ALIAS_SECURITY.md).
+
 ## 📄 License
 
 This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) file for details.
----
 
 ---
 

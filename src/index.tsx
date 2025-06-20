@@ -14,12 +14,21 @@ export function authenticateWithOptions(
   return ReactNativeBiometrics.authenticateWithOptions(options);
 }
 
-export function createKeys(): Promise<KeyCreationResult> {
-  return ReactNativeBiometrics.createKeys();
+export function createKeys(keyAlias?: string): Promise<KeyCreationResult> {
+  return ReactNativeBiometrics.createKeys(keyAlias);
 }
 
-export function deleteKeys(): Promise<KeyDeletionResult> {
-  return ReactNativeBiometrics.deleteKeys();
+export function deleteKeys(keyAlias?: string): Promise<KeyDeletionResult> {
+  return ReactNativeBiometrics.deleteKeys(keyAlias);
+}
+
+// Key management configuration
+export function configureKeyAlias(keyAlias: string): Promise<void> {
+  return ReactNativeBiometrics.configureKeyAlias(keyAlias);
+}
+
+export function getDefaultKeyAlias(): Promise<string> {
+  return ReactNativeBiometrics.getDefaultKeyAlias();
 }
 
 export function getAllKeys(): Promise<GetAllKeysResult> {
@@ -37,6 +46,20 @@ export function runBiometricTest(): Promise<BiometricTestResult> {
 
 export function setDebugMode(enabled: boolean): Promise<void> {
   return ReactNativeBiometrics.setDebugMode(enabled);
+}
+
+// Configuration types
+export type BiometricConfig = {
+  keyAlias?: string;
+  keyPrefix?: string;
+};
+
+// Initialize library with configuration
+export function configure(config: BiometricConfig): Promise<void> {
+  if (config.keyAlias) {
+    return configureKeyAlias(config.keyAlias);
+  }
+  return Promise.resolve();
 }
 
 // Export types for TypeScript users

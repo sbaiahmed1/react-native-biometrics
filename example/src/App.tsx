@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -17,6 +17,7 @@ import {
   authenticateWithOptions,
 } from '@sbaiahmed1/react-native-biometrics';
 import DebuggingExample from './DebuggingExample';
+import KeyAliasExample from './KeyAliasExample';
 
 export default function App() {
   const [sensorInfo, setSensorInfo] = useState<any>(null);
@@ -149,6 +150,7 @@ export default function App() {
     <SafeAreaView style={styles.container}>
       <ScrollView>
         <DebuggingExample />
+        <KeyAliasExample />
         <Text style={styles.title}>React Native Biometrics</Text>
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Biometric Sensor</Text>

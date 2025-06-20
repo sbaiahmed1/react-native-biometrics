@@ -25,13 +25,33 @@ import java.security.cert.CertificateException
 import java.io.IOException
 import java.security.UnrecoverableKeyException
 import java.security.NoSuchProviderException
+import androidx.core.content.edit
 
 class ReactNativeBiometricsModule(reactContext: ReactApplicationContext) :
   ReactNativeBiometricsSpec(reactContext) {
   companion object {
     const val NAME = "ReactNativeBiometrics" // Make sure this exists and is correct
+    private const val PREFS_NAME = "ReactNativeBiometrics"
+    private const val KEY_ALIAS_PREF = "keyAlias"
   }
   private val context: Context = reactContext
+  private var configuredKeyAlias: String?
+
+  init {
+    // Load configured key alias from SharedPreferences
+    val sharedPrefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    configuredKeyAlias = sharedPrefs.getString(KEY_ALIAS_PREF, null)
+  }
+
+  private fun getKeyAlias(customAlias: String? = null): String {
+    return customAlias ?: configuredKeyAlias ?: getDefaultKeyAlias()
+  }
+
+  private fun getDefaultKeyAlias(): String {
+    // Generate app-specific default key alias
+    val packageName = context.packageName
+    return "$packageName.ReactNativeBiometricsKey"
+  }
 
   override fun getName() = NAME
 
@@ -219,7 +239,7 @@ class ReactNativeBiometricsModule(reactContext: ReactApplicationContext) :
   override fun getDiagnosticInfo(promise: Promise) {
     val biometricManager = BiometricManager.from(context)
     val result = Arguments.createMap()
-    
+
     result.putString("platform", "Android")
     result.putString("osVersion", android.os.Build.VERSION.RELEASE)
     result.putString("deviceModel", "${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}")
@@ -227,7 +247,7 @@ class ReactNativeBiometricsModule(reactContext: ReactApplicationContext) :
     result.putString("securityLevel", getSecurityLevel())
     result.putBoolean("keyguardSecure", isKeyguardSecure())
     result.putArray("enrolledBiometrics", getEnrolledBiometrics())
-    
+
     promise.resolve(result)
   }
 
@@ -238,67 +258,93 @@ class ReactNativeBiometricsModule(reactContext: ReactApplicationContext) :
     val results = Arguments.createMap()
     val errors = Arguments.createArray()
     val warnings = Arguments.createArray()
-    
+
     // Test sensor availability
     val canAuthenticateStrong = biometricManager.canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_STRONG)
     val sensorAvailable = canAuthenticateStrong == BiometricManager.BIOMETRIC_SUCCESS
     results.putBoolean("sensorAvailable", sensorAvailable)
-    
+
     if (!sensorAvailable) {
       when (canAuthenticateStrong) {
-        BiometricManager.BIOMETRIC_ERROR_NO_HARDWARE -> 
+        BiometricManager.BIOMETRIC_ERROR_NO_HARDWARE ->
           errors.pushString("No biometric hardware available")
-        BiometricManager.BIOMETRIC_ERROR_HW_UNAVAILABLE -> 
+        BiometricManager.BIOMETRIC_ERROR_HW_UNAVAILABLE ->
           errors.pushString("Biometric hardware unavailable")
-        BiometricManager.BIOMETRIC_ERROR_NONE_ENROLLED -> 
+        BiometricManager.BIOMETRIC_ERROR_NONE_ENROLLED ->
           warnings.pushString("No biometrics enrolled")
-        BiometricManager.BIOMETRIC_ERROR_SECURITY_UPDATE_REQUIRED -> 
+        BiometricManager.BIOMETRIC_ERROR_SECURITY_UPDATE_REQUIRED ->
           errors.pushString("Security update required")
-        BiometricManager.BIOMETRIC_ERROR_UNSUPPORTED -> 
+        BiometricManager.BIOMETRIC_ERROR_UNSUPPORTED ->
           errors.pushString("Biometric authentication unsupported")
-        BiometricManager.BIOMETRIC_STATUS_UNKNOWN -> 
+        BiometricManager.BIOMETRIC_STATUS_UNKNOWN ->
           warnings.pushString("Biometric status unknown")
       }
     }
-    
+
     // Test authentication capability
     val canAuthenticateAny = biometricManager.canAuthenticate(
       BiometricManager.Authenticators.BIOMETRIC_STRONG or BiometricManager.Authenticators.DEVICE_CREDENTIAL
     )
     results.putBoolean("canAuthenticate", canAuthenticateAny == BiometricManager.BIOMETRIC_SUCCESS)
-    
+
     // Check hardware detection
     val hardwareDetected = canAuthenticateStrong != BiometricManager.BIOMETRIC_ERROR_NO_HARDWARE
     results.putBoolean("hardwareDetected", hardwareDetected)
-    
+
     // Check enrolled biometrics
     val hasEnrolledBiometrics = canAuthenticateStrong != BiometricManager.BIOMETRIC_ERROR_NONE_ENROLLED
     results.putBoolean("hasEnrolledBiometrics", hasEnrolledBiometrics)
-    
+
     // Check secure hardware
     val secureHardware = isSecureHardware()
     results.putBoolean("secureHardware", secureHardware)
-    
+
     result.putBoolean("success", errors.size() == 0)
     result.putMap("results", results)
     result.putArray("errors", errors)
     result.putArray("warnings", warnings)
-    
+
     promise.resolve(result)
   }
 
   @ReactMethod
   override fun setDebugMode(enabled: Boolean, promise: Promise) {
-    val sharedPrefs = context.getSharedPreferences("ReactNativeBiometrics", Context.MODE_PRIVATE)
-    sharedPrefs.edit().putBoolean("debugMode", enabled).apply()
-    
+    val sharedPrefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    sharedPrefs.edit { putBoolean("debugMode", enabled) }
+
     if (enabled) {
       android.util.Log.d("ReactNativeBiometrics", "Debug mode enabled")
     } else {
       android.util.Log.d("ReactNativeBiometrics", "Debug mode disabled")
     }
-    
+
     promise.resolve(null)
+  }
+
+  @ReactMethod
+  override fun configureKeyAlias(keyAlias: String, promise: Promise) {
+    debugLog("configureKeyAlias called with: $keyAlias")
+
+    // Validate key alias
+    if (keyAlias.isEmpty()) {
+      promise.reject("INVALID_KEY_ALIAS", "Key alias cannot be empty", null)
+      return
+    }
+
+    // Store the configured key alias
+    configuredKeyAlias = keyAlias
+    val sharedPrefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    sharedPrefs.edit { putString(KEY_ALIAS_PREF, keyAlias) }
+
+    debugLog("Key alias configured successfully: $keyAlias")
+    promise.resolve(null)
+  }
+
+  @ReactMethod
+  override fun getDefaultKeyAlias(promise: Promise) {
+    val currentAlias = getKeyAlias()
+    debugLog("getDefaultKeyAlias returning: $currentAlias")
+    promise.resolve(currentAlias)
   }
 
   // MARK: - Private Helper Methods
@@ -306,7 +352,7 @@ class ReactNativeBiometricsModule(reactContext: ReactApplicationContext) :
   private fun getBiometricCapabilities(): com.facebook.react.bridge.WritableArray {
     val capabilities = Arguments.createArray()
     val biometricManager = BiometricManager.from(context)
-    
+
     when (biometricManager.canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_STRONG)) {
       BiometricManager.BIOMETRIC_SUCCESS -> {
         capabilities.pushString("Fingerprint")
@@ -318,7 +364,7 @@ class ReactNativeBiometricsModule(reactContext: ReactApplicationContext) :
       }
       else -> capabilities.pushString("None")
     }
-    
+
     return capabilities
   }
 
@@ -338,13 +384,13 @@ class ReactNativeBiometricsModule(reactContext: ReactApplicationContext) :
   private fun getEnrolledBiometrics(): com.facebook.react.bridge.WritableArray {
     val enrolled = Arguments.createArray()
     val biometricManager = BiometricManager.from(context)
-    
+
     when (biometricManager.canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_STRONG)) {
       BiometricManager.BIOMETRIC_SUCCESS -> {
         enrolled.pushString("Biometric")
       }
     }
-    
+
     return enrolled
   }
 
@@ -359,30 +405,30 @@ class ReactNativeBiometricsModule(reactContext: ReactApplicationContext) :
   }
 
   private fun isDebugModeEnabled(): Boolean {
-    val sharedPrefs = context.getSharedPreferences("ReactNativeBiometrics", Context.MODE_PRIVATE)
+    val sharedPrefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
     return sharedPrefs.getBoolean("debugMode", false)
   }
 
   @ReactMethod
-  override fun createKeys(promise: Promise) {
-    debugLog("createKeys called")
+  override fun createKeys(keyAlias: String?, promise: Promise) {
+    val actualKeyAlias = getKeyAlias(keyAlias)
+    debugLog("createKeys called with keyAlias: ${keyAlias ?: "default"}, using: $actualKeyAlias")
     try {
-      val keyAlias = "ReactNativeBiometricsKey"
-      
+
       // Check if key already exists
       val keyStore = KeyStore.getInstance("AndroidKeyStore")
       keyStore.load(null)
-      
-      if (keyStore.containsAlias(keyAlias)) {
+
+      if (keyStore.containsAlias(actualKeyAlias)) {
         debugLog("Key already exists, deleting existing key")
-        keyStore.deleteEntry(keyAlias)
+        keyStore.deleteEntry(actualKeyAlias)
       }
-      
+
       // Generate new key pair
       val keyPairGenerator = KeyPairGenerator.getInstance(KeyProperties.KEY_ALGORITHM_RSA, "AndroidKeyStore")
-      
+
       val keyGenParameterSpec = KeyGenParameterSpec.Builder(
-        keyAlias,
+        actualKeyAlias,
         KeyProperties.PURPOSE_SIGN or KeyProperties.PURPOSE_VERIFY
       )
         .setDigests(KeyProperties.DIGEST_SHA256)
@@ -391,21 +437,21 @@ class ReactNativeBiometricsModule(reactContext: ReactApplicationContext) :
         .setUserAuthenticationRequired(true)
         .setUserAuthenticationValidityDurationSeconds(-1) // Require auth for every use
         .build()
-      
+
       keyPairGenerator.initialize(keyGenParameterSpec)
       val keyPair = keyPairGenerator.generateKeyPair()
-      
+
       // Get public key and encode it
       val publicKey = keyPair.public
       val publicKeyBytes = publicKey.encoded
       val publicKeyString = Base64.encodeToString(publicKeyBytes, Base64.DEFAULT)
-      
+
       val result = Arguments.createMap()
       result.putString("publicKey", publicKeyString)
-      
-      debugLog("Keys created successfully with alias: $keyAlias")
+
+      debugLog("Keys created successfully with alias: $actualKeyAlias")
       promise.resolve(result)
-      
+
     } catch (e: NoSuchAlgorithmException) {
       debugLog("createKeys failed - Algorithm not supported: ${e.message}")
       promise.reject("CREATE_KEYS_ERROR", "Algorithm not supported: ${e.message}", e)
@@ -431,23 +477,23 @@ class ReactNativeBiometricsModule(reactContext: ReactApplicationContext) :
   }
 
   @ReactMethod
-  override fun deleteKeys(promise: Promise) {
-    debugLog("deleteKeys called")
+  override fun deleteKeys(keyAlias: String?, promise: Promise) {
+    val actualKeyAlias = getKeyAlias(keyAlias)
+    debugLog("deleteKeys called with keyAlias: ${keyAlias ?: "default"}, using: $actualKeyAlias")
     try {
-      val keyAlias = "ReactNativeBiometricsKey"
-      
+
       // Access the Android KeyStore
       val keyStore = KeyStore.getInstance("AndroidKeyStore")
       keyStore.load(null)
-      
+
       // Check if the key exists
-      if (keyStore.containsAlias(keyAlias)) {
+      if (keyStore.containsAlias(actualKeyAlias)) {
         // Delete the key
-        keyStore.deleteEntry(keyAlias)
-        debugLog("Key with alias '$keyAlias' deleted successfully")
-        
+        keyStore.deleteEntry(actualKeyAlias)
+        debugLog("Key with alias '$actualKeyAlias' deleted successfully")
+
         // Verify deletion
-        if (!keyStore.containsAlias(keyAlias)) {
+        if (!keyStore.containsAlias(actualKeyAlias)) {
           val result = Arguments.createMap()
           result.putBoolean("success", true)
           debugLog("Keys deleted and verified successfully")
@@ -458,12 +504,12 @@ class ReactNativeBiometricsModule(reactContext: ReactApplicationContext) :
         }
       } else {
         // Key doesn't exist, but this is not necessarily an error
-        debugLog("No key found with alias '$keyAlias' - nothing to delete")
+        debugLog("No key found with alias '$actualKeyAlias' - nothing to delete")
         val result = Arguments.createMap()
         result.putBoolean("success", true)
         promise.resolve(result)
       }
-      
+
     } catch (e: KeyStoreException) {
       debugLog("deleteKeys failed - KeyStore error: ${e.message}")
       promise.reject("DELETE_KEYS_ERROR", "KeyStore error: ${e.message}", e)
@@ -485,29 +531,28 @@ class ReactNativeBiometricsModule(reactContext: ReactApplicationContext) :
     try {
       val keyStore = KeyStore.getInstance("AndroidKeyStore")
       keyStore.load(null)
-      
+
       val keysList = Arguments.createArray()
       val aliases = keyStore.aliases()
-      
+
       while (aliases.hasMoreElements()) {
         val alias = aliases.nextElement()
-        
+
         // Filter for our biometric keys
-        // as far as I go in the dev, if i add other keys
-        if (alias.contains("ReactNativeBiometrics") || alias.contains("Biometric")) {
+        if (alias.equals(getKeyAlias())) {
           try {
             val keyEntry = keyStore.getEntry(alias, null)
             if (keyEntry is KeyStore.PrivateKeyEntry) {
               val publicKey = keyEntry.certificate.publicKey
               val publicKeyBytes = publicKey.encoded
               val publicKeyString = Base64.encodeToString(publicKeyBytes, Base64.DEFAULT)
-              
+
               val keyInfo = Arguments.createMap()
               keyInfo.putString("alias", alias)
               keyInfo.putString("publicKey", publicKeyString)
               // Note: Android KeyStore doesn't provide creation date easily
               // You could store this separately if needed
-              
+
               keysList.pushMap(keyInfo)
               debugLog("Found key with alias: $alias")
             }
@@ -517,13 +562,13 @@ class ReactNativeBiometricsModule(reactContext: ReactApplicationContext) :
           }
         }
       }
-      
+
       val result = Arguments.createMap()
       result.putArray("keys", keysList)
-      
+
       debugLog("getAllKeys completed successfully, found ${keysList.size()} keys")
       promise.resolve(result)
-      
+
     } catch (e: KeyStoreException) {
       debugLog("getAllKeys failed - KeyStore error: ${e.message}")
       promise.reject("GET_ALL_KEYS_ERROR", "KeyStore error: ${e.message}", e)
