@@ -25,6 +25,7 @@
 - 🛠️ **Advanced Options** - Customizable prompts, fallback options, and device credentials
 - 🔑 **Key Management** - Create and manage cryptographic keys for secure operations
 - 🐛 **Debug Tools** - Comprehensive diagnostic and testing utilities
+- 📝 **Centralized Logging** - Advanced logging system for debugging and monitoring
 - 📦 **Lightweight** - Minimal dependencies and optimized for performance
 - 🎯 **TypeScript** - Full TypeScript support with detailed type definitions
 - 🔄 **New Architecture** - Compatible with React Native's new architecture
@@ -705,6 +706,112 @@ const setDebugMode = (enabled: boolean): Promise<void> => {
 - **iOS**: Check Xcode console for `[ReactNativeBiometrics Debug]` messages
 - **Android**: Check Logcat for `ReactNativeBiometrics Debug` tags
 
+### Logging & Monitoring
+
+The library includes a comprehensive centralized logging system for debugging and monitoring biometric operations.
+
+#### `enableLogging(enabled: boolean)`
+
+Enables or disables the centralized logging system.
+
+```typescript
+const enableLogging = (enabled: boolean): void => {
+};
+```
+
+#### `setLogLevel(level: LogLevel)`
+
+Sets the minimum log level for output.
+
+```typescript
+enum LogLevel {
+  DEBUG = 0,
+  INFO = 1,
+  WARN = 2,
+  ERROR = 3
+}
+
+const setLogLevel = (level: LogLevel): void => {
+};
+```
+
+#### `configureLogger(config: LoggerConfig)`
+
+Configures the logger with advanced options.
+
+```typescript
+type LoggerConfig = {
+  enabled: boolean;
+  level: LogLevel;
+  useColors: boolean;
+  prefix: string;
+  includeTimestamp: boolean;
+  includeContext: boolean;
+  maxStoredLogs: number;
+};
+
+const configureLogger = (config: Partial<LoggerConfig>): void => {
+};
+```
+
+#### `getStoredLogs()`
+
+Retrieves stored log entries for analysis.
+
+```typescript
+type LogEntry = {
+  timestamp: string;
+  level: LogLevel;
+  message: string;
+  context?: string;
+};
+
+const getStoredLogs = (): LogEntry[] => {
+};
+```
+
+#### `clearStoredLogs()`
+
+Clears all stored log entries.
+
+```typescript
+const clearStoredLogs = (): void => {
+};
+```
+
+**Example Usage:**
+```typescript
+import { 
+  enableLogging, 
+  setLogLevel, 
+  LogLevel, 
+  configureLogger,
+  getStoredLogs 
+} from '@sbaiahmed1/react-native-biometrics';
+
+// Enable logging with INFO level
+enableLogging(true);
+setLogLevel(LogLevel.INFO);
+
+// Configure advanced logging options
+configureLogger({
+  useColors: true,
+  prefix: '[MyApp]',
+  includeTimestamp: true,
+  includeContext: true,
+  maxStoredLogs: 1000
+});
+
+// Perform biometric operations - they will be automatically logged
+const sensorInfo = await isSensorAvailable();
+
+// Retrieve logs for analysis
+const logs = getStoredLogs();
+console.log('Recent logs:', logs);
+```
+
+**For detailed logging documentation, see [docs/LOGGING.md](./docs/LOGGING.md).**
+
 ### Error Codes
 
 Common error codes returned by authentication methods:
@@ -858,11 +965,12 @@ This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) 
 - [x] **Type Safety**: Fixed conditional casting warnings and type conversion issues
 - [x] **Code Organization**: Added MARK comments and improved code structure
 - [x] **Enhanced Testing**: Expand unit test coverage and add integration tests
+- [x] **Centralized Logging**: Implemented comprehensive logging and error reporting system
 
 ### 🔄 In Progress
 
-- [ ] **Centralized Logging**: Implement consistent logging and error reporting
 - [ ] **Performance Optimization**: Optimize biometric operations and reduce latency
+- [ ] **Advanced Security Features**: Enhanced key integrity validation and cryptographic verification
 
 ## 🙏 Acknowledgments
 

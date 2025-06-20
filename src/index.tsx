@@ -1,51 +1,221 @@
 import ReactNativeBiometrics from './NativeReactNativeBiometrics';
+import { logger, LogLevel, type LogEntry } from './logger';
 
 export function isSensorAvailable(): Promise<BiometricSensorInfo> {
-  return ReactNativeBiometrics.isSensorAvailable();
+  logger.debug('Checking sensor availability', 'isSensorAvailable');
+  return ReactNativeBiometrics.isSensorAvailable()
+    .then((result) => {
+      logger.info('Sensor availability check completed', 'isSensorAvailable', {
+        available: result.available,
+        biometryType: result.biometryType,
+      });
+      return result;
+    })
+    .catch((error) => {
+      logger.error(
+        'Sensor availability check failed',
+        'isSensorAvailable',
+        error
+      );
+      throw error;
+    });
 }
 
 export function simplePrompt(promptMessage: string): Promise<boolean> {
-  return ReactNativeBiometrics.simplePrompt(promptMessage);
+  logger.debug('Starting simple biometric prompt', 'simplePrompt', {
+    promptMessage,
+  });
+  return ReactNativeBiometrics.simplePrompt(promptMessage)
+    .then((result) => {
+      logger.info('Simple prompt completed', 'simplePrompt', {
+        success: result,
+      });
+      return result;
+    })
+    .catch((error) => {
+      logger.error('Simple prompt failed', 'simplePrompt', error, {
+        promptMessage,
+      });
+      throw error;
+    });
 }
 
 export function authenticateWithOptions(
   options: BiometricAuthOptions
 ): Promise<BiometricAuthResult> {
-  return ReactNativeBiometrics.authenticateWithOptions(options);
+  logger.debug(
+    'Starting authentication with options',
+    'authenticateWithOptions',
+    options
+  );
+  return ReactNativeBiometrics.authenticateWithOptions(options)
+    .then((result) => {
+      logger.info('Authentication completed', 'authenticateWithOptions', {
+        success: result.success,
+        errorCode: result.errorCode,
+      });
+      return result;
+    })
+    .catch((error) => {
+      logger.error(
+        'Authentication failed',
+        'authenticateWithOptions',
+        error,
+        options
+      );
+      throw error;
+    });
 }
 
 export function createKeys(keyAlias?: string): Promise<KeyCreationResult> {
-  return ReactNativeBiometrics.createKeys(keyAlias);
+  logger.debug('Creating biometric keys', 'createKeys', { keyAlias });
+  return ReactNativeBiometrics.createKeys(keyAlias)
+    .then((result) => {
+      logger.info('Keys created successfully', 'createKeys', {
+        keyAlias,
+        publicKeyLength: result.publicKey?.length,
+      });
+      return result;
+    })
+    .catch((error) => {
+      logger.error('Key creation failed', 'createKeys', error, { keyAlias });
+      throw error;
+    });
 }
 
 export function deleteKeys(keyAlias?: string): Promise<KeyDeletionResult> {
-  return ReactNativeBiometrics.deleteKeys(keyAlias);
+  logger.debug('Deleting biometric keys', 'deleteKeys', { keyAlias });
+  return ReactNativeBiometrics.deleteKeys(keyAlias)
+    .then((result) => {
+      logger.info('Keys deletion completed', 'deleteKeys', {
+        keyAlias,
+        success: result.success,
+      });
+      return result;
+    })
+    .catch((error) => {
+      logger.error('Key deletion failed', 'deleteKeys', error, { keyAlias });
+      throw error;
+    });
 }
 
 // Key management configuration
 export function configureKeyAlias(keyAlias: string): Promise<void> {
-  return ReactNativeBiometrics.configureKeyAlias(keyAlias);
+  logger.debug('Configuring key alias', 'configureKeyAlias', { keyAlias });
+  return ReactNativeBiometrics.configureKeyAlias(keyAlias)
+    .then((result) => {
+      logger.info('Key alias configured successfully', 'configureKeyAlias', {
+        keyAlias,
+      });
+      return result;
+    })
+    .catch((error) => {
+      logger.error(
+        'Key alias configuration failed',
+        'configureKeyAlias',
+        error,
+        { keyAlias }
+      );
+      throw error;
+    });
 }
 
 export function getDefaultKeyAlias(): Promise<string> {
-  return ReactNativeBiometrics.getDefaultKeyAlias();
+  logger.debug('Getting default key alias', 'getDefaultKeyAlias');
+  return ReactNativeBiometrics.getDefaultKeyAlias()
+    .then((result) => {
+      logger.info('Default key alias retrieved', 'getDefaultKeyAlias', {
+        keyAlias: result,
+      });
+      return result;
+    })
+    .catch((error) => {
+      logger.error(
+        'Failed to get default key alias',
+        'getDefaultKeyAlias',
+        error
+      );
+      throw error;
+    });
 }
 
 export function getAllKeys(): Promise<GetAllKeysResult> {
-  return ReactNativeBiometrics.getAllKeys();
+  logger.debug('Getting all keys', 'getAllKeys');
+  return ReactNativeBiometrics.getAllKeys()
+    .then((result) => {
+      logger.info('All keys retrieved', 'getAllKeys', {
+        keyCount: result.keys?.length || 0,
+      });
+      return result;
+    })
+    .catch((error) => {
+      logger.error('Failed to get all keys', 'getAllKeys', error);
+      throw error;
+    });
 }
 
 // Debugging utilities
 export function getDiagnosticInfo(): Promise<DiagnosticInfo> {
-  return ReactNativeBiometrics.getDiagnosticInfo();
+  logger.debug('Getting diagnostic information', 'getDiagnosticInfo');
+  return ReactNativeBiometrics.getDiagnosticInfo()
+    .then((result) => {
+      logger.info('Diagnostic information retrieved', 'getDiagnosticInfo', {
+        platform: result.platform,
+        osVersion: result.osVersion,
+        deviceModel: result.deviceModel,
+        biometricCapabilities: result.biometricCapabilities,
+      });
+      return result;
+    })
+    .catch((error) => {
+      logger.error(
+        'Failed to get diagnostic information',
+        'getDiagnosticInfo',
+        error
+      );
+      throw error;
+    });
 }
 
 export function runBiometricTest(): Promise<BiometricTestResult> {
-  return ReactNativeBiometrics.runBiometricTest();
+  logger.debug('Running biometric test', 'runBiometricTest');
+  return ReactNativeBiometrics.runBiometricTest()
+    .then((result) => {
+      logger.info('Biometric test completed', 'runBiometricTest', {
+        success: result.success,
+        errorCount: result.errors?.length || 0,
+        warningCount: result.warnings?.length || 0,
+      });
+      return result;
+    })
+    .catch((error) => {
+      logger.error('Biometric test failed', 'runBiometricTest', error);
+      throw error;
+    });
 }
 
 export function setDebugMode(enabled: boolean): Promise<void> {
-  return ReactNativeBiometrics.setDebugMode(enabled);
+  logger.debug('Setting debug mode', 'setDebugMode', { enabled });
+
+  // Enable/disable centralized logging based on debug mode
+  logger.setEnabled(enabled);
+  if (enabled) {
+    logger.setLevel(LogLevel.DEBUG);
+  } else {
+    logger.setLevel(LogLevel.INFO);
+  }
+
+  return ReactNativeBiometrics.setDebugMode(enabled)
+    .then((result) => {
+      logger.info('Debug mode updated', 'setDebugMode', { enabled });
+      return result;
+    })
+    .catch((error) => {
+      logger.error('Failed to set debug mode', 'setDebugMode', error, {
+        enabled,
+      });
+      throw error;
+    });
 }
 
 // Configuration types
@@ -56,9 +226,30 @@ export type BiometricConfig = {
 
 // Initialize library with configuration
 export function configure(config: BiometricConfig): Promise<void> {
+  logger.debug('Configuring library', 'configure', config);
+
   if (config.keyAlias) {
-    return configureKeyAlias(config.keyAlias);
+    return configureKeyAlias(config.keyAlias)
+      .then((result) => {
+        logger.info('Library configuration completed', 'configure', config);
+        return result;
+      })
+      .catch((error) => {
+        logger.error(
+          'Library configuration failed',
+          'configure',
+          error,
+          config
+        );
+        throw error;
+      });
   }
+
+  logger.info(
+    'Library configuration completed (no key alias)',
+    'configure',
+    config
+  );
   return Promise.resolve();
 }
 
@@ -123,3 +314,24 @@ export type BiometricTestResult = {
   errors: string[];
   warnings: string[];
 };
+
+// Export logging utilities
+export {
+  logger,
+  LogLevel,
+  type LogEntry,
+  type LoggerConfig,
+  enableLogging,
+  setLogLevel,
+  configureLogger,
+} from './logger';
+
+// Convenience function to get logs for debugging
+export function getLogs(): LogEntry[] {
+  return logger.getLogs();
+}
+
+// Convenience function to clear logs
+export function clearLogs(): void {
+  logger.clearLogs();
+}

@@ -2,7 +2,7 @@ import { StyleSheet, ScrollView, SafeAreaView } from 'react-native';
 import DebuggingExample from './DebuggingExample';
 import KeyAliasExample from './KeyAliasExample';
 import AuthExample from './AuthExample';
-
+import ColorDemo from './color-demo';
 export default function App() {
   return (
     <SafeAreaView style={styles.container}>
@@ -10,6 +10,7 @@ export default function App() {
         <DebuggingExample />
         <KeyAliasExample />
         <AuthExample />
+        <ColorDemo />
       </ScrollView>
     </SafeAreaView>
   );
