@@ -852,18 +852,23 @@ This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) 
 
 ## 🚀 Roadmap
 
-- [ ] **Enhanced Security**: Hardware-backed key attestation
-- [ ] **Biometric Templates**: Store and manage biometric templates
-- [ ] **Multi-factor Authentication**: Combine biometrics with other factors
-- [ ] **Advanced Fallbacks**: Custom fallback UI components
-- [ ] **Analytics**: Usage and security analytics
-- [ ] **Web Support**: Extend to React Native Web
+### ✅ Completed
+
+- [x] **Code Quality Improvements**: Improved type safety, error handling, and code documentation
+- [x] **Type Safety**: Fixed conditional casting warnings and type conversion issues
+- [x] **Code Organization**: Added MARK comments and improved code structure
+
+### 🔄 In Progress
+
+- [ ] **Enhanced Testing**: Expand unit test coverage and add integration tests
+- [ ] **Centralized Logging**: Implement consistent logging and error reporting
+- [ ] **Performance Optimization**: Optimize biometric operations and reduce latency
 
 ## 🙏 Acknowledgments
 
 - Built with [create-react-native-library](https://github.com/callstack/react-native-builder-bob)
-- Inspired by the React Native community's need for unified biometric authentication
-- Thanks to all contributors and users who help improve this library
+- Inspired by the React Native community's need for an up-to-date unified biometric authentication
+- Inspired by existing libraries like <a href=https://github.com/SelfLender/react-native-biometrics>react-native-biometrics</a>
 
 ## 📊 Stats
 
