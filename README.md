@@ -874,6 +874,57 @@ Common error codes returned by authentication methods:
 | `BIOMETRY_LOCKOUT` | Too many failed attempts | Both |
 
 
+## 📱 Example App
+
+The library includes a comprehensive example app demonstrating all features and capabilities. The example app contains several demo components:
+
+### Available Demo Components
+
+#### 🔐 AuthExample
+Demonstrates basic authentication flows:
+- Simple biometric prompts
+- Enhanced authentication with custom options
+- Error handling and fallback scenarios
+
+#### 🎨 ColorExample
+Shows UI customization capabilities:
+- Custom prompt styling
+- Theme integration
+- Visual feedback examples
+
+#### 🔧 CombinedBiometricsDemo
+Comprehensive demonstration of key management and security features:
+- **Key Management**: Create, delete, and list biometric keys with custom aliases
+- **Integrity Validation**: Comprehensive key integrity checks and validation
+- **Signature Operations**: Generate and verify cryptographic signatures
+- **Security Testing**: Automated test suite for all security features
+- **Real-time Results**: Live display of test results and security status
+
+This component combines the functionality of key management and integrity testing into a single, unified interface, making it easy to test and understand all security features.
+
+#### 🐛 DebuggingExample
+Debugging and diagnostic utilities:
+- Device capability detection
+- Comprehensive diagnostic information
+- Debug logging controls
+- Test result analysis
+
+### Running the Example App
+
+```bash
+cd example
+npm install
+
+# iOS
+cd ios && pod install && cd ..
+npx react-native run-ios
+
+# Android
+npx react-native run-android
+```
+
+The example app provides hands-on experience with all library features and serves as a reference implementation for integration patterns.
+
 ## 🔧 Troubleshooting
 
 ### Common Issues
@@ -935,17 +986,6 @@ We welcome contributions! Here's how you can help:
    npm install
    # or
    yarn install
-   ```
-
-3. **Run the example app**
-   ```bash
-   cd example
-   npm install
-   # iOS
-   cd ios && pod install && cd ..
-   npx react-native run-ios
-   # Android
-   npx react-native run-android
    ```
 
 ### Guidelines
@@ -1012,11 +1052,12 @@ This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) 
 - [x] **Code Organization**: Added MARK comments and improved code structure
 - [x] **Enhanced Testing**: Expand unit test coverage and add integration tests
 - [x] **Centralized Logging**: Implemented comprehensive logging and error reporting system
+- [x] **Advanced Security Features**: Enhanced security measures and validation
 
 ### 🔄 In Progress
 
 - [ ] **Performance Optimization**: Optimize biometric operations and reduce latency
-- [ ] **Advanced Security Features**: Enhanced security measures and validation
+- [ ] **To Be defined**
 
 ## 🙏 Acknowledgments
 
