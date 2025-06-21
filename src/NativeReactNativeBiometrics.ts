@@ -34,6 +34,55 @@ export interface Spec extends TurboModule {
       publicKey: string;
     }>;
   }>;
+  // Key integrity validation methods
+  validateKeyIntegrity(keyAlias?: string | null): Promise<{
+    valid: boolean;
+    keyExists: boolean;
+    keyAttributes?: {
+      algorithm: string;
+      keySize: number;
+      creationDate?: string;
+      securityLevel: string;
+    };
+    integrityChecks: {
+      keyFormatValid: boolean;
+      keyAccessible: boolean;
+      signatureTestPassed: boolean;
+      hardwareBacked: boolean;
+    };
+    error?: string;
+  }>;
+  verifyKeySignature(
+    keyAlias: string,
+    data: string
+  ): Promise<{
+    success: boolean;
+    signature?: string;
+    error?: string;
+  }>;
+  validateSignature(
+    keyAlias: string,
+    data: string,
+    signature: string
+  ): Promise<{
+    valid: boolean;
+    error?: string;
+  }>;
+  getKeyAttributes(keyAlias?: string | null): Promise<{
+    exists: boolean;
+    attributes?: {
+      algorithm: string;
+      keySize: number;
+      purposes: string[];
+      digests: string[];
+      padding: string[];
+      creationDate?: string;
+      securityLevel: string;
+      hardwareBacked: boolean;
+      userAuthenticationRequired: boolean;
+    };
+    error?: string;
+  }>;
   // Debugging utilities
   getDiagnosticInfo(): Promise<{
     platform: string;

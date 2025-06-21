@@ -52,4 +52,27 @@ RCT_EXTERN_METHOD(getDefaultKeyAlias:
     (RCTPromiseResolveBlock)resolve
     rejecter:(RCTPromiseRejectBlock)reject)
 
+RCT_EXTERN_METHOD(validateKeyIntegrity:
+    (NSString *)keyAlias
+    resolver:(RCTPromiseResolveBlock)resolve
+    rejecter:(RCTPromiseRejectBlock)reject)
+
+RCT_EXTERN_METHOD(verifyKeySignature:
+    (NSString *)keyAlias
+    data:(NSString *)data
+    resolver:(RCTPromiseResolveBlock)resolve
+    rejecter:(RCTPromiseRejectBlock)reject)
+
+RCT_EXTERN_METHOD(validateSignature:
+    (NSString *)keyAlias
+    data:(NSString *)data
+    signature:(NSString *)signature
+    resolver:(RCTPromiseResolveBlock)resolve
+    rejecter:(RCTPromiseRejectBlock)reject)
+
+RCT_EXTERN_METHOD(getKeyAttributes:
+    (NSString *)keyAlias
+    resolver:(RCTPromiseResolveBlock)resolve
+    rejecter:(RCTPromiseRejectBlock)reject)
+
 @end

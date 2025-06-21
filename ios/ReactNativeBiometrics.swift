@@ -29,6 +29,44 @@ class ReactNativeBiometrics: NSObject {
     return "\(bundleId).ReactNativeBiometricsKey"
   }
   
+  // MARK: - Helper Methods
+  
+  /**
+   * Determines the appropriate signature algorithm based on key type
+   * - Parameter keyRef: The SecKey reference
+   * - Returns: The appropriate SecKeyAlgorithm for the key type
+   */
+  private func getSignatureAlgorithm(for keyRef: SecKey) -> SecKeyAlgorithm {
+    let keyAttributes = SecKeyCopyAttributes(keyRef) as? [String: Any] ?? [:]
+    let keyType = keyAttributes[kSecAttrKeyType as String] as? String ?? "Unknown"
+    
+    return keyType == kSecAttrKeyTypeRSA as String 
+      ? .rsaSignatureMessagePKCS1v15SHA256 
+      : .ecdsaSignatureMessageX962SHA256
+  }
+  
+  /**
+   * Performs biometric authentication with consistent error handling
+   * - Parameters:
+   *   - reason: The localized reason for authentication
+   *   - completion: Completion handler with success status and optional error
+   */
+  private func performBiometricAuthentication(
+    reason: String,
+    completion: @escaping (Bool, Error?) -> Void
+  ) {
+    let context = LAContext()
+    context.localizedFallbackTitle = ""
+    
+    var authError: NSError?
+    guard context.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: &authError) else {
+      completion(false, authError)
+      return
+    }
+    
+    context.evaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, localizedReason: reason, reply: completion)
+  }
+  
   @objc
   static func requiresMainQueueSetup() -> Bool {
     return false
@@ -579,6 +617,324 @@ class ReactNativeBiometrics: NSObject {
       debugLog("getAllKeys failed - Keychain error: \(errorMessage) (status: \(status))")
       reject("GET_ALL_KEYS_ERROR", "Keychain query failed: \(errorMessage)", nil)
     }
+  }
+
+  @objc
+  func validateKeyIntegrity(_ keyAlias: NSString?,
+                           resolver resolve: @escaping RCTPromiseResolveBlock,
+                           rejecter reject: @escaping RCTPromiseRejectBlock) {
+    debugLog("validateKeyIntegrity called with keyAlias: \(keyAlias ?? "default")")
+    
+    let keyTag = getKeyAlias(keyAlias as String?)
+    let keyTagData = keyTag.data(using: .utf8)!
+    
+    // Query to find the key (including Secure Enclave token for proper key lookup)
+    let query: [String: Any] = [
+      kSecClass as String: kSecClassKey,
+      kSecAttrApplicationTag as String: keyTagData,
+      kSecAttrTokenID as String: kSecAttrTokenIDSecureEnclave,
+      kSecReturnRef as String: true,
+      kSecReturnAttributes as String: true
+    ]
+    
+    var result: CFTypeRef?
+    let status = SecItemCopyMatching(query as CFDictionary, &result)
+    
+    var integrityResult: [String: Any] = [
+      "valid": false,
+      "keyExists": false,
+      "integrityChecks": [
+        "keyFormatValid": false,
+        "keyAccessible": false,
+        "signatureTestPassed": false,
+        "hardwareBacked": false
+      ]
+    ]
+    
+    guard status == errSecSuccess else {
+      if status == errSecItemNotFound {
+        debugLog("validateKeyIntegrity - Key not found")
+        resolve(integrityResult)
+      } else {
+        let errorMessage = SecCopyErrorMessageString(status, nil) as String? ?? "Unknown error"
+        debugLog("validateKeyIntegrity failed - Keychain error: \(errorMessage)")
+        integrityResult["error"] = "Keychain error: \(errorMessage)"
+        resolve(integrityResult)
+      }
+      return
+    }
+    
+    guard let keyItem = result as? [String: Any],
+          let keyRefValue = keyItem[kSecValueRef as String] else {
+      debugLog("validateKeyIntegrity failed - Invalid key reference")
+      integrityResult["error"] = "Invalid key reference"
+      resolve(integrityResult)
+      return
+    }
+    
+    // Force cast SecKey since conditional downcast to CoreFoundation types always succeeds
+    let keyRef = keyRefValue as! SecKey
+    
+    integrityResult["keyExists"] = true
+    
+    // Check key attributes
+    let keyAttributes = SecKeyCopyAttributes(keyRef) as? [String: Any] ?? [:]
+    let keySize = keyAttributes[kSecAttrKeySizeInBits as String] as? Int ?? 0
+    let keyType = keyAttributes[kSecAttrKeyType as String] as? String ?? "Unknown"
+    let isHardwareBacked = keyAttributes[kSecAttrTokenID as String] != nil
+    
+    integrityResult["keyAttributes"] = [
+      "algorithm": keyType == kSecAttrKeyTypeRSA as String ? "RSA" : "EC",
+      "keySize": keySize,
+      "securityLevel": isHardwareBacked ? "Hardware" : "Software"
+    ]
+    
+    var checks = integrityResult["integrityChecks"] as! [String: Any]
+    
+    // Check if key format is valid
+    checks["keyFormatValid"] = true
+    checks["keyAccessible"] = true
+    checks["hardwareBacked"] = isHardwareBacked
+    
+    // Perform signature test
+    let testData = "integrity_test_data".data(using: .utf8)!
+    let algorithm = getSignatureAlgorithm(for: keyRef)
+    
+    // For Secure Enclave keys, we need biometric authentication
+    performBiometricAuthentication(reason: "Authenticate to test key integrity") { success, authenticationError in
+      DispatchQueue.main.async {
+        if success {
+          var error: Unmanaged<CFError>?
+          if let signature = SecKeyCreateSignature(keyRef, algorithm, testData as CFData, &error) {
+            // Verify the signature with public key
+            if let publicKey = SecKeyCopyPublicKey(keyRef) {
+              let isValid = SecKeyVerifySignature(publicKey, algorithm, testData as CFData, signature, &error)
+              checks["signatureTestPassed"] = isValid
+              
+              if isValid {
+                integrityResult["valid"] = true
+              }
+            }
+          } else {
+            let errorDescription = error?.takeRetainedValue().localizedDescription ?? "Unknown error"
+            self.debugLog("validateKeyIntegrity - Signature test failed: \(errorDescription)")
+            checks["signatureTestPassed"] = false
+          }
+        } else {
+          let errorMessage = authenticationError?.localizedDescription ?? "Authentication failed"
+          self.debugLog("validateKeyIntegrity - Authentication failed: \(errorMessage)")
+          checks["signatureTestPassed"] = false
+        }
+        
+        integrityResult["integrityChecks"] = checks
+        self.debugLog("validateKeyIntegrity completed")
+        resolve(integrityResult)
+      }
+    }
+  }
+  
+  @objc
+  func verifyKeySignature(_ keyAlias: NSString?,
+                         data: NSString,
+                         resolver resolve: @escaping RCTPromiseResolveBlock,
+                         rejecter reject: @escaping RCTPromiseRejectBlock) {
+    debugLog("verifyKeySignature called with keyAlias: \(keyAlias ?? "default")")
+    
+    let keyTag = getKeyAlias(keyAlias as String?)
+    let keyTagData = keyTag.data(using: .utf8)!
+    
+    // Query to find the key (including Secure Enclave token for proper key lookup)
+    let query: [String: Any] = [
+      kSecClass as String: kSecClassKey,
+      kSecAttrApplicationTag as String: keyTagData,
+      kSecAttrTokenID as String: kSecAttrTokenIDSecureEnclave,
+      kSecReturnRef as String: true
+    ]
+    
+    var result: CFTypeRef?
+    let status = SecItemCopyMatching(query as CFDictionary, &result)
+    
+    guard status == errSecSuccess else {
+      let errorMessage = status == errSecItemNotFound ? "Key not found" : (SecCopyErrorMessageString(status, nil) as String? ?? "Unknown error")
+      debugLog("verifyKeySignature failed - \(errorMessage)")
+      resolve(["success": false, "error": errorMessage])
+      return
+    }
+    
+    // Force cast SecKey since conditional downcast to CoreFoundation types always succeeds
+    let keyRef = result as! SecKey
+    let algorithm = getSignatureAlgorithm(for: keyRef)
+    let dataToSign = (data as String).data(using: .utf8)!
+    
+    // For Secure Enclave keys, we need biometric authentication before signing
+    performBiometricAuthentication(reason: "Authenticate to create signature") { success, authenticationError in
+      DispatchQueue.main.async {
+        guard success else {
+          let errorMessage = authenticationError?.localizedDescription ?? "Authentication failed"
+          self.debugLog("verifyKeySignature failed - Authentication: \(errorMessage)")
+          resolve(["success": false, "error": errorMessage])
+          return
+        }
+        
+        // Create the signature with the authenticated context
+        var error: Unmanaged<CFError>?
+        guard let signature = SecKeyCreateSignature(keyRef, algorithm, dataToSign as CFData, &error) else {
+          let errorDescription = error?.takeRetainedValue().localizedDescription ?? "Signature creation failed"
+          self.debugLog("verifyKeySignature failed - \(errorDescription)")
+          resolve(["success": false, "error": errorDescription])
+          return
+        }
+        
+        let signatureBase64 = (signature as Data).base64EncodedString()
+        
+        self.debugLog("verifyKeySignature completed successfully")
+        resolve(["success": true, "signature": signatureBase64])
+      }
+    }
+   }
+  
+  @objc
+  func validateSignature(_ keyAlias: NSString?,
+                        data: NSString,
+                        signature: NSString,
+                        resolver resolve: @escaping RCTPromiseResolveBlock,
+                        rejecter reject: @escaping RCTPromiseRejectBlock) {
+    debugLog("validateSignature called with keyAlias: \(keyAlias ?? "default")")
+    
+    // Enhanced input validation
+    let dataString = data as String
+    let signatureString = signature as String
+    
+    guard !dataString.isEmpty else {
+      debugLog("validateSignature failed - Empty data provided")
+      resolve(["valid": false, "error": "Empty data provided"])
+      return
+    }
+    
+    guard !signatureString.isEmpty else {
+      debugLog("validateSignature failed - Empty signature provided")
+      resolve(["valid": false, "error": "Empty signature provided"])
+      return
+    }
+    
+    let keyTag = getKeyAlias(keyAlias as String?)
+    let keyTagData = keyTag.data(using: .utf8)!
+    
+    // Query to find the key (including Secure Enclave token for proper key lookup)
+    let query: [String: Any] = [
+      kSecClass as String: kSecClassKey,
+      kSecAttrApplicationTag as String: keyTagData,
+      kSecAttrTokenID as String: kSecAttrTokenIDSecureEnclave,
+      kSecReturnRef as String: true
+    ]
+    
+    var result: CFTypeRef?
+    let status = SecItemCopyMatching(query as CFDictionary, &result)
+    
+    guard status == errSecSuccess else {
+      let errorMessage = status == errSecItemNotFound ? "Key not found" : (SecCopyErrorMessageString(status, nil) as String? ?? "Unknown error")
+      debugLog("validateSignature failed - \(errorMessage)")
+      resolve(["valid": false, "error": errorMessage])
+      return
+    }
+    
+    // Force cast SecKey since conditional downcast to CoreFoundation types always succeeds
+    let keyRef = result as! SecKey
+    
+    guard let publicKey = SecKeyCopyPublicKey(keyRef) else {
+      debugLog("validateSignature failed - Could not extract public key")
+      resolve(["valid": false, "error": "Could not extract public key"])
+      return
+    }
+    
+    // Enhanced signature validation with detailed error context
+    guard let signatureData = Data(base64Encoded: signatureString) else {
+      debugLog("validateSignature failed - Invalid base64 signature format. Length: \(signatureString.count), First 20 chars: \(String(signatureString.prefix(20)))")
+      resolve(["valid": false, "error": "Invalid base64 signature format"])
+      return
+    }
+    
+    let dataToVerify = dataString.data(using: .utf8)!
+    var error: Unmanaged<CFError>?
+    
+    // Use the appropriate signature algorithm based on key type
+    let algorithm = getSignatureAlgorithm(for: keyRef)
+    
+    let isValid = SecKeyVerifySignature(publicKey, algorithm, dataToVerify as CFData, signatureData as CFData, &error)
+    
+    if let error = error {
+      let errorDescription = error.takeRetainedValue().localizedDescription
+      debugLog("validateSignature failed - \(errorDescription)")
+      resolve(["valid": false, "error": errorDescription])
+    } else {
+      debugLog("validateSignature completed - valid: \(isValid)")
+      resolve(["valid": isValid])
+    }
+  }
+  
+  @objc
+  func getKeyAttributes(_ keyAlias: NSString?,
+                       resolver resolve: @escaping RCTPromiseResolveBlock,
+                       rejecter reject: @escaping RCTPromiseRejectBlock) {
+    debugLog("getKeyAttributes called with keyAlias: \(keyAlias ?? "default")")
+    
+    let keyTag = getKeyAlias(keyAlias as String?)
+    let keyTagData = keyTag.data(using: .utf8)!
+    
+    // Query to find the key
+    let query: [String: Any] = [
+      kSecClass as String: kSecClassKey,
+      kSecAttrApplicationTag as String: keyTagData,
+      kSecReturnRef as String: true,
+      kSecReturnAttributes as String: true
+    ]
+    
+    var result: CFTypeRef?
+    let status = SecItemCopyMatching(query as CFDictionary, &result)
+    
+    guard status == errSecSuccess else {
+      if status == errSecItemNotFound {
+        debugLog("getKeyAttributes - Key not found")
+        resolve(["exists": false])
+      } else {
+        let errorMessage = SecCopyErrorMessageString(status, nil) as String? ?? "Unknown error"
+        debugLog("getKeyAttributes failed - \(errorMessage)")
+        resolve(["exists": false, "error": errorMessage])
+      }
+      return
+    }
+    
+    guard let keyItem = result as? [String: Any],
+          let keyRefValue = keyItem[kSecValueRef as String] else {
+      debugLog("getKeyAttributes failed - Invalid key reference")
+      resolve(["exists": false, "error": "Invalid key reference"])
+      return
+    }
+    
+    // Force cast SecKey since conditional downcast to CoreFoundation types always succeeds
+    let keyRef = keyRefValue as! SecKey
+    
+    let keyAttributes = SecKeyCopyAttributes(keyRef) as? [String: Any] ?? [:]
+    let keySize = keyAttributes[kSecAttrKeySizeInBits as String] as? Int ?? 0
+    let keyType = keyAttributes[kSecAttrKeyType as String] as? String ?? "Unknown"
+    let isHardwareBacked = keyAttributes[kSecAttrTokenID as String] != nil
+    
+    // Default key purposes for biometric keys (sign and verify)
+    let keyPurposes = ["sign", "verify"]
+    
+    let attributes: [String: Any] = [
+      "algorithm": keyType == kSecAttrKeyTypeRSA as String ? "RSA" : "EC",
+      "keySize": keySize,
+      "purposes": keyPurposes,
+      "digests": ["SHA256"],
+      "padding": ["PKCS1"],
+      "securityLevel": isHardwareBacked ? "Hardware" : "Software",
+      "hardwareBacked": isHardwareBacked,
+      "userAuthenticationRequired": true
+    ]
+    
+    debugLog("getKeyAttributes completed successfully")
+    resolve(["exists": true, "attributes": attributes])
   }
 
   private func debugLog(_ message: String) {

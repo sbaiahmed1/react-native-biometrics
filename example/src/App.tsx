@@ -3,14 +3,16 @@ import DebuggingExample from './DebuggingExample';
 import KeyAliasExample from './KeyAliasExample';
 import AuthExample from './AuthExample';
 import ColorDemo from './color-demo';
+import KeyIntegrityDemo from '../../src/examples/key-integrity-demo';
 export default function App() {
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView>
         <DebuggingExample />
-        <KeyAliasExample />
         <AuthExample />
         <ColorDemo />
+        <KeyAliasExample />
+        <KeyIntegrityDemo />
       </ScrollView>
     </SafeAreaView>
   );

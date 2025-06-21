@@ -6,6 +6,7 @@ import android.content.Context
 import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricPrompt
 import androidx.core.content.ContextCompat
+import androidx.fragment.app.FragmentActivity
 import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.Arguments
@@ -149,7 +150,10 @@ class ReactNativeBiometricsModule(reactContext: ReactApplicationContext) :
       if (activity != null) {
         debugLog("Showing biometric prompt")
         val biometricPrompt = BiometricPrompt(activity, executor, callback)
-        biometricPrompt.authenticate(promptInfo)
+        // Ensure biometric prompt is called on the main thread
+        activity.runOnUiThread {
+          biometricPrompt.authenticate(promptInfo)
+        }
       } else {
         debugLog("No active activity available")
         promise.reject("NO_ACTIVITY", "No active activity")
@@ -223,7 +227,10 @@ class ReactNativeBiometricsModule(reactContext: ReactApplicationContext) :
       val activity = currentActivity as? androidx.fragment.app.FragmentActivity
       if (activity != null) {
         val biometricPrompt = BiometricPrompt(activity, executor, callback)
-        biometricPrompt.authenticate(promptInfo)
+        // Ensure biometric prompt is called on the main thread
+        activity.runOnUiThread {
+          biometricPrompt.authenticate(promptInfo)
+        }
       } else {
         result.putBoolean("success", false)
         result.putString("error", "No active activity")
@@ -587,6 +594,448 @@ class ReactNativeBiometricsModule(reactContext: ReactApplicationContext) :
     } catch (e: Exception) {
       debugLog("getAllKeys failed - Unexpected error: ${e.message}")
       promise.reject("GET_ALL_KEYS_ERROR", "Failed to get all keys: ${e.message}", e)
+    }
+  }
+
+  @ReactMethod
+  override fun validateKeyIntegrity(keyAlias: String?, promise: Promise) {
+    debugLog("validateKeyIntegrity called with keyAlias: ${keyAlias ?: "default"}")
+    
+    val actualKeyAlias = getKeyAlias(keyAlias)
+    val result = Arguments.createMap()
+    val integrityChecks = Arguments.createMap()
+    
+    result.putBoolean("valid", false)
+    result.putBoolean("keyExists", false)
+    integrityChecks.putBoolean("keyFormatValid", false)
+    integrityChecks.putBoolean("keyAccessible", false)
+    integrityChecks.putBoolean("signatureTestPassed", false)
+    integrityChecks.putBoolean("hardwareBacked", false)
+    
+    try {
+      val keyStore = KeyStore.getInstance("AndroidKeyStore")
+      keyStore.load(null)
+      
+      if (!keyStore.containsAlias(actualKeyAlias)) {
+        debugLog("validateKeyIntegrity - Key not found")
+        result.putMap("integrityChecks", integrityChecks)
+        promise.resolve(result)
+        return
+      }
+      
+      result.putBoolean("keyExists", true)
+      
+      val keyEntry = keyStore.getEntry(actualKeyAlias, null)
+      if (keyEntry !is KeyStore.PrivateKeyEntry) {
+        debugLog("validateKeyIntegrity - Invalid key type")
+        result.putString("error", "Invalid key type")
+        result.putMap("integrityChecks", integrityChecks)
+        promise.resolve(result)
+        return
+      }
+      
+      val privateKey = keyEntry.privateKey
+      val publicKey = keyEntry.certificate.publicKey
+      
+      // Check key attributes
+      val keyAttributes = Arguments.createMap()
+      keyAttributes.putString("algorithm", privateKey.algorithm)
+      keyAttributes.putInt("keySize", getKeySize(privateKey))
+      keyAttributes.putString("securityLevel", if (isHardwareBacked(privateKey)) "Hardware" else "Software")
+      result.putMap("keyAttributes", keyAttributes)
+      
+      // Update integrity checks
+      integrityChecks.putBoolean("keyFormatValid", true)
+      integrityChecks.putBoolean("keyAccessible", true)
+      integrityChecks.putBoolean("hardwareBacked", isHardwareBacked(privateKey))
+      
+      // For authentication-required keys, we need biometric authentication before signature test
+      val executor = ContextCompat.getMainExecutor(context)
+      val biometricManager = BiometricManager.from(context)
+      val biometricStatus = biometricManager.canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_STRONG)
+      
+      val authenticators = if (biometricStatus == BiometricManager.BIOMETRIC_SUCCESS) {
+        BiometricManager.Authenticators.BIOMETRIC_STRONG
+      } else {
+        BiometricManager.Authenticators.DEVICE_CREDENTIAL
+      }
+      
+      val promptInfoBuilder = BiometricPrompt.PromptInfo.Builder()
+        .setTitle("Authenticate to test key integrity")
+        .setSubtitle("Please verify your identity to test the key")
+        .setAllowedAuthenticators(authenticators)
+      
+      if (authenticators == BiometricManager.Authenticators.BIOMETRIC_STRONG) {
+        promptInfoBuilder.setNegativeButtonText("Cancel")
+      }
+      
+      val promptInfo = promptInfoBuilder.build()
+      
+      val activity = currentActivity as? FragmentActivity
+      if (activity == null) {
+        debugLog("validateKeyIntegrity failed - Activity context not available")
+        result.putString("error", "Activity context not available")
+        result.putMap("integrityChecks", integrityChecks)
+        promise.resolve(result)
+        return
+      }
+      
+      val biometricPrompt = BiometricPrompt(activity, executor, object : BiometricPrompt.AuthenticationCallback() {
+        override fun onAuthenticationSucceeded(authResult: BiometricPrompt.AuthenticationResult) {
+          debugLog("validateKeyIntegrity - Authentication succeeded, performing signature test")
+          
+          try {
+            val testData = "integrity_test_data".toByteArray()
+            val signature = java.security.Signature.getInstance("SHA256withRSA")
+            signature.initSign(privateKey)
+            signature.update(testData)
+            val signatureBytes = signature.sign()
+            
+            // Verify the signature
+            val verifySignature = java.security.Signature.getInstance("SHA256withRSA")
+            verifySignature.initVerify(publicKey)
+            verifySignature.update(testData)
+            val isValid = verifySignature.verify(signatureBytes)
+            
+            integrityChecks.putBoolean("signatureTestPassed", isValid)
+            
+            if (isValid) {
+              result.putBoolean("valid", true)
+            }
+            
+            result.putMap("integrityChecks", integrityChecks)
+            debugLog("validateKeyIntegrity completed - valid: ${result.getBoolean("valid")}")
+            promise.resolve(result)
+            
+          } catch (e: Exception) {
+            debugLog("validateKeyIntegrity - Signature test failed: ${e.message}")
+            integrityChecks.putBoolean("signatureTestPassed", false)
+            result.putMap("integrityChecks", integrityChecks)
+            promise.resolve(result)
+          }
+        }
+        
+        override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
+          debugLog("validateKeyIntegrity - Authentication error: $errorCode - $errString")
+          integrityChecks.putBoolean("signatureTestPassed", false)
+          result.putString("error", "Authentication failed: $errString")
+          result.putMap("integrityChecks", integrityChecks)
+          promise.resolve(result)
+        }
+        
+        override fun onAuthenticationFailed() {
+          debugLog("validateKeyIntegrity - Authentication failed")
+          integrityChecks.putBoolean("signatureTestPassed", false)
+          result.putString("error", "Biometric authentication failed")
+          result.putMap("integrityChecks", integrityChecks)
+          promise.resolve(result)
+        }
+      })
+      
+      // Show biometric prompt on main thread
+      activity.runOnUiThread {
+        biometricPrompt.authenticate(promptInfo)
+      }
+      
+    } catch (e: Exception) {
+      debugLog("validateKeyIntegrity failed - ${e.message}")
+      result.putString("error", e.message)
+      result.putMap("integrityChecks", integrityChecks)
+      promise.resolve(result)
+    }
+  }
+  
+  @ReactMethod
+  override fun verifyKeySignature(keyAlias: String?, data: String, promise: Promise) {
+    debugLog("verifyKeySignature called with keyAlias: ${keyAlias ?: "default"}")
+    
+    val actualKeyAlias = getKeyAlias(keyAlias)
+    val result = Arguments.createMap()
+    val executor = ContextCompat.getMainExecutor(context)
+    
+    // Check if key exists (without accessing the private key which requires authentication)
+    try {
+      val keyStore = KeyStore.getInstance("AndroidKeyStore")
+      keyStore.load(null)
+      
+      if (!keyStore.containsAlias(actualKeyAlias)) {
+        debugLog("verifyKeySignature failed - Key not found")
+        result.putBoolean("success", false)
+        result.putString("error", "Key not found")
+        promise.resolve(result)
+        return
+      }
+      
+      // Only check if the alias exists, don't access the private key yet
+      debugLog("verifyKeySignature - Key alias exists, proceeding with authentication")
+    } catch (e: Exception) {
+      debugLog("verifyKeySignature failed during key existence check - ${e.message}")
+      result.putBoolean("success", false)
+      result.putString("error", e.message)
+      promise.resolve(result)
+      return
+    }
+    
+    // Check biometric availability and set up authenticators
+    val biometricManager = BiometricManager.from(context)
+    val biometricStatus = biometricManager.canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_STRONG)
+    debugLog("verifyKeySignature - Biometric status: $biometricStatus")
+    
+    val authenticators = if (biometricStatus == BiometricManager.BIOMETRIC_SUCCESS) {
+      debugLog("verifyKeySignature - Using BIOMETRIC_STRONG authenticator")
+      BiometricManager.Authenticators.BIOMETRIC_STRONG
+    } else {
+      debugLog("verifyKeySignature - Using DEVICE_CREDENTIAL fallback")
+      BiometricManager.Authenticators.DEVICE_CREDENTIAL
+    }
+    
+    val activity = currentActivity as? FragmentActivity
+    if (activity == null) {
+      debugLog("verifyKeySignature failed - Activity context not available")
+      result.putBoolean("success", false)
+      result.putString("error", "Activity context not available")
+      promise.resolve(result)
+      return
+    }
+    
+    debugLog("verifyKeySignature - Creating BiometricPrompt with activity: ${activity.javaClass.simpleName}")
+    
+    val promptInfoBuilder = BiometricPrompt.PromptInfo.Builder()
+      .setTitle("Authenticate to create signature")
+      .setSubtitle("Please verify your identity to create the signature")
+      .setAllowedAuthenticators(authenticators)
+    
+    if (authenticators == BiometricManager.Authenticators.BIOMETRIC_STRONG) {
+      promptInfoBuilder.setNegativeButtonText("Cancel")
+    }
+    
+    val promptInfo = promptInfoBuilder.build()
+    
+    val biometricPrompt = BiometricPrompt(activity, executor, object : BiometricPrompt.AuthenticationCallback() {
+       override fun onAuthenticationSucceeded(authResult: BiometricPrompt.AuthenticationResult) {
+         debugLog("verifyKeySignature - Authentication succeeded, creating signature")
+         
+         try {
+           val keyStore = KeyStore.getInstance("AndroidKeyStore")
+           keyStore.load(null)
+           
+           val keyEntry = keyStore.getEntry(actualKeyAlias, null)
+           if (keyEntry !is KeyStore.PrivateKeyEntry) {
+             debugLog("verifyKeySignature failed - Invalid key type")
+             result.putBoolean("success", false)
+             result.putString("error", "Invalid key type")
+             promise.resolve(result)
+             return
+           }
+           
+           val privateKey = keyEntry.privateKey
+           val dataBytes = data.toByteArray()
+           
+           val signature = java.security.Signature.getInstance("SHA256withRSA")
+           signature.initSign(privateKey)
+           signature.update(dataBytes)
+           val signatureBytes = signature.sign()
+           val signatureBase64 = Base64.encodeToString(signatureBytes, Base64.DEFAULT)
+           
+           result.putBoolean("success", true)
+           result.putString("signature", signatureBase64)
+           
+           debugLog("verifyKeySignature completed successfully")
+           promise.resolve(result)
+           
+         } catch (e: Exception) {
+           debugLog("verifyKeySignature failed during signing - ${e.message}")
+           result.putBoolean("success", false)
+           result.putString("error", e.message)
+           promise.resolve(result)
+         }
+       }
+       
+       override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
+         debugLog("verifyKeySignature - Authentication error: $errorCode - $errString")
+         result.putBoolean("success", false)
+         result.putString("error", "Authentication failed: $errString")
+         promise.resolve(result)
+       }
+       
+       override fun onAuthenticationFailed() {
+         debugLog("verifyKeySignature - Authentication failed")
+         result.putBoolean("success", false)
+         result.putString("error", "Authentication failed")
+         promise.resolve(result)
+       }
+     })
+    
+    // Show biometric prompt on main thread
+    activity.runOnUiThread {
+      biometricPrompt.authenticate(promptInfo)
+    }
+  }
+  
+  @ReactMethod
+  override fun validateSignature(keyAlias: String?, data: String, signature: String, promise: Promise) {
+    debugLog("validateSignature called with keyAlias: ${keyAlias ?: "default"}")
+    
+    val actualKeyAlias = getKeyAlias(keyAlias)
+    val result = Arguments.createMap()
+    
+    // Enhanced input validation
+    if (data.isEmpty()) {
+      debugLog("validateSignature failed - Empty data provided")
+      result.putBoolean("valid", false)
+      result.putString("error", "Empty data provided")
+      promise.resolve(result)
+      return
+    }
+    
+    if (signature.isEmpty()) {
+      debugLog("validateSignature failed - Empty signature provided")
+      result.putBoolean("valid", false)
+      result.putString("error", "Empty signature provided")
+      promise.resolve(result)
+      return
+    }
+    
+    try {
+      val keyStore = KeyStore.getInstance("AndroidKeyStore")
+      keyStore.load(null)
+      
+      if (!keyStore.containsAlias(actualKeyAlias)) {
+        debugLog("validateSignature failed - Key not found")
+        result.putBoolean("valid", false)
+        result.putString("error", "Key not found")
+        promise.resolve(result)
+        return
+      }
+      
+      val keyEntry = keyStore.getEntry(actualKeyAlias, null)
+      if (keyEntry !is KeyStore.PrivateKeyEntry) {
+        debugLog("validateSignature failed - Invalid key type")
+        result.putBoolean("valid", false)
+        result.putString("error", "Invalid key type")
+        promise.resolve(result)
+        return
+      }
+      
+      val publicKey = keyEntry.certificate.publicKey
+      val dataBytes = data.toByteArray()
+      val signatureBytes = Base64.decode(signature, Base64.DEFAULT)
+      
+      val verifySignature = java.security.Signature.getInstance("SHA256withRSA")
+      verifySignature.initVerify(publicKey)
+      verifySignature.update(dataBytes)
+      val isValid = verifySignature.verify(signatureBytes)
+      
+      result.putBoolean("valid", isValid)
+      
+      debugLog("validateSignature completed - valid: $isValid")
+      promise.resolve(result)
+      
+    } catch (e: Exception) {
+      debugLog("validateSignature failed - ${e.message}")
+      result.putBoolean("valid", false)
+      result.putString("error", e.message)
+      promise.resolve(result)
+    }
+  }
+  
+  @ReactMethod
+  override fun getKeyAttributes(keyAlias: String?, promise: Promise) {
+    debugLog("getKeyAttributes called with keyAlias: ${keyAlias ?: "default"}")
+    
+    val actualKeyAlias = getKeyAlias(keyAlias)
+    val result = Arguments.createMap()
+    
+    try {
+      val keyStore = KeyStore.getInstance("AndroidKeyStore")
+      keyStore.load(null)
+      
+      if (!keyStore.containsAlias(actualKeyAlias)) {
+        debugLog("getKeyAttributes - Key not found")
+        result.putBoolean("exists", false)
+        promise.resolve(result)
+        return
+      }
+      
+      val keyEntry = keyStore.getEntry(actualKeyAlias, null)
+      if (keyEntry !is KeyStore.PrivateKeyEntry) {
+        debugLog("getKeyAttributes failed - Invalid key type")
+        result.putBoolean("exists", false)
+        result.putString("error", "Invalid key type")
+        promise.resolve(result)
+        return
+      }
+      
+      val privateKey = keyEntry.privateKey
+      val publicKey = keyEntry.certificate.publicKey
+      
+      val attributes = Arguments.createMap()
+      attributes.putString("algorithm", privateKey.algorithm)
+      attributes.putInt("keySize", getKeySize(privateKey))
+      
+      val purposes = Arguments.createArray()
+      purposes.pushString("SIGN")
+      purposes.pushString("VERIFY")
+      attributes.putArray("purposes", purposes)
+      
+      val digests = Arguments.createArray()
+      digests.pushString("SHA256")
+      attributes.putArray("digests", digests)
+      
+      val padding = Arguments.createArray()
+      padding.pushString("PKCS1")
+      attributes.putArray("padding", padding)
+      
+      attributes.putString("securityLevel", if (isHardwareBacked(privateKey)) "Hardware" else "Software")
+      attributes.putBoolean("hardwareBacked", isHardwareBacked(privateKey))
+      attributes.putBoolean("userAuthenticationRequired", true)
+      
+      result.putBoolean("exists", true)
+      result.putMap("attributes", attributes)
+      
+      debugLog("getKeyAttributes completed successfully")
+      promise.resolve(result)
+      
+    } catch (e: Exception) {
+      debugLog("getKeyAttributes failed - ${e.message}")
+      result.putBoolean("exists", false)
+      result.putString("error", e.message)
+      promise.resolve(result)
+    }
+  }
+  
+  private fun getKeySize(key: java.security.Key): Int {
+    return when (key.algorithm) {
+      "RSA" -> {
+        try {
+          val rsaKey = key as java.security.interfaces.RSAKey
+          rsaKey.modulus.bitLength()
+        } catch (e: Exception) {
+          2048 // Default RSA key size
+        }
+      }
+      "EC" -> {
+        try {
+          val ecKey = key as java.security.interfaces.ECKey
+          ecKey.params.order.bitLength()
+        } catch (e: Exception) {
+          256 // Default EC key size
+        }
+      }
+      else -> 0
+    }
+  }
+  
+  private fun isHardwareBacked(key: java.security.Key): Boolean {
+    return try {
+      // Check if the key is hardware-backed
+      val keyInfo = android.security.keystore.KeyInfo::class.java
+        .getDeclaredMethod("getInstance", java.security.Key::class.java)
+        .invoke(null, key) as android.security.keystore.KeyInfo
+      keyInfo.isInsideSecureHardware
+    } catch (e: Exception) {
+      // If we can't determine, assume software-backed
+      false
     }
   }
 

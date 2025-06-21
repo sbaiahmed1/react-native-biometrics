@@ -114,7 +114,9 @@ const ColorDemo: React.FC<ColorDemoProps> = ({
         </TouchableOpacity>
       </View>
 
-      <ScrollView style={styles.output}>
+      <ScrollView
+        style={[styles.output, !logOutput.length && styles.displayNone]}
+      >
         {logOutput.map((line, index) => (
           <Text key={index} style={styles.outputLine}>
             {line}
@@ -141,6 +143,7 @@ const styles = StyleSheet.create({
     padding: 20,
     backgroundColor: '#f5f5f5',
   },
+  displayNone: { display: 'none' },
   title: {
     fontSize: 24,
     fontWeight: 'bold',
@@ -155,7 +158,8 @@ const styles = StyleSheet.create({
   },
   button: {
     paddingHorizontal: 20,
-    paddingVertical: 10,
+    paddingVertical: 14,
+    width: '49%',
     borderRadius: 8,
     backgroundColor: '#007AFF',
   },

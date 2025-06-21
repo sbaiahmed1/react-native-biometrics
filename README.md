@@ -26,6 +26,7 @@
 - 🔑 **Key Management** - Create and manage cryptographic keys for secure operations
 - 🐛 **Debug Tools** - Comprehensive diagnostic and testing utilities
 - 📝 **Centralized Logging** - Advanced logging system for debugging and monitoring
+- 🔐 **Key Integrity Validation** - Comprehensive cryptographic key validation and signature verification
 - 📦 **Lightweight** - Minimal dependencies and optimized for performance
 - 🎯 **TypeScript** - Full TypeScript support with detailed type definitions
 - 🔄 **New Architecture** - Compatible with React Native's new architecture
@@ -812,6 +813,51 @@ console.log('Recent logs:', logs);
 
 **For detailed logging documentation, see [docs/LOGGING.md](./docs/LOGGING.md).**
 
+### Key Integrity Validation
+
+#### `validateKeyIntegrity(keyAlias?: string): Promise<KeyIntegrityResult>`
+Performs comprehensive validation of key integrity including format checks, accessibility tests, signature validation, and hardware backing verification.
+
+#### `verifyKeySignature(data: string, keyAlias?: string): Promise<SignatureResult>`
+Generates a cryptographic signature for the provided data using the specified key.
+
+#### `validateSignature(data: string, signature: string, keyAlias?: string): Promise<SignatureValidationResult>`
+Validates a signature against the original data using the public key.
+
+#### `getKeyAttributes(keyAlias?: string): Promise<KeyAttributesResult>`
+Retrieves detailed attributes and security properties of the specified key.
+
+**Example:**
+```javascript
+import { 
+  validateKeyIntegrity, 
+  verifyKeySignature, 
+  validateSignature, 
+  getKeyAttributes 
+} from '@sbaiahmed1/react-native-biometrics';
+
+// Validate key integrity
+const integrityResult = await validateKeyIntegrity('my-key');
+console.log('Key valid:', integrityResult.valid);
+console.log('Hardware backed:', integrityResult.integrityChecks.hardwareBacked);
+
+// Generate and validate signature
+const data = 'Hello, secure world!';
+const signatureResult = await verifyKeySignature(data, 'my-key');
+if (signatureResult.success) {
+  const validationResult = await validateSignature(data, signatureResult.signature, 'my-key');
+  console.log('Signature valid:', validationResult.valid);
+}
+
+// Get key attributes
+const attributes = await getKeyAttributes('my-key');
+if (attributes.exists) {
+  console.log('Algorithm:', attributes.attributes.algorithm);
+  console.log('Key size:', attributes.attributes.keySize);
+  console.log('Security level:', attributes.attributes.securityLevel);
+}
+```
+
 ### Error Codes
 
 Common error codes returned by authentication methods:
@@ -970,7 +1016,7 @@ This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) 
 ### 🔄 In Progress
 
 - [ ] **Performance Optimization**: Optimize biometric operations and reduce latency
-- [ ] **Advanced Security Features**: Enhanced key integrity validation and cryptographic verification
+- [ ] **Advanced Security Features**: Enhanced security measures and validation
 
 ## 🙏 Acknowledgments
 

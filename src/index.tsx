@@ -99,6 +99,119 @@ export function deleteKeys(keyAlias?: string): Promise<KeyDeletionResult> {
     });
 }
 
+export function validateKeyIntegrity(
+  keyAlias?: string
+): Promise<KeyIntegrityResult> {
+  logger.debug('Validating key integrity', 'validateKeyIntegrity', {
+    keyAlias,
+  });
+  return ReactNativeBiometrics.validateKeyIntegrity(keyAlias)
+    .then((result) => {
+      logger.info(
+        'Key integrity validation completed',
+        'validateKeyIntegrity',
+        {
+          keyAlias,
+          valid: result.valid,
+          keyExists: result.keyExists,
+          integrityChecks: result.integrityChecks,
+        }
+      );
+      return result;
+    })
+    .catch((error) => {
+      logger.error(
+        'Key integrity validation failed',
+        'validateKeyIntegrity',
+        error,
+        { keyAlias }
+      );
+      throw error;
+    });
+}
+
+export function verifyKeySignature(
+  keyAlias: string = '',
+  data: string
+): Promise<SignatureResult> {
+  logger.debug('Verifying key signature', 'verifyKeySignature', {
+    keyAlias,
+    dataLength: data.length,
+  });
+  return ReactNativeBiometrics.verifyKeySignature(keyAlias, data)
+    .then((result) => {
+      logger.info(
+        'Key signature verification completed',
+        'verifyKeySignature',
+        {
+          keyAlias,
+          success: result.success,
+          hasSignature: !!result.signature,
+        }
+      );
+      return result;
+    })
+    .catch((error) => {
+      logger.error(
+        'Key signature verification failed',
+        'verifyKeySignature',
+        error,
+        { keyAlias }
+      );
+      throw error;
+    });
+}
+
+export function validateSignature(
+  keyAlias: string = '',
+  data: string,
+  signature: string
+): Promise<SignatureValidationResult> {
+  logger.debug('Validating signature', 'validateSignature', {
+    keyAlias,
+    dataLength: data.length,
+    signatureLength: signature.length,
+  });
+  return ReactNativeBiometrics.validateSignature(keyAlias, data, signature)
+    .then((result) => {
+      logger.info('Signature validation completed', 'validateSignature', {
+        keyAlias,
+        valid: result.valid,
+      });
+      return result;
+    })
+    .catch((error) => {
+      logger.error('Signature validation failed', 'validateSignature', error, {
+        keyAlias,
+      });
+      throw error;
+    });
+}
+
+export function getKeyAttributes(
+  keyAlias?: string
+): Promise<KeyAttributesResult> {
+  logger.debug('Getting key attributes', 'getKeyAttributes', { keyAlias });
+  return ReactNativeBiometrics.getKeyAttributes(keyAlias)
+    .then((result) => {
+      logger.info('Key attributes retrieved', 'getKeyAttributes', {
+        keyAlias,
+        exists: result.exists,
+        attributes: result.attributes,
+      });
+      return result;
+    })
+    .catch((error) => {
+      logger.error(
+        'Key attributes retrieval failed',
+        'getKeyAttributes',
+        error,
+        { keyAlias }
+      );
+      throw error;
+    });
+}
+
 // Key management configuration
 export function configureKeyAlias(keyAlias: string): Promise<void> {
   logger.debug('Configuring key alias', 'configureKeyAlias', { keyAlias });
@@ -282,6 +395,51 @@ export type KeyCreationResult = {
 
 export type KeyDeletionResult = {
   success: boolean;
+};
+
+export type KeyIntegrityResult = {
+  valid: boolean;
+  keyExists: boolean;
+  keyAttributes?: {
+    algorithm: string;
+    keySize: number;
+    creationDate?: string;
+    securityLevel: string;
+  };
+  integrityChecks: {
+    keyFormatValid: boolean;
+    keyAccessible: boolean;
+    signatureTestPassed: boolean;
+    hardwareBacked: boolean;
+  };
+  error?: string;
+};
+
+export type SignatureResult = {
+  success: boolean;
+  signature?: string;
+  error?: string;
+};
+
+export type SignatureValidationResult = {
+  valid: boolean;
+  error?: string;
+};
+
+export type KeyAttributesResult = {
+  exists: boolean;
+  attributes?: {
+    algorithm: string;
+    keySize: number;
+    purposes: string[];
+    digests: string[];
+    padding: string[];
+    creationDate?: string;
+    securityLevel: string;
+    hardwareBacked: boolean;
+    userAuthenticationRequired: boolean;
+  };
+  error?: string;
 };
 
 export type GetAllKeysResult = {
