@@ -1,18 +1,16 @@
 import { StyleSheet, ScrollView, SafeAreaView } from 'react-native';
 import DebuggingExample from './DebuggingExample';
-import KeyAliasExample from './KeyAliasExample';
 import AuthExample from './AuthExample';
-import ColorDemo from './color-demo';
-import KeyIntegrityDemo from '../../src/examples/key-integrity-demo';
+import ColorDemo from './ColorExample';
+import CombinedBiometricsDemo from './CombinedBiometricsDemo';
 export default function App() {
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView>
-        <DebuggingExample />
         <AuthExample />
         <ColorDemo />
-        <KeyAliasExample />
-        <KeyIntegrityDemo />
+        <CombinedBiometricsDemo />
+        <DebuggingExample />
       </ScrollView>
     </SafeAreaView>
   );

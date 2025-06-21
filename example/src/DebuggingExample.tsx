@@ -77,7 +77,6 @@ const DebuggingExample: React.FC = () => {
 
     return (
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Diagnostic Information</Text>
         <View style={styles.infoContainer}>
           <Text style={styles.infoItem}>
             Platform: {diagnosticInfo.platform}

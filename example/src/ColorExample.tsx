@@ -96,42 +96,44 @@ const ColorDemo: React.FC<ColorDemoProps> = ({
     <View style={styles.container}>
       <Text style={styles.title}>{title}</Text>
 
-      <View style={styles.controls}>
-        <TouchableOpacity
-          style={[
-            styles.button,
-            colorsEnabled ? styles.buttonActive : styles.buttonInactive,
-          ]}
-          onPress={toggleColors}
+      <View style={styles.section}>
+        <View style={styles.controls}>
+          <TouchableOpacity
+            style={[
+              styles.button,
+              colorsEnabled ? styles.buttonActive : styles.buttonInactive,
+            ]}
+            onPress={toggleColors}
+          >
+            <Text style={styles.buttonText}>
+              Colors: {colorsEnabled ? 'ON' : 'OFF'}
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.button} onPress={runColorDemo}>
+            <Text style={styles.buttonText}>Run Demo</Text>
+          </TouchableOpacity>
+        </View>
+
+        <ScrollView
+          style={[styles.output, !logOutput.length && styles.displayNone]}
         >
-          <Text style={styles.buttonText}>
-            Colors: {colorsEnabled ? 'ON' : 'OFF'}
+          {logOutput.map((line, index) => (
+            <Text key={index} style={styles.outputLine}>
+              {line}
+            </Text>
+          ))}
+        </ScrollView>
+
+        <View style={styles.note}>
+          <Text style={styles.noteText}>
+            💡 Check your console/debugger to see the actual colored output!
           </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.button} onPress={runColorDemo}>
-          <Text style={styles.buttonText}>Run Demo</Text>
-        </TouchableOpacity>
-      </View>
-
-      <ScrollView
-        style={[styles.output, !logOutput.length && styles.displayNone]}
-      >
-        {logOutput.map((line, index) => (
-          <Text key={index} style={styles.outputLine}>
-            {line}
+          <Text style={styles.noteText}>
+            Colors are visible in Metro bundler console, React Native debugger,
+            and development tools that support ANSI color codes.
           </Text>
-        ))}
-      </ScrollView>
-
-      <View style={styles.note}>
-        <Text style={styles.noteText}>
-          💡 Check your console/debugger to see the actual colored output!
-        </Text>
-        <Text style={styles.noteText}>
-          Colors are visible in Metro bundler console, React Native debugger,
-          and development tools that support ANSI color codes.
-        </Text>
+        </View>
       </View>
     </View>
   );
@@ -140,8 +142,19 @@ const ColorDemo: React.FC<ColorDemoProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 20,
     backgroundColor: '#f5f5f5',
+  },
+  section: {
+    backgroundColor: 'white',
+    marginBottom: 15,
+    padding: 20,
+    marginHorizontal: 15,
+    borderRadius: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   displayNone: { display: 'none' },
   title: {

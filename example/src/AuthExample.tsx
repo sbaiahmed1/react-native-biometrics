@@ -82,45 +82,47 @@ const AuthExample = () => {
   };
 
   return (
-    <View style={styles.section}>
+    <View style={styles.container}>
       <Text style={styles.title}>React Native Biometrics</Text>
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Biometric Sensor</Text>
-        <Text style={styles.info}>
-          Available: {sensorInfo?.available ? 'Yes' : 'No'}
-        </Text>
-        {sensorInfo?.biometryType && (
-          <Text style={styles.info}>Type: {sensorInfo.biometryType}</Text>
-        )}
-        {sensorInfo?.error && (
-          <Text style={styles.error}>Error: {sensorInfo.error}</Text>
-        )}
-      </View>
-
-      <View style={styles.buttonContainer}>
-        <TouchableOpacity
-          style={[styles.button, isLoading && styles.buttonDisabled]}
-          onPress={handleAuthenticate}
-          disabled={isLoading || !sensorInfo?.available}
-        >
-          <Text style={styles.buttonText}>
-            {isLoading ? 'Processing...' : 'Authenticate'}
+        <View>
+          <Text style={styles.sectionTitle}>Biometric Sensor</Text>
+          <Text style={styles.info}>
+            Available: {sensorInfo?.available ? 'Yes' : 'No'}
           </Text>
-        </TouchableOpacity>
+          {sensorInfo?.biometryType && (
+            <Text style={styles.info}>Type: {sensorInfo.biometryType}</Text>
+          )}
+          {sensorInfo?.error && (
+            <Text style={styles.error}>Error: {sensorInfo.error}</Text>
+          )}
+        </View>
 
-        <TouchableOpacity
-          style={[
-            styles.button,
-            styles.enhancedButton,
-            isLoading && styles.buttonDisabled,
-          ]}
-          onPress={handleAuthenticateWithOptions}
-          disabled={isLoading || !sensorInfo?.available}
-        >
-          <Text style={styles.buttonText}>
-            {isLoading ? 'Processing...' : 'Enhanced Auth'}
-          </Text>
-        </TouchableOpacity>
+        <View style={styles.buttonContainer}>
+          <TouchableOpacity
+            style={[styles.button, isLoading && styles.buttonDisabled]}
+            onPress={handleAuthenticate}
+            disabled={isLoading || !sensorInfo?.available}
+          >
+            <Text style={styles.buttonText}>
+              {isLoading ? 'Processing...' : 'Authenticate'}
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.button,
+              styles.enhancedButton,
+              isLoading && styles.buttonDisabled,
+            ]}
+            onPress={handleAuthenticateWithOptions}
+            disabled={isLoading || !sensorInfo?.available}
+          >
+            <Text style={styles.buttonText}>
+              {isLoading ? 'Processing...' : 'Enhanced Auth'}
+            </Text>
+          </TouchableOpacity>
+        </View>
       </View>
     </View>
   );
@@ -129,6 +131,10 @@ const AuthExample = () => {
 export default AuthExample;
 
 const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#f5f5f5',
+  },
   result: {
     color: 'red',
   },
