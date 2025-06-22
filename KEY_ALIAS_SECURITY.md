@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document describes the security enhancement that replaces hardcoded key aliases with configurable, app-specific key aliases in the React Native Biometrics library.
+This document describes the comprehensive security enhancements in the React Native Biometrics library, including configurable app-specific key aliases, advanced key integrity validation, signature verification, and enhanced logging capabilities for security monitoring.
 
 ## Security Issue Fixed
 
@@ -29,21 +29,35 @@ const defaultAlias = await getDefaultKeyAlias();
 
 // Configure using a config object
 await configure({
-  keyAlias: 'com.myapp.biometric.main'
+  keyAlias: 'com.myapp.biometric.main',
+  keyPrefix: 'com.myapp.secure'
 });
+
+// Enable security logging for monitoring
+import { setDebugMode, enableLogging, LogLevel } from '@sbaiahmed1/react-native-biometrics';
+
+await setDebugMode(true);
+enableLogging(true);
+setLogLevel(LogLevel.INFO);
 ```
 
 ### Enhanced Key Management
 
 ```typescript
 // Create keys with default (configured) alias
-await createKeys();
+const keyResult = await createKeys();
+console.log('Public key:', keyResult.publicKey);
 
 // Create keys with a specific alias
 await createKeys('com.myapp.biometric.backup');
 
+// Get all keys for audit purposes
+const allKeys = await getAllKeys();
+console.log('Total keys:', allKeys.keys.length);
+
 // Delete keys with default (configured) alias
-await deleteKeys();
+const deleteResult = await deleteKeys();
+console.log('Deletion success:', deleteResult.success);
 
 // Delete keys with a specific alias
 await deleteKeys('com.myapp.biometric.backup');
@@ -99,6 +113,67 @@ await deleteKeys('com.myapp.biometric.backup');
    }
    ```
 
+## Advanced Security Features
+
+### Key Integrity Validation
+
+```typescript
+// Comprehensive key integrity check
+const integrityResult = await validateKeyIntegrity('com.myapp.biometric.main');
+
+if (integrityResult.valid) {
+  console.log('Key integrity verified');
+  console.log('Hardware-backed:', integrityResult.integrityChecks.hardwareBacked);
+  console.log('Key accessible:', integrityResult.integrityChecks.keyAccessible);
+  console.log('Signature test:', integrityResult.integrityChecks.signatureTestPassed);
+} else {
+  console.error('Key integrity compromised:', integrityResult.error);
+}
+```
+
+### Signature Verification
+
+```typescript
+// Generate and verify signatures for data integrity
+const data = 'sensitive transaction data';
+
+// Generate signature
+const signatureResult = await verifyKeySignature('com.myapp.biometric.main', data);
+if (signatureResult.success) {
+  const signature = signatureResult.signature;
+  
+  // Later, validate the signature
+  const validationResult = await validateSignature(
+    'com.myapp.biometric.main',
+    data,
+    signature
+  );
+  
+  if (validationResult.valid) {
+    console.log('Data integrity verified');
+  } else {
+    console.error('Data may have been tampered with');
+  }
+}
+```
+
+### Key Attributes and Security Level
+
+```typescript
+// Get detailed key attributes for security assessment
+const keyAttributes = await getKeyAttributes('com.myapp.biometric.main');
+
+if (keyAttributes.exists) {
+  const attrs = keyAttributes.attributes;
+  console.log('Algorithm:', attrs.algorithm);
+  console.log('Key size:', attrs.keySize);
+  console.log('Security level:', attrs.securityLevel);
+  console.log('Hardware-backed:', attrs.hardwareBacked);
+  console.log('User auth required:', attrs.userAuthenticationRequired);
+  console.log('Creation date:', attrs.creationDate);
+}
+```
+
 ## Security Best Practices
 
 ### 1. Use Descriptive Key Aliases
@@ -126,19 +201,41 @@ await createKeys(PAYMENT_KEY_ALIAS);
 
 ### 3. Key Rotation Strategy
 ```typescript
-// Implement key rotation
+// Implement secure key rotation with integrity validation
 const rotateKeys = async () => {
   const oldAlias = 'com.myapp.biometric.v1';
   const newAlias = 'com.myapp.biometric.v2';
   
-  // Create new keys
-  await createKeys(newAlias);
-  
-  // Update configuration
-  await configureKeyAlias(newAlias);
-  
-  // Delete old keys after successful migration
-  await deleteKeys(oldAlias);
+  try {
+    // Create new keys
+    const newKeyResult = await createKeys(newAlias);
+    
+    // Validate new key integrity
+    const integrityCheck = await validateKeyIntegrity(newAlias);
+    if (!integrityCheck.valid) {
+      throw new Error('New key integrity validation failed');
+    }
+    
+    // Update configuration
+    await configureKeyAlias(newAlias);
+    
+    // Test signature with new key
+    const testData = 'key rotation test';
+    const signatureTest = await verifyKeySignature(newAlias, testData);
+    if (!signatureTest.success) {
+      throw new Error('New key signature test failed');
+    }
+    
+    // Delete old keys after successful validation
+    await deleteKeys(oldAlias);
+    
+    console.log('Key rotation completed successfully');
+  } catch (error) {
+    console.error('Key rotation failed:', error);
+    // Rollback if necessary
+    await deleteKeys(newAlias);
+    throw error;
+  }
 };
 ```
 
@@ -166,20 +263,59 @@ const rotateKeys = async () => {
 'key#1'              // Contains #
 ```
 
-## Error Handling
+## Error Handling and Security Monitoring
+
+### Enhanced Error Handling
 
 ```typescript
+import { logger, getLogs, clearLogs } from '@sbaiahmed1/react-native-biometrics';
+
 try {
   await configureKeyAlias('com.myapp.biometric');
 } catch (error) {
   if (error.message.includes('Invalid key alias')) {
     // Handle validation error
-    console.error('Key alias format is invalid');
+    logger.error('Key alias format is invalid', 'configureKeyAlias', error);
+  } else if (error.message.includes('Key already exists')) {
+    // Handle key collision
+    logger.warn('Key alias already in use', 'configureKeyAlias', error);
   } else {
     // Handle other errors
-    console.error('Failed to configure key alias:', error);
+    logger.error('Failed to configure key alias', 'configureKeyAlias', error);
   }
 }
+```
+
+### Security Event Logging
+
+```typescript
+// Monitor security events
+const monitorSecurityEvents = async () => {
+  try {
+    // Enable comprehensive logging
+    await setDebugMode(true);
+    
+    // Perform security operations
+    await createKeys('com.myapp.secure.key');
+    const integrity = await validateKeyIntegrity('com.myapp.secure.key');
+    
+    // Get security logs for analysis
+    const logs = getLogs();
+    const securityLogs = logs.filter(log => 
+      log.context.includes('security') || 
+      log.context.includes('integrity') ||
+      log.context.includes('signature')
+    );
+    
+    // Send to security monitoring system
+    await sendToSecurityMonitoring(securityLogs);
+    
+    // Clear logs after processing
+    clearLogs();
+  } catch (error) {
+    logger.error('Security monitoring failed', 'monitorSecurityEvents', error);
+  }
+};
 ```
 
 ## Testing
@@ -208,15 +344,6 @@ it('should isolate keys by alias', async () => {
 });
 ```
 
-### Integration Tests
-```typescript
-// Test cross-app isolation (requires multiple test apps)
-it('should not access keys from other apps', async () => {
-  // This test would need to be run across multiple app contexts
-  // to verify that apps cannot access each other's keys
-});
-```
-
 ## Performance Considerations
 
 - **Configuration Persistence**: Key alias configuration is persisted locally and loaded once during module initialization
@@ -240,10 +367,99 @@ it('should not access keys from other apps', async () => {
 - ✅ Error handling implemented
 - ✅ Input validation added
 
+## Security Compliance and Auditing
+
+### Compliance Checklist
+
+```typescript
+// Security compliance validation
+const validateSecurityCompliance = async (keyAlias: string) => {
+  const compliance = {
+    keyExists: false,
+    hardwareBacked: false,
+    integrityValid: false,
+    signatureWorking: false,
+    userAuthRequired: false,
+    securityLevel: 'unknown'
+  };
+  
+  try {
+    // Check key existence and attributes
+    const attributes = await getKeyAttributes(keyAlias);
+    if (attributes.exists) {
+      compliance.keyExists = true;
+      compliance.hardwareBacked = attributes.attributes?.hardwareBacked || false;
+      compliance.userAuthRequired = attributes.attributes?.userAuthenticationRequired || false;
+      compliance.securityLevel = attributes.attributes?.securityLevel || 'unknown';
+    }
+    
+    // Validate key integrity
+    const integrity = await validateKeyIntegrity(keyAlias);
+    compliance.integrityValid = integrity.valid;
+    compliance.signatureWorking = integrity.integrityChecks.signatureTestPassed;
+    
+    return compliance;
+  } catch (error) {
+    logger.error('Security compliance check failed', 'validateSecurityCompliance', error);
+    return compliance;
+  }
+};
+```
+
+### Audit Trail
+
+```typescript
+// Generate security audit report
+const generateSecurityAudit = async () => {
+  const audit = {
+    timestamp: new Date().toISOString(),
+    keys: [],
+    securityEvents: [],
+    complianceStatus: 'unknown'
+  };
+  
+  try {
+    // Get all keys for audit
+    const allKeys = await getAllKeys();
+    
+    for (const key of allKeys.keys) {
+      const compliance = await validateSecurityCompliance(key.alias);
+      audit.keys.push({
+        alias: key.alias,
+        compliance
+      });
+    }
+    
+    // Get security-related logs
+    const logs = getLogs();
+    audit.securityEvents = logs.filter(log => 
+      log.level === 'error' || log.level === 'warn'
+    );
+    
+    // Determine overall compliance status
+    const allCompliant = audit.keys.every(key => 
+      key.compliance.keyExists && 
+      key.compliance.hardwareBacked && 
+      key.compliance.integrityValid
+    );
+    
+    audit.complianceStatus = allCompliant ? 'compliant' : 'non-compliant';
+    
+    return audit;
+  } catch (error) {
+    logger.error('Security audit generation failed', 'generateSecurityAudit', error);
+    return audit;
+  }
+};
+```
+
 ## Future Enhancements
 
 1. **Key Alias Encryption**: Encrypt key alias configuration in storage
-2. **Key Alias Rotation**: Automatic key alias rotation policies
-3. **Audit Logging**: Log key alias configuration changes
-4. **Remote Configuration**: Support for remote key alias configuration
-5. **Key Alias Templates**: Predefined templates for common use cases
+2. **Automatic Key Rotation**: Scheduled key rotation policies with integrity validation
+3. **Advanced Audit Logging**: Comprehensive security event logging with tamper detection
+4. **Remote Security Policies**: Support for remote security configuration and compliance policies
+5. **Key Alias Templates**: Predefined templates for industry-specific security requirements
+6. **Biometric Template Protection**: Enhanced protection for biometric template data
+7. **Multi-Factor Key Validation**: Combine multiple validation methods for enhanced security
+8. **Real-time Security Monitoring**: Live monitoring of key integrity and usage patterns
