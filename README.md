@@ -16,6 +16,12 @@
   </p>
 </div>
 
+## 🎬 Demo
+
+<div align="center">
+  <img src="./demo.gif" alt="React Native Biometrics Demo" width="300" />
+</div>
+
 ---
 
 ## ✨ Features
