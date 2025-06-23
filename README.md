@@ -31,12 +31,13 @@
 - 🎯 **TypeScript** - Full TypeScript support with detailed type definitions
 - 🔄 **New Architecture** - Compatible with React Native's new architecture
 - ✅ **Old Architecture** - Compatible with React Native's old architecture
+- 📱 **Modern** - Made with swift and kotlin for iOS and Android respectively
 
 ## 📋 Requirements
 
-| Platform | Minimum Version | Recommended |
-|----------|-----------------|-------------|
-| React Native | 0.68+ | 0.75+ |
+| Platform     | Minimum Version | Recommended |
+|--------------|-----------------|-------------|
+| React Native | 0.68+           | 0.75+       |
 
 ### Supported Biometric Types
 
@@ -67,11 +68,6 @@ yarn add @sbaiahmed1/react-native-biometrics
 2. **Install iOS dependencies:**
 ```bash
 cd ios && pod install
-```
-
-3. **For React Native 0.60+, the library will auto-link. For older versions:**
-```bash
-react-native link @sbaiahmed1/react-native-biometrics
 ```
 
 ### Android Setup
@@ -782,12 +778,12 @@ const clearStoredLogs = (): void => {
 
 **Example Usage:**
 ```typescript
-import { 
-  enableLogging, 
-  setLogLevel, 
-  LogLevel, 
+import {
+  enableLogging,
+  setLogLevel,
+  LogLevel,
   configureLogger,
-  getStoredLogs 
+  getStoredLogs
 } from '@sbaiahmed1/react-native-biometrics';
 
 // Enable logging with INFO level
@@ -829,11 +825,11 @@ Retrieves detailed attributes and security properties of the specified key.
 
 **Example:**
 ```javascript
-import { 
-  validateKeyIntegrity, 
-  verifyKeySignature, 
-  validateSignature, 
-  getKeyAttributes 
+import {
+  validateKeyIntegrity,
+  verifyKeySignature,
+  validateSignature,
+  getKeyAttributes
 } from '@sbaiahmed1/react-native-biometrics';
 
 // Validate key integrity
