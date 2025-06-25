@@ -52,10 +52,10 @@ object BiometricUtils {
     /**
      * Encodes public key to Base64 string
      */
-    fun encodePublicKeyToBase64(publicKey: java.security.PublicKey): String {
-        val publicKeyBytes = publicKey.encoded
-        return Base64.encodeToString(publicKeyBytes, Base64.DEFAULT)
-    }
++    fun encodePublicKeyToBase64(publicKey: java.security.PublicKey): String {
++        val publicKeyBytes = publicKey.encoded
++        return Base64.encodeToString(publicKeyBytes, Base64.NO_WRAP)
++    }
     
     /**
      * Gets biometric capabilities for the device
