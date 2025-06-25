@@ -16,81 +16,7 @@ class ReactNativeBiometrics: NSObject {
   }
 
   private func getKeyAlias(_ customAlias: String? = nil) -> String {
-    if let customAlias = customAlias {
-      return customAlias
-    }
-
-    if let configuredAlias = configuredKeyAlias {
-      return configuredAlias
-    }
-
-    // Generate app-specific default key alias
-    let bundleId = Bundle.main.bundleIdentifier ?? "unknown"
-    return "\(bundleId).ReactNativeBiometricsKey"
-  }
-
-  private func handleError(
-    _ error: ReactNativeBiometricsError,
-    reject: @escaping RCTPromiseRejectBlock
-  ) {
-    let errorInfo = error.errorInfo
-    ReactNativeBiometricDebug.debugLog("Error: \(errorInfo.code) - \(errorInfo.message)")
-    reject(errorInfo.code, errorInfo.message, error)
-  }
-
-  private func handleErrorWithResult(
-    _ error: ReactNativeBiometricsError,
-    resolve: @escaping RCTPromiseResolveBlock
-  ) {
-    let errorInfo = error.errorInfo
-    ReactNativeBiometricDebug.debugLog("Error: \(errorInfo.code) - \(errorInfo.message)")
-    resolve([
-      "success": false,
-      "error": errorInfo.message,
-      "errorCode": errorInfo.code
-    ])
-  }
-
-  // MARK: - Helper Methods
-
-  /**
-   * Determines the appropriate signature algorithm based on key type
-   * - Parameter keyRef: The SecKey reference
-   * - Returns: The appropriate SecKeyAlgorithm for the key type
-   */
-  private func getSignatureAlgorithm(for keyRef: SecKey) -> SecKeyAlgorithm {
-    let keyAttributes = SecKeyCopyAttributes(keyRef) as? [String: Any] ?? [:]
-    let keyType = keyAttributes[kSecAttrKeyType as String] as? String ?? "Unknown"
-
-    return keyType == kSecAttrKeyTypeRSA as String
-    ? .rsaSignatureMessagePKCS1v15SHA256
-    : .ecdsaSignatureMessageX962SHA256
-  }
-
-  /**
-   * Performs biometric authentication with consistent error handling
-   * - Parameters:
-   * - reason: The localized reason for authentication
-   * - completion: Completion handler with success status and optional error
-   */
-  private func performBiometricAuthentication(
-    reason: String,
-    completion: @escaping (Bool, Error?) -> Void
-  ) {
-    let context = LAContext()
-    context.localizedFallbackTitle = ""
-
-    var authError: NSError?
-    guard context.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: &authError) else {
-      if let laError = authError as? LAError {
-        completion(false, ReactNativeBiometricsError.fromLAError(laError))
-      } else {
-        completion(false, ReactNativeBiometricsError.biometryNotAvailable)
-      }
-      return
-    }
-
-    context.evaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, localizedReason: reason, reply: completion)
+    return generateKeyAlias(customAlias: customAlias, configuredAlias: configuredKeyAlias)
   }
 
   @objc
@@ -171,7 +97,7 @@ class ReactNativeBiometrics: NSObject {
             } else {
               biometricsError = .authenticationFailed
             }
-            self.handleError(biometricsError, reject: reject)
+            handleError(biometricsError, reject: reject)
           }
         }
       }
@@ -353,36 +279,19 @@ class ReactNativeBiometrics: NSObject {
     }
 
     // Delete existing key if it exists
-    let deleteQuery: [String: Any] = [
-      kSecClass as String: kSecClassKey,
-      kSecAttrApplicationTag as String: keyTagData
-    ]
+    let deleteQuery = createKeychainQuery(keyTag: keyTag, includeSecureEnclave: false)
     SecItemDelete(deleteQuery as CFDictionary)
     ReactNativeBiometricDebug.debugLog("Deleted existing key (if any)")
 
     // Create access control for biometric authentication
-    guard let accessControl = SecAccessControlCreateWithFlags(
-      kCFAllocatorDefault,
-      kSecAttrAccessibleWhenUnlockedThisDeviceOnly,
-      [.biometryAny, .privateKeyUsage],
-      nil
-    ) else {
+    guard let accessControl = createBiometricAccessControl() else {
       ReactNativeBiometricDebug.debugLog("createKeys failed - Could not create access control")
       handleError(.accessControlCreationFailed, reject: reject)
       return
     }
 
     // Key generation parameters
-    let keyAttributes: [String: Any] = [
-      kSecAttrKeyType as String: kSecAttrKeyTypeECSECPrimeRandom,
-      kSecAttrKeySizeInBits as String: 256,
-      kSecAttrTokenID as String: kSecAttrTokenIDSecureEnclave,
-      kSecPrivateKeyAttrs as String: [
-        kSecAttrIsPermanent as String: true,
-        kSecAttrApplicationTag as String: keyTagData,
-        kSecAttrAccessControl as String: accessControl
-      ]
-    ]
+    let keyAttributes = createKeyGenerationAttributes(keyTagData: keyTagData, accessControl: accessControl)
 
     var error: Unmanaged<CFError>?
     guard let privateKey = SecKeyCreateRandomKey(keyAttributes as CFDictionary, &error) else {
@@ -404,18 +313,11 @@ class ReactNativeBiometrics: NSObject {
     }
 
     // Export public key
-    guard let publicKeyData = SecKeyCopyExternalRepresentation(publicKey, &error) else {
-      let biometricsError = ReactNativeBiometricsError.keyExportFailed
-      if let cfError = error?.takeRetainedValue() {
-        ReactNativeBiometricDebug.debugLog("createKeys failed - Public key export error: \(cfError.localizedDescription)")
-      } else {
-        ReactNativeBiometricDebug.debugLog("createKeys failed - Public key export error: Unknown")
-      }
-      handleError(biometricsError, reject: reject)
+    guard let publicKeyBase64 = exportPublicKeyToBase64(publicKey) else {
+      ReactNativeBiometricDebug.debugLog("createKeys failed - Public key export error")
+      handleError(.keyExportFailed, reject: reject)
       return
     }
-
-    let publicKeyBase64 = (publicKeyData as Data).base64EncodedString()
 
     let result: [String: Any] = [
       "publicKey": publicKeyBase64
@@ -432,13 +334,9 @@ class ReactNativeBiometrics: NSObject {
     ReactNativeBiometricDebug.debugLog("deleteKeys called with keyAlias: \(keyAlias ?? "default")")
 
     let keyTag = getKeyAlias(keyAlias as String?)
-    let keyTagData = keyTag.data(using: .utf8)!
 
     // Query to find the key
-    let query: [String: Any] = [
-      kSecClass as String: kSecClassKey,
-      kSecAttrApplicationTag as String: keyTagData
-    ]
+    let query = createKeychainQuery(keyTag: keyTag, includeSecureEnclave: false)
 
     // Check if key exists first
     let checkStatus = SecItemCopyMatching(query as CFDictionary, nil)
@@ -518,10 +416,7 @@ class ReactNativeBiometrics: NSObject {
           // Get the public key from the private key reference
           if let publicKey = SecKeyCopyPublicKey(keyRef) {
             // Export the public key data
-            var error: Unmanaged<CFError>?
-            if let publicKeyData = SecKeyCopyExternalRepresentation(publicKey, &error) {
-              let publicKeyString = (publicKeyData as Data).base64EncodedString()
-
+            if let publicKeyString = exportPublicKeyToBase64(publicKey) {
               let keyInfo: [String: Any] = [
                 "alias": keyTagString,
                 "publicKey": publicKeyString
@@ -530,8 +425,7 @@ class ReactNativeBiometrics: NSObject {
               keysList.append(keyInfo)
               ReactNativeBiometricDebug.debugLog("Found key with tag: \(keyTagString)")
             } else {
-              let errorDescription = error?.takeRetainedValue().localizedDescription ?? "Unknown error"
-              ReactNativeBiometricDebug.debugLog("Failed to export public key for tag: \(keyTagString) - \(errorDescription)")
+              ReactNativeBiometricDebug.debugLog("Failed to export public key for tag: \(keyTagString)")
             }
           } else {
             ReactNativeBiometricDebug.debugLog("Failed to get public key for tag: \(keyTagString)")
@@ -566,19 +460,14 @@ class ReactNativeBiometrics: NSObject {
     ReactNativeBiometricDebug.debugLog("validateKeyIntegrity called with keyAlias: \(keyAlias ?? "default")")
 
     let keyTag = getKeyAlias(keyAlias as String?)
-    guard let keyTagData = keyTag.data(using: .utf8) else {
-      handleError(.dataEncodingFailed, reject: reject)
-      return
-    }
 
     // Query to find the key (including Secure Enclave token for proper key lookup)
-    let query: [String: Any] = [
-      kSecClass as String: kSecClassKey,
-      kSecAttrApplicationTag as String: keyTagData,
-      kSecAttrTokenID as String: kSecAttrTokenIDSecureEnclave,
-      kSecReturnRef as String: true,
-      kSecReturnAttributes as String: true
-    ]
+    let query = createKeychainQuery(
+      keyTag: keyTag,
+      includeSecureEnclave: true,
+      returnRef: true,
+      returnAttributes: true
+    )
 
     var result: CFTypeRef?
     let status = SecItemCopyMatching(query as CFDictionary, &result)
@@ -695,18 +584,13 @@ class ReactNativeBiometrics: NSObject {
     ReactNativeBiometricDebug.debugLog("verifyKeySignature called with keyAlias: \(keyAlias ?? "default")")
 
     let keyTag = getKeyAlias(keyAlias as String?)
-    guard let keyTagData = keyTag.data(using: .utf8) else {
-      handleError(.dataEncodingFailed, reject: reject)
-      return
-    }
 
     // Query to find the key (including Secure Enclave token for proper key lookup)
-    let query: [String: Any] = [
-      kSecClass as String: kSecClassKey,
-      kSecAttrApplicationTag as String: keyTagData,
-      kSecAttrTokenID as String: kSecAttrTokenIDSecureEnclave,
-      kSecReturnRef as String: true
-    ]
+    let query = createKeychainQuery(
+      keyTag: keyTag,
+      includeSecureEnclave: true,
+      returnRef: true
+    )
 
     var result: CFTypeRef?
     let status = SecItemCopyMatching(query as CFDictionary, &result)
@@ -787,18 +671,13 @@ class ReactNativeBiometrics: NSObject {
     }
 
     let keyTag = getKeyAlias(keyAlias as String?)
-    guard let keyTagData = keyTag.data(using: .utf8) else {
-      handleErrorWithResult(.dataEncodingFailed, resolve: resolve)
-      return
-    }
 
     // Query to find the key (including Secure Enclave token for proper key lookup)
-    let query: [String: Any] = [
-      kSecClass as String: kSecClassKey,
-      kSecAttrApplicationTag as String: keyTagData,
-      kSecAttrTokenID as String: kSecAttrTokenIDSecureEnclave,
-      kSecReturnRef as String: true
-    ]
+    let query = createKeychainQuery(
+      keyTag: keyTag,
+      includeSecureEnclave: true,
+      returnRef: true
+    )
 
     var result: CFTypeRef?
     let status = SecItemCopyMatching(query as CFDictionary, &result)
@@ -854,18 +733,14 @@ class ReactNativeBiometrics: NSObject {
     ReactNativeBiometricDebug.debugLog("getKeyAttributes called with keyAlias: \(keyAlias ?? "default")")
 
     let keyTag = getKeyAlias(keyAlias as String?)
-    guard let keyTagData = keyTag.data(using: .utf8) else {
-      handleErrorWithResult(.dataEncodingFailed, resolve: resolve)
-      return
-    }
 
     // Query to find the key
-    let query: [String: Any] = [
-      kSecClass as String: kSecClassKey,
-      kSecAttrApplicationTag as String: keyTagData,
-      kSecReturnRef as String: true,
-      kSecReturnAttributes as String: true
-    ]
+    let query = createKeychainQuery(
+      keyTag: keyTag,
+      includeSecureEnclave: false,
+      returnRef: true,
+      returnAttributes: true
+    )
 
     var result: CFTypeRef?
     let status = SecItemCopyMatching(query as CFDictionary, &result)
@@ -914,6 +789,4 @@ class ReactNativeBiometrics: NSObject {
     ReactNativeBiometricDebug.debugLog("getKeyAttributes completed successfully")
     resolve(["exists": true, "attributes": attributes])
   }
-
-  // debugLog method has been moved to ReactNativeBiometricDebug
 }

@@ -2,7 +2,7 @@ import Foundation
 import LocalAuthentication
 
 // MARK: - ReactNativeBiometricsError
-enum ReactNativeBiometricsError: Error {
+public enum ReactNativeBiometricsError: Error {
   case userCancel
   case userFallback
   case systemCancel
@@ -55,7 +55,7 @@ enum ReactNativeBiometricsError: Error {
 
   case unknown(Int)
 
-  var errorInfo: (code: String, message: String) {
+  public var errorInfo: (code: String, message: String) {
     switch self {
       // Authentication Errors
     case .userCancel:
@@ -161,7 +161,7 @@ enum ReactNativeBiometricsError: Error {
     }
   }
 
-  static func fromLAError(_ error: LAError) -> ReactNativeBiometricsError {
+  public static func fromLAError(_ error: LAError) -> ReactNativeBiometricsError {
     switch error.code {
     case .userCancel:
       return .userCancel
@@ -196,7 +196,7 @@ enum ReactNativeBiometricsError: Error {
     }
   }
 
-  static func fromOSStatus(_ status: OSStatus) -> ReactNativeBiometricsError {
+  public static func fromOSStatus(_ status: OSStatus) -> ReactNativeBiometricsError {
     switch status {
     case errSecItemNotFound:
       return .keyNotFound

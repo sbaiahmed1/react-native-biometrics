@@ -6,13 +6,13 @@ import LocalAuthentication
  * Utility class for handling debug logging and diagnostic information
  * in React Native Biometrics
  */
-class ReactNativeBiometricDebug {
+public class ReactNativeBiometricDebug {
   
   /**
    * Logs a debug message if debug mode is enabled
    * - Parameter message: The message to log
    */
-  static func debugLog(_ message: String) {
+  public static func debugLog(_ message: String) {
     if isDebugModeEnabled() {
       print("[ReactNativeBiometrics Debug] \(message)")
     }
