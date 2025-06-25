@@ -14,7 +14,7 @@ public class ReactNativeBiometricDebug {
    */
   public static func debugLog(_ message: String) {
     if isDebugModeEnabled() {
-      print("[ReactNativeBiometrics Debug] \(message)")
+      debugPrint("[ReactNativeBiometrics Debug] \(message)")
     }
   }
   
