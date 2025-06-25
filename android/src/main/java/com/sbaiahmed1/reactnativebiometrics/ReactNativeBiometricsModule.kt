@@ -44,14 +44,8 @@ class ReactNativeBiometricsModule(reactContext: ReactApplicationContext) :
     configuredKeyAlias = sharedPrefs.getString(KEY_ALIAS_PREF, null)
   }
 
-  private fun getKeyAlias(customAlias: String? = null): String {
-    return customAlias ?: configuredKeyAlias ?: getDefaultKeyAlias()
-  }
-
-  private fun getDefaultKeyAlias(): String {
-    // Generate app-specific default key alias
-    val packageName = context.packageName
-    return "$packageName.ReactNativeBiometricsKey"
+    private fun getKeyAlias(customAlias: String? = null): String {
+    return BiometricUtils.generateKeyAlias(customAlias, configuredKeyAlias, context)
   }
 
   override fun getName() = NAME
@@ -357,63 +351,27 @@ class ReactNativeBiometricsModule(reactContext: ReactApplicationContext) :
   // MARK: - Private Helper Methods
 
   private fun getBiometricCapabilities(): com.facebook.react.bridge.WritableArray {
-    val capabilities = Arguments.createArray()
-    val biometricManager = BiometricManager.from(context)
-
-    when (biometricManager.canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_STRONG)) {
-      BiometricManager.BIOMETRIC_SUCCESS -> {
-        capabilities.pushString("Fingerprint")
-        // Note: Android doesn't distinguish between different biometric types in BiometricManager
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
-          capabilities.pushString("Face")
-          capabilities.pushString("Iris")
-        }
-      }
-      else -> capabilities.pushString("None")
-    }
-
-    return capabilities
+    return BiometricUtils.getBiometricCapabilities(context)
   }
 
   private fun getSecurityLevel(): String {
-    return if (isSecureHardware()) {
-      "SecureHardware"
-    } else {
-      "Software"
-    }
+    return BiometricUtils.getSecurityLevel(context)
   }
 
   private fun isKeyguardSecure(): Boolean {
-    val keyguardManager = context.getSystemService(Context.KEYGUARD_SERVICE) as android.app.KeyguardManager
-    return keyguardManager.isKeyguardSecure
+    return BiometricUtils.isKeyguardSecure(context)
   }
 
   private fun getEnrolledBiometrics(): com.facebook.react.bridge.WritableArray {
-    val enrolled = Arguments.createArray()
-    val biometricManager = BiometricManager.from(context)
-
-    when (biometricManager.canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_STRONG)) {
-      BiometricManager.BIOMETRIC_SUCCESS -> {
-        enrolled.pushString("Biometric")
-      }
-    }
-
-    return enrolled
+    return BiometricUtils.getEnrolledBiometrics(context)
   }
 
   private fun isSecureHardware(): Boolean {
-    // Check if device has secure hardware for biometrics
-    return try {
-      val biometricManager = BiometricManager.from(context)
-      biometricManager.canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_STRONG) != BiometricManager.BIOMETRIC_ERROR_SECURITY_UPDATE_REQUIRED
-    } catch (e: Exception) {
-      false
-    }
+    return BiometricUtils.isSecureHardware(context)
   }
 
   private fun isDebugModeEnabled(): Boolean {
-    val sharedPrefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-    return sharedPrefs.getBoolean("debugMode", false)
+    return BiometricUtils.isDebugModeEnabled(context)
   }
 
   @ReactMethod
@@ -423,8 +381,7 @@ class ReactNativeBiometricsModule(reactContext: ReactApplicationContext) :
     try {
 
       // Check if key already exists
-      val keyStore = KeyStore.getInstance("AndroidKeyStore")
-      keyStore.load(null)
+      val keyStore = BiometricUtils.loadKeyStore()
 
       if (keyStore.containsAlias(actualKeyAlias)) {
         debugLog("Key already exists, deleting existing key")
@@ -434,24 +391,14 @@ class ReactNativeBiometricsModule(reactContext: ReactApplicationContext) :
       // Generate new key pair
       val keyPairGenerator = KeyPairGenerator.getInstance(KeyProperties.KEY_ALGORITHM_RSA, "AndroidKeyStore")
 
-      val keyGenParameterSpec = KeyGenParameterSpec.Builder(
-        actualKeyAlias,
-        KeyProperties.PURPOSE_SIGN or KeyProperties.PURPOSE_VERIFY
-      )
-        .setDigests(KeyProperties.DIGEST_SHA256)
-        .setSignaturePaddings(KeyProperties.SIGNATURE_PADDING_RSA_PKCS1)
-        .setKeySize(2048)
-        .setUserAuthenticationRequired(true)
-        .setUserAuthenticationValidityDurationSeconds(-1) // Require auth for every use
-        .build()
+      val keyGenParameterSpec = BiometricUtils.createKeyGenParameterSpec(actualKeyAlias)
 
       keyPairGenerator.initialize(keyGenParameterSpec)
       val keyPair = keyPairGenerator.generateKeyPair()
 
       // Get public key and encode it
       val publicKey = keyPair.public
-      val publicKeyBytes = publicKey.encoded
-      val publicKeyString = Base64.encodeToString(publicKeyBytes, Base64.DEFAULT)
+      val publicKeyString = BiometricUtils.encodePublicKeyToBase64(publicKey)
 
       val result = Arguments.createMap()
       result.putString("publicKey", publicKeyString)
@@ -490,8 +437,7 @@ class ReactNativeBiometricsModule(reactContext: ReactApplicationContext) :
     try {
 
       // Access the Android KeyStore
-      val keyStore = KeyStore.getInstance("AndroidKeyStore")
-      keyStore.load(null)
+      val keyStore = BiometricUtils.loadKeyStore()
 
       // Check if the key exists
       if (keyStore.containsAlias(actualKeyAlias)) {
@@ -536,8 +482,7 @@ class ReactNativeBiometricsModule(reactContext: ReactApplicationContext) :
   override fun getAllKeys(promise: Promise) {
     debugLog("getAllKeys called")
     try {
-      val keyStore = KeyStore.getInstance("AndroidKeyStore")
-      keyStore.load(null)
+      val keyStore = BiometricUtils.loadKeyStore()
 
       val keysList = Arguments.createArray()
       val aliases = keyStore.aliases()
@@ -551,8 +496,7 @@ class ReactNativeBiometricsModule(reactContext: ReactApplicationContext) :
             val keyEntry = keyStore.getEntry(alias, null)
             if (keyEntry is KeyStore.PrivateKeyEntry) {
               val publicKey = keyEntry.certificate.publicKey
-              val publicKeyBytes = publicKey.encoded
-              val publicKeyString = Base64.encodeToString(publicKeyBytes, Base64.DEFAULT)
+              val publicKeyString = BiometricUtils.encodePublicKeyToBase64(publicKey)
 
               val keyInfo = Arguments.createMap()
               keyInfo.putString("alias", alias)
@@ -613,8 +557,7 @@ class ReactNativeBiometricsModule(reactContext: ReactApplicationContext) :
     integrityChecks.putBoolean("hardwareBacked", false)
     
     try {
-      val keyStore = KeyStore.getInstance("AndroidKeyStore")
-      keyStore.load(null)
+      val keyStore = BiometricUtils.loadKeyStore()
       
       if (!keyStore.containsAlias(actualKeyAlias)) {
         debugLog("validateKeyIntegrity - Key not found")
@@ -638,16 +581,13 @@ class ReactNativeBiometricsModule(reactContext: ReactApplicationContext) :
       val publicKey = keyEntry.certificate.publicKey
       
       // Check key attributes
-      val keyAttributes = Arguments.createMap()
-      keyAttributes.putString("algorithm", privateKey.algorithm)
-      keyAttributes.putInt("keySize", getKeySize(privateKey))
-      keyAttributes.putString("securityLevel", if (isHardwareBacked(privateKey)) "Hardware" else "Software")
+      val keyAttributes = BiometricUtils.createKeyAttributesMap(privateKey)
       result.putMap("keyAttributes", keyAttributes)
       
       // Update integrity checks
       integrityChecks.putBoolean("keyFormatValid", true)
       integrityChecks.putBoolean("keyAccessible", true)
-      integrityChecks.putBoolean("hardwareBacked", isHardwareBacked(privateKey))
+      integrityChecks.putBoolean("hardwareBacked", BiometricUtils.isHardwareBacked(privateKey))
       
       // For authentication-required keys, we need biometric authentication before signature test
       val executor = ContextCompat.getMainExecutor(context)
@@ -755,8 +695,7 @@ class ReactNativeBiometricsModule(reactContext: ReactApplicationContext) :
     
     // Check if key exists (without accessing the private key which requires authentication)
     try {
-      val keyStore = KeyStore.getInstance("AndroidKeyStore")
-      keyStore.load(null)
+      val keyStore = BiometricUtils.loadKeyStore()
       
       if (!keyStore.containsAlias(actualKeyAlias)) {
         debugLog("verifyKeySignature failed - Key not found")
@@ -816,8 +755,7 @@ class ReactNativeBiometricsModule(reactContext: ReactApplicationContext) :
          debugLog("verifyKeySignature - Authentication succeeded, creating signature")
          
          try {
-           val keyStore = KeyStore.getInstance("AndroidKeyStore")
-           keyStore.load(null)
+           val keyStore = BiometricUtils.loadKeyStore()
            
            val keyEntry = keyStore.getEntry(actualKeyAlias, null)
            if (keyEntry !is KeyStore.PrivateKeyEntry) {
@@ -880,25 +818,17 @@ class ReactNativeBiometricsModule(reactContext: ReactApplicationContext) :
     val result = Arguments.createMap()
     
     // Enhanced input validation
-    if (data.isEmpty()) {
-      debugLog("validateSignature failed - Empty data provided")
+    val validationError = BiometricUtils.validateSignatureInput(data, signature)
+    if (validationError != null) {
+      debugLog("validateSignature failed - $validationError")
       result.putBoolean("valid", false)
-      result.putString("error", "Empty data provided")
-      promise.resolve(result)
-      return
-    }
-    
-    if (signature.isEmpty()) {
-      debugLog("validateSignature failed - Empty signature provided")
-      result.putBoolean("valid", false)
-      result.putString("error", "Empty signature provided")
+      result.putString("error", validationError)
       promise.resolve(result)
       return
     }
     
     try {
-      val keyStore = KeyStore.getInstance("AndroidKeyStore")
-      keyStore.load(null)
+      val keyStore = BiometricUtils.loadKeyStore()
       
       if (!keyStore.containsAlias(actualKeyAlias)) {
         debugLog("validateSignature failed - Key not found")
@@ -947,8 +877,7 @@ class ReactNativeBiometricsModule(reactContext: ReactApplicationContext) :
     val result = Arguments.createMap()
     
     try {
-      val keyStore = KeyStore.getInstance("AndroidKeyStore")
-      keyStore.load(null)
+      val keyStore = BiometricUtils.loadKeyStore()
       
       if (!keyStore.containsAlias(actualKeyAlias)) {
         debugLog("getKeyAttributes - Key not found")
@@ -969,9 +898,7 @@ class ReactNativeBiometricsModule(reactContext: ReactApplicationContext) :
       val privateKey = keyEntry.privateKey
       val publicKey = keyEntry.certificate.publicKey
       
-      val attributes = Arguments.createMap()
-      attributes.putString("algorithm", privateKey.algorithm)
-      attributes.putInt("keySize", getKeySize(privateKey))
+      val attributes = BiometricUtils.createKeyAttributesMap(privateKey)
       
       val purposes = Arguments.createArray()
       purposes.pushString("SIGN")
@@ -986,8 +913,6 @@ class ReactNativeBiometricsModule(reactContext: ReactApplicationContext) :
       padding.pushString("PKCS1")
       attributes.putArray("padding", padding)
       
-      attributes.putString("securityLevel", if (isHardwareBacked(privateKey)) "Hardware" else "Software")
-      attributes.putBoolean("hardwareBacked", isHardwareBacked(privateKey))
       attributes.putBoolean("userAuthenticationRequired", true)
       
       result.putBoolean("exists", true)
@@ -1004,44 +929,9 @@ class ReactNativeBiometricsModule(reactContext: ReactApplicationContext) :
     }
   }
   
-  private fun getKeySize(key: java.security.Key): Int {
-    return when (key.algorithm) {
-      "RSA" -> {
-        try {
-          val rsaKey = key as java.security.interfaces.RSAKey
-          rsaKey.modulus.bitLength()
-        } catch (e: Exception) {
-          2048 // Default RSA key size
-        }
-      }
-      "EC" -> {
-        try {
-          val ecKey = key as java.security.interfaces.ECKey
-          ecKey.params.order.bitLength()
-        } catch (e: Exception) {
-          256 // Default EC key size
-        }
-      }
-      else -> 0
-    }
-  }
-  
-  private fun isHardwareBacked(key: java.security.Key): Boolean {
-    return try {
-      // Check if the key is hardware-backed
-      val keyInfo = android.security.keystore.KeyInfo::class.java
-        .getDeclaredMethod("getInstance", java.security.Key::class.java)
-        .invoke(null, key) as android.security.keystore.KeyInfo
-      keyInfo.isInsideSecureHardware
-    } catch (e: Exception) {
-      // If we can't determine, assume software-backed
-      false
-    }
-  }
+
 
   private fun debugLog(message: String) {
-    if (isDebugModeEnabled()) {
-      android.util.Log.d("ReactNativeBiometrics Debug", message)
-    }
+    BiometricUtils.debugLog(context, message)
   }
 }
