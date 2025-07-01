@@ -33,9 +33,14 @@ const AuthExample = () => {
     setIsLoading(true);
     try {
       const result = await simplePrompt('Please authenticate to continue');
-      console.log('result', result);
-
-      Alert.alert('Success', 'Authentication successful!');
+      if (result.success) {
+        Alert.alert('Success', 'Enhanced authentication successful!');
+      } else {
+        Alert.alert(
+          'Failed',
+          `Authentication failed: ${result.error || 'Unknown error'}`
+        );
+      }
     } catch (error) {
       console.log('error', error);
 

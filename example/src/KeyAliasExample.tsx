@@ -184,6 +184,7 @@ export default function KeyAliasExample() {
         <Text style={styles.sectionTitle}>Configure Key Alias</Text>
         <TextInput
           style={styles.input}
+          placeholderTextColor={'black'}
           placeholder="Enter custom key alias (e.g., myapp.biometric.key)"
           value={customKeyAlias}
           onChangeText={setCustomKeyAlias}
@@ -317,6 +318,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#ddd',
     borderRadius: 8,
+    color: 'black',
     padding: 12,
     marginBottom: 15,
     fontSize: 16,

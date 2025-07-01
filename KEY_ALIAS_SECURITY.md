@@ -6,12 +6,7 @@ This document describes the comprehensive security enhancements in the React Nat
 
 ## Security Issue Fixed
 
-### Previous Implementation (Vulnerable)
-- **Hardcoded Key Alias**: All apps using this library shared the same key alias `"ReactNativeBiometricsKey"`
-- **Security Risk**: Multiple apps could potentially access each other's biometric keys
-- **Collision Risk**: Apps could overwrite each other's keys in the secure storage
-
-### New Implementation (Secure)
+### Implementation (Secure)
 - **App-Specific Default**: Each app gets a unique default key alias based on bundle ID (iOS) or package name (Android)
 - **Configurable Aliases**: Developers can set custom key aliases for different use cases
 - **Isolation**: Each app's biometric keys are properly isolated
@@ -349,12 +344,6 @@ it('should isolate keys by alias', async () => {
 - **Configuration Persistence**: Key alias configuration is persisted locally and loaded once during module initialization
 - **No Network Calls**: All key alias operations are local
 - **Minimal Overhead**: Key alias resolution adds negligible performance overhead
-
-## Backward Compatibility
-
-- **Existing Keys**: Apps with existing keys using the old hardcoded alias will continue to work
-- **Gradual Migration**: Apps can migrate to new aliases at their own pace
-- **No Breaking Changes**: All existing API methods continue to work as before
 
 ## Security Audit Checklist
 

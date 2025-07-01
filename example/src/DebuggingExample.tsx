@@ -130,25 +130,26 @@ const DebuggingExample: React.FC = () => {
           <Text style={styles.subTitle}>Test Results:</Text>
           <Text style={styles.infoItem}>
             Sensor Available:{' '}
-            {testResult.results.sensorAvailable ? 'Yes' : 'No'}
+            {testResult?.results?.sensorAvailable ? 'Yes' : 'No'}
           </Text>
           <Text style={styles.infoItem}>
             Can Authenticate:{' '}
-            {testResult.results.canAuthenticate ? 'Yes' : 'No'}
+            {testResult?.results?.canAuthenticate ? 'Yes' : 'No'}
           </Text>
           <Text style={styles.infoItem}>
             Hardware Detected:{' '}
-            {testResult.results.hardwareDetected ? 'Yes' : 'No'}
+            {testResult?.results?.hardwareDetected ? 'Yes' : 'No'}
           </Text>
           <Text style={styles.infoItem}>
             Has Enrolled Biometrics:{' '}
-            {testResult.results.hasEnrolledBiometrics ? 'Yes' : 'No'}
+            {testResult?.results?.hasEnrolledBiometrics ? 'Yes' : 'No'}
           </Text>
           <Text style={styles.infoItem}>
-            Secure Hardware: {testResult.results.secureHardware ? 'Yes' : 'No'}
+            Secure Hardware:{' '}
+            {testResult?.results?.secureHardware ? 'Yes' : 'No'}
           </Text>
 
-          {testResult.errors.length > 0 && (
+          {testResult?.errors?.length > 0 && (
             <>
               <Text style={[styles.subTitle, styles.errorText]}>Errors:</Text>
               {testResult.errors.map((error, index) => (
@@ -159,7 +160,7 @@ const DebuggingExample: React.FC = () => {
             </>
           )}
 
-          {testResult.warnings.length > 0 && (
+          {testResult?.warnings?.length > 0 && (
             <>
               <Text style={[styles.subTitle, styles.warningText]}>
                 Warnings:

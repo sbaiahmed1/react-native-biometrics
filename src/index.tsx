@@ -21,7 +21,9 @@ export function isSensorAvailable(): Promise<BiometricSensorInfo> {
     });
 }
 
-export function simplePrompt(promptMessage: string): Promise<boolean> {
+export function simplePrompt(
+  promptMessage: string
+): Promise<BiometricAuthResult> {
   logger.debug('Starting simple biometric prompt', 'simplePrompt', {
     promptMessage,
   });

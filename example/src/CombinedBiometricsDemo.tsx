@@ -289,6 +289,7 @@ export default function CombinedBiometricsDemo() {
 
         <TextInput
           style={styles.input}
+          placeholderTextColor={'black'}
           placeholder="Enter custom key alias (optional)"
           value={customKeyAlias}
           onChangeText={(text) => {
@@ -309,6 +310,7 @@ export default function CombinedBiometricsDemo() {
         <TextInput
           style={styles.input}
           placeholder="Test data for signatures"
+          placeholderTextColor={'black'}
           value={testData}
           onChangeText={(text) => {
             setTestData(text);
@@ -548,6 +550,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#ddd',
     borderRadius: 8,
+    color: 'black',
     padding: 12,
     marginBottom: 15,
     fontSize: 16,
