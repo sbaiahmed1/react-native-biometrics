@@ -7,7 +7,11 @@ export interface Spec extends TurboModule {
     biometryType?: 'Biometrics' | 'FaceID' | 'TouchID' | 'None' | 'Unknown';
     error?: string;
   }>;
-  simplePrompt(promptMessage: string): Promise<boolean>;
+  simplePrompt(promptMessage: string): Promise<{
+    success: boolean;
+    error?: string;
+    errorCode?: string;
+  }>;
   authenticateWithOptions(options: {
     title?: string;
     subtitle?: string;
