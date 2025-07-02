@@ -61,6 +61,17 @@ android {
         "generated/jni"
       ]
     }
+    
+    // Support for both old and new architecture
+    if (project.findProperty("newArchEnabled") == "true") {
+      main {
+        java.srcDirs += ["src/newarch/java"]
+      }
+    } else {
+      main {
+        java.srcDirs += ["src/oldarch/java"]
+      }
+    }
   }
 }
 

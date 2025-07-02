@@ -7,6 +7,10 @@ import com.facebook.react.module.model.ReactModuleInfo
 import com.facebook.react.module.model.ReactModuleInfoProvider
 import java.util.HashMap
 
+/**
+ * New Architecture (TurboModule) package implementation
+ * This extends BaseReactPackage for TurboModule support
+ */
 class ReactNativeBiometricsPackage : BaseReactPackage() {
   override fun getModule(name: String, reactContext: ReactApplicationContext): NativeModule? {
     return if (name == ReactNativeBiometricsModule.NAME) {
