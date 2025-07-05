@@ -183,24 +183,14 @@ class ReactNativeBiometrics: NSObject {
               biometricsError = .authenticationFailed
             }
             
-            let errorInfo = biometricsError.errorInfo
-            ReactNativeBiometricDebug.debugLog("authenticateWithOptions authentication failed: \(errorInfo.message)")
-            var resultWithError = result
-            resultWithError["error"] = errorInfo.message
-            resultWithError["errorCode"] = errorInfo.code
-            resolve(resultWithError)
+            ReactNativeBiometricDebug.debugLog("authenticateWithOptions authentication failed: \(biometricsError.errorInfo.message)")
+            handleError(biometricsError, reject: reject)
           }
         }
       }
     } else {
       ReactNativeBiometricDebug.debugLog("Biometric authentication not available - policy cannot be evaluated")
-      let errorInfo = ReactNativeBiometricsError.biometryNotAvailable.errorInfo
-      let result: [String: Any] = [
-        "success": false,
-        "error": errorInfo.message,
-        "errorCode": errorInfo.code
-      ]
-      resolve(result)
+      handleError(.biometryNotAvailable, reject: reject)
     }
   }
   

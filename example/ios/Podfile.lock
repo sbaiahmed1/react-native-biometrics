@@ -1654,7 +1654,7 @@ PODS:
     - React-logger (= 0.79.2)
     - React-perflogger (= 0.79.2)
     - React-utils (= 0.79.2)
-  - ReactNativeBiometrics (0.1.1):
+  - ReactNativeBiometrics (0.2.0):
     - DoubleConversion
     - glog
     - hermes-engine
@@ -1975,7 +1975,7 @@ SPEC CHECKSUMS:
   ReactAppDependencyProvider: 04d5eb15eb46be6720e17a4a7fa92940a776e584
   ReactCodegen: 041559ba76d00f6680dfa0916b3c791f4babe5ea
   ReactCommon: 1511ef100f1afa4c199fe52fe7a8d2529a41429a
-  ReactNativeBiometrics: e695e888413eea4b952282496aaee187ee41d342
+  ReactNativeBiometrics: 26eaa535c2c2aacccbb62ab074c2308da06530a9
   SocketRocket: d4aabe649be1e368d1318fdf28a022d714d65748
   Yoga: 50518ade05048235d91a78b803336dbb5b159d5d
 

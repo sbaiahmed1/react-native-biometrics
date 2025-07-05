@@ -149,11 +149,26 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
 
       override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
         debugLog("simplePrompt authentication error: $errorCode - $errString")
-        val errorResult = Arguments.createMap()
-        errorResult.putBoolean("success", false)
-        errorResult.putString("error", errString.toString())
-        errorResult.putString("errorCode", errorCode.toString())
-        promise.resolve(errorResult)
+        
+        // Map Android BiometricPrompt error codes to consistent error codes
+        val mappedErrorCode = when (errorCode) {
+          BiometricPrompt.ERROR_USER_CANCELED -> "USER_CANCELED"
+          BiometricPrompt.ERROR_NEGATIVE_BUTTON -> "USER_CANCELED"
+          BiometricPrompt.ERROR_HW_UNAVAILABLE -> "BIOMETRIC_UNAVAILABLE"
+          BiometricPrompt.ERROR_UNABLE_TO_PROCESS -> "BIOMETRIC_ERROR"
+          BiometricPrompt.ERROR_TIMEOUT -> "BIOMETRIC_TIMEOUT"
+          BiometricPrompt.ERROR_NO_SPACE -> "BIOMETRIC_ERROR"
+          BiometricPrompt.ERROR_CANCELED -> "SYSTEM_CANCELED"
+          BiometricPrompt.ERROR_LOCKOUT -> "BIOMETRIC_LOCKOUT"
+          BiometricPrompt.ERROR_VENDOR -> "BIOMETRIC_ERROR"
+          BiometricPrompt.ERROR_LOCKOUT_PERMANENT -> "BIOMETRIC_LOCKOUT_PERMANENT"
+          BiometricPrompt.ERROR_NO_BIOMETRICS -> "NO_BIOMETRICS_ENROLLED"
+          BiometricPrompt.ERROR_HW_NOT_PRESENT -> "NO_BIOMETRIC_HARDWARE"
+          BiometricPrompt.ERROR_NO_DEVICE_CREDENTIAL -> "NO_DEVICE_CREDENTIAL"
+          else -> "BIOMETRIC_ERROR"
+        }
+        
+        promise.reject(mappedErrorCode, errString.toString(), null)
       }
 
       override fun onAuthenticationFailed() {
@@ -171,19 +186,11 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
           biometricPrompt.authenticate(promptInfo)
         } catch (e: Exception) {
           debugLog("simplePrompt failed to show biometric prompt: ${e.message}")
-          val errorResult = Arguments.createMap()
-          errorResult.putBoolean("success", false)
-          errorResult.putString("error", "Failed to show biometric prompt: ${e.message}")
-          errorResult.putString("errorCode", "PROMPT_ERROR")
-          promise.resolve(errorResult)
+          promise.reject("PROMPT_ERROR", "Failed to show biometric prompt: ${e.message}", e)
         }
       } else {
         debugLog("simplePrompt - No valid activity available")
-        val errorResult = Arguments.createMap()
-        errorResult.putBoolean("success", false)
-        errorResult.putString("error", "No active activity available for biometric authentication")
-        errorResult.putString("errorCode", "NO_ACTIVITY")
-        promise.resolve(errorResult)
+        promise.reject("NO_ACTIVITY", "No active activity available for biometric authentication", null)
       }
     }
   }
@@ -463,11 +470,26 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
 
       override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
         debugLog("authenticateWithOptions authentication error: $errorCode - $errString")
-        val errorResult = Arguments.createMap()
-        errorResult.putBoolean("success", false)
-        errorResult.putString("error", errString.toString())
-        errorResult.putString("errorCode", errorCode.toString())
-        promise.resolve(errorResult)
+        
+        // Map Android BiometricPrompt error codes to consistent error codes
+        val mappedErrorCode = when (errorCode) {
+          BiometricPrompt.ERROR_USER_CANCELED -> "USER_CANCELED"
+          BiometricPrompt.ERROR_NEGATIVE_BUTTON -> "USER_CANCELED"
+          BiometricPrompt.ERROR_HW_UNAVAILABLE -> "BIOMETRIC_UNAVAILABLE"
+          BiometricPrompt.ERROR_UNABLE_TO_PROCESS -> "BIOMETRIC_ERROR"
+          BiometricPrompt.ERROR_TIMEOUT -> "BIOMETRIC_TIMEOUT"
+          BiometricPrompt.ERROR_NO_SPACE -> "BIOMETRIC_ERROR"
+          BiometricPrompt.ERROR_CANCELED -> "SYSTEM_CANCELED"
+          BiometricPrompt.ERROR_LOCKOUT -> "BIOMETRIC_LOCKOUT"
+          BiometricPrompt.ERROR_VENDOR -> "BIOMETRIC_ERROR"
+          BiometricPrompt.ERROR_LOCKOUT_PERMANENT -> "BIOMETRIC_LOCKOUT_PERMANENT"
+          BiometricPrompt.ERROR_NO_BIOMETRICS -> "NO_BIOMETRICS_ENROLLED"
+          BiometricPrompt.ERROR_HW_NOT_PRESENT -> "NO_BIOMETRIC_HARDWARE"
+          BiometricPrompt.ERROR_NO_DEVICE_CREDENTIAL -> "NO_DEVICE_CREDENTIAL"
+          else -> "BIOMETRIC_ERROR"
+        }
+        
+        promise.reject(mappedErrorCode, errString.toString(), null)
       }
 
       override fun onAuthenticationFailed() {
@@ -485,19 +507,11 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
           biometricPrompt.authenticate(promptInfo)
         } catch (e: Exception) {
           debugLog("authenticateWithOptions failed to show biometric prompt: ${e.message}")
-          val errorResult = Arguments.createMap()
-          errorResult.putBoolean("success", false)
-          errorResult.putString("error", "Failed to show biometric prompt: ${e.message}")
-          errorResult.putString("errorCode", "PROMPT_ERROR")
-          promise.resolve(errorResult)
+          promise.reject("PROMPT_ERROR", "Failed to show biometric prompt: ${e.message}", e)
         }
       } else {
         debugLog("authenticateWithOptions - No valid activity available")
-        val errorResult = Arguments.createMap()
-        errorResult.putBoolean("success", false)
-        errorResult.putString("error", "No active activity available for biometric authentication")
-        errorResult.putString("errorCode", "NO_ACTIVITY")
-        promise.resolve(errorResult)
+        promise.reject("NO_ACTIVITY", "No active activity available for biometric authentication", null)
       }
     }
   }
@@ -701,14 +715,16 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
           }
         })
 
-        // Show biometric prompt
-        try {
-          biometricPrompt.authenticate(promptInfo)
-        } catch (e: Exception) {
-          debugLog("validateKeyIntegrity failed to show biometric prompt: ${e.message}")
-          result.putString("error", "Failed to show biometric prompt: ${e.message}")
-          result.putMap("integrityChecks", integrityChecks)
-          promise.resolve(result)
+        // Show biometric prompt on main thread
+        Handler(Looper.getMainLooper()).post {
+          try {
+            biometricPrompt.authenticate(promptInfo)
+          } catch (e: Exception) {
+            debugLog("validateKeyIntegrity failed to show biometric prompt: ${e.message}")
+            result.putString("error", "Failed to show biometric prompt: ${e.message}")
+            result.putMap("integrityChecks", integrityChecks)
+            promise.resolve(result)
+          }
         }
 
       } catch (e: Exception) {
@@ -732,11 +748,88 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
         return
       }
 
-      // For this simplified version, we'll just return key existence
-      val result = Arguments.createMap()
-      result.putBoolean("isValid", true)
-      result.putString("data", data)
-      promise.resolve(result)
+      val keyEntry = keyStore.getEntry(actualKeyAlias, null)
+      if (keyEntry !is KeyStore.PrivateKeyEntry) {
+        promise.reject("INVALID_KEY_TYPE", "Invalid key type", null)
+        return
+      }
+
+      val privateKey = keyEntry.privateKey
+      
+      // For authentication-required keys, we need biometric authentication before signing
+      val executor = ContextCompat.getMainExecutor(context)
+      val biometricManager = BiometricManager.from(context)
+      val biometricStatus = biometricManager.canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_STRONG)
+
+      val authenticators = if (biometricStatus == BiometricManager.BIOMETRIC_SUCCESS) {
+        BiometricManager.Authenticators.BIOMETRIC_STRONG
+      } else {
+        BiometricManager.Authenticators.DEVICE_CREDENTIAL
+      }
+
+      val promptInfoBuilder = BiometricPrompt.PromptInfo.Builder()
+        .setTitle("Authenticate to sign data")
+        .setSubtitle("Please verify your identity to generate signature")
+        .setAllowedAuthenticators(authenticators)
+
+      if (authenticators == BiometricManager.Authenticators.BIOMETRIC_STRONG) {
+        promptInfoBuilder.setNegativeButtonText("Cancel")
+      }
+
+      val promptInfo = promptInfoBuilder.build()
+
+      val activity = context.currentActivity as? FragmentActivity
+      if (activity == null || activity.isFinishing || activity.isDestroyed) {
+        debugLog("verifyKeySignature failed - No valid activity available")
+        promise.reject("NO_ACTIVITY", "No valid activity available for biometric authentication", null)
+        return
+      }
+
+      val biometricPrompt = BiometricPrompt(activity, executor, object : BiometricPrompt.AuthenticationCallback() {
+        override fun onAuthenticationSucceeded(authResult: BiometricPrompt.AuthenticationResult) {
+          debugLog("verifyKeySignature - Authentication succeeded, generating signature")
+
+          try {
+            val signature = Signature.getInstance("SHA256withRSA")
+            signature.initSign(privateKey)
+            signature.update(data.toByteArray())
+            val signatureBytes = signature.sign()
+            val signatureString = Base64.encodeToString(signatureBytes, Base64.DEFAULT)
+
+            val result = Arguments.createMap()
+            result.putBoolean("success", true)
+            result.putString("signature", signatureString)
+            result.putString("data", data)
+            debugLog("verifyKeySignature completed successfully")
+            promise.resolve(result)
+
+          } catch (e: Exception) {
+            debugLog("verifyKeySignature - Signature generation failed: ${e.message}")
+            promise.reject("SIGNATURE_GENERATION_ERROR", "Failed to generate signature: ${e.message}", e)
+          }
+        }
+
+        override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
+          debugLog("verifyKeySignature - Authentication error: $errorCode - $errString")
+          promise.reject("AUTHENTICATION_ERROR", "Authentication failed: $errString", null)
+        }
+
+        override fun onAuthenticationFailed() {
+          debugLog("verifyKeySignature - Authentication failed - allowing retry")
+          // Do not resolve promise here - this allows the user to retry
+          // The promise will only be resolved on success or unrecoverable error
+        }
+      })
+
+      // Show biometric prompt on main thread
+      Handler(Looper.getMainLooper()).post {
+        try {
+          biometricPrompt.authenticate(promptInfo)
+        } catch (e: Exception) {
+          debugLog("verifyKeySignature failed to show biometric prompt: ${e.message}")
+          promise.reject("PROMPT_ERROR", "Failed to show biometric prompt: ${e.message}", e)
+        }
+      }
 
     } catch (e: Exception) {
       debugLog("verifyKeySignature failed - ${e.message}")
