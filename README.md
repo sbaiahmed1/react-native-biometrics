@@ -30,6 +30,7 @@
 - 📱 **Multiple Biometric Types** - Face ID, Touch ID, Fingerprint, and more
 - 🛠️ **Advanced Options** - Customizable prompts, fallback options, and device credentials
 - 🔑 **Key Management** - Create and manage cryptographic keys for secure operations
+- 🛡️ **Device Integrity** - Detect compromised devices (rooted/jailbroken) for enhanced security
 - 🐛 **Debug Tools** - Comprehensive diagnostic and testing utilities
 - 📝 **Centralized Logging** - Advanced logging system for debugging and monitoring
 - 🔐 **Key Integrity Validation** - Comprehensive cryptographic key validation and signature verification
@@ -647,6 +648,85 @@ type GetAllKeysResult = {
   }>;
 }
 ```
+
+### Device Security
+
+#### `getDeviceIntegrityStatus()`
+
+Checks the integrity and security status of the device, including detection of compromised devices (rooted/jailbroken).
+
+```typescript
+const getDeviceIntegrityStatus = (): Promise<DeviceIntegrityResult> => {
+};
+
+type DeviceIntegrityResult = {
+  // Platform-specific properties
+  isRooted?: boolean;           // 🤖 ANDROID ONLY: Whether device is rooted
+  isJailbroken?: boolean;       // 🍎 iOS ONLY: Whether device is jailbroken
+  isKeyguardSecure?: boolean;   // 🤖 ANDROID ONLY: Whether device lock is secure
+  hasSecureHardware?: boolean;  // 🤖 ANDROID ONLY: Whether secure hardware is available
+  
+  // Cross-platform properties
+  isCompromised: boolean;       // 🤖🍎 Overall compromise status (always present)
+  riskLevel: 'NONE' | 'LOW' | 'MEDIUM' | 'HIGH' | 'UNKNOWN';  // 🤖🍎 Risk assessment (always present)
+  error?: string;               // 🤖🍎 Error message if check failed
+}
+```
+
+**Example:**
+```javascript
+import { getDeviceIntegrityStatus } from '@sbaiahmed1/react-native-biometrics';
+
+const checkDeviceSecurity = async () => {
+  try {
+    const status = await getDeviceIntegrityStatus();
+
+    if (status.isCompromised) {
+      console.warn('⚠️ Device security compromised!');
+      console.log('Risk level:', status.riskLevel);
+
+      if (status.isRooted) {
+        // Android ONLY
+        console.log('📱 Device is rooted');
+      }
+
+      if (status.isJailbroken) {
+        // IOS ONLY
+        console.log('📱 Device is jailbroken');
+      }
+
+      // Handle compromised device (e.g., restrict functionality)
+      return false;
+    } else {
+      console.log('✅ Device security intact');
+      console.log('Risk level:', status.riskLevel);
+      return true;
+    }
+  } catch (error) {
+    console.error('💥 Device integrity check failed:', error);
+    return false;
+  }
+};
+```
+
+**Platform Compatibility:**
+
+| Property | Android | iOS | Description |
+|----------|---------|-----|-------------|
+| `isRooted` | ✅ | ❌ | Detects if Android device is rooted |
+| `isJailbroken` | ❌ | ✅ | Detects if iOS device is jailbroken |
+| `isKeyguardSecure` | ✅ | ❌ | Checks if device lock screen is secure |
+| `hasSecureHardware` | ✅ | ❌ | Verifies secure hardware availability |
+| `isCompromised` | ✅ | ✅ | Overall security compromise status |
+| `riskLevel` | ✅ | ✅ | Risk assessment level |
+| `error` | ✅ | ✅ | Error message if check fails |
+
+**Security Considerations:**
+- Device integrity checks are not foolproof and can be bypassed by sophisticated attackers
+- Use this as an additional security layer, not as the sole security measure
+- Consider implementing server-side validation for critical operations
+- The risk level assessment helps you make informed decisions about feature restrictions
+- Platform-specific properties (`isRooted`/`isJailbroken`) will be `undefined` on the opposite platform
 
 ### Debugging & Diagnostics
 

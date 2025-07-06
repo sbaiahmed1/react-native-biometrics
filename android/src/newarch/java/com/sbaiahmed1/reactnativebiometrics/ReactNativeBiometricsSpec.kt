@@ -26,4 +26,6 @@ abstract class ReactNativeBiometricsSpec(reactContext: ReactApplicationContext) 
   abstract fun getDiagnosticInfo(promise: Promise)
   abstract fun runBiometricTest(promise: Promise)
   abstract fun setDebugMode(enabled: Boolean, promise: Promise)
+  // Device security
+  abstract fun getDeviceIntegrityStatus(promise: Promise)
 }

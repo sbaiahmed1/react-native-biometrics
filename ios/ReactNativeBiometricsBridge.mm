@@ -75,4 +75,8 @@ RCT_EXTERN_METHOD(getKeyAttributes:
     resolver:(RCTPromiseResolveBlock)resolve
     rejecter:(RCTPromiseRejectBlock)reject)
 
+RCT_EXTERN_METHOD(getDeviceIntegrityStatus:
+    (RCTPromiseResolveBlock)resolve
+    rejecter:(RCTPromiseRejectBlock)reject)
+
 @end

@@ -3,6 +3,7 @@ import Foundation
 import Security
 import LocalAuthentication
 import React
+import UIKit
 
 /**
  * Determines the appropriate signature algorithm based on key type
@@ -187,4 +188,134 @@ public func exportPublicKeyToBase64(_ publicKey: SecKey) -> String? {
     return nil
   }
   return (publicKeyData as Data).base64EncodedString()
+}
+
+/**
+ * Checks if the device is jailbroken
+ * This performs multiple checks to detect jailbreak
+ */
+public func isDeviceJailbroken() -> Bool {
+  return checkJailbreakMethod1() || checkJailbreakMethod2() || checkJailbreakMethod3()
+}
+
+/**
+ * Check for common jailbreak files and directories
+ */
+private func checkJailbreakMethod1() -> Bool {
+  let jailbreakPaths = [
+    "/Applications/Cydia.app",
+    "/Library/MobileSubstrate/MobileSubstrate.dylib",
+    "/bin/bash",
+    "/usr/sbin/sshd",
+    "/etc/apt",
+    "/private/var/lib/apt/",
+    "/private/var/lib/cydia",
+    "/private/var/mobile/Library/SBSettings/Themes",
+    "/Library/MobileSubstrate/DynamicLibraries/Veency.plist",
+    "/Library/MobileSubstrate/DynamicLibraries/LiveClock.plist",
+    "/System/Library/LaunchDaemons/com.ikey.bbot.plist",
+    "/System/Library/LaunchDaemons/com.saurik.Cydia.Startup.plist",
+    "/Applications/RockApp.app",
+    "/Applications/Icy.app",
+    "/Applications/WinterBoard.app",
+    "/Applications/SBSettings.app",
+    "/Applications/MxTube.app",
+    "/Applications/IntelliScreen.app",
+    "/Applications/FakeCarrier.app",
+    "/Applications/blackra1n.app",
+    "/usr/bin/sshd",
+    "/usr/libexec/sftp-server",
+    "/usr/libexec/ssh-keysign",
+    "/var/cache/apt",
+    "/var/lib/apt",
+    "/var/lib/cydia",
+    "/var/log/syslog",
+    "/var/tmp/cydia.log",
+    "/bin/su",
+    "/usr/bin/su",
+    "/usr/sbin/frida-server",
+    "/usr/bin/cycript",
+    "/usr/local/bin/cycript",
+    "/usr/lib/libcycript.dylib",
+    "/System/Library/LaunchDaemons/com.openssh.sshd.plist"
+  ]
+  
+  for path in jailbreakPaths {
+    if FileManager.default.fileExists(atPath: path) {
+      return true
+    }
+  }
+  return false
+}
+
+/**
+ * Check if we can write to system directories (jailbroken devices allow this)
+ */
+private func checkJailbreakMethod2() -> Bool {
+  let testString = "jailbreak_test"
+  let testPaths = [
+    "/private/jailbreak_test.txt",
+    "/private/var/mobile/jailbreak_test.txt"
+  ]
+  
+  for path in testPaths {
+    do {
+      try testString.write(toFile: path, atomically: true, encoding: .utf8)
+      try FileManager.default.removeItem(atPath: path)
+      return true
+    } catch {
+      // Cannot write, continue
+    }
+  }
+  return false
+}
+
+/**
+ * Check for suspicious environment variables and system behavior
+ */
+private func checkJailbreakMethod3() -> Bool {
+  // Check for suspicious environment variables
+  if let dyldInsertLibraries = getenv("DYLD_INSERT_LIBRARIES") {
+    let libraries = String(cString: dyldInsertLibraries)
+    if libraries.contains("MobileSubstrate") || libraries.contains("cycript") {
+      return true
+    }
+  }
+  
+  // Check if we can open suspicious URLs (jailbroken devices may have custom URL schemes)
+  let suspiciousURLs = [
+    "cydia://package/com.example.package",
+    "sileo://package/com.example.package",
+    "zbra://package/com.example.package"
+  ]
+  
+  for urlString in suspiciousURLs {
+    if let url = URL(string: urlString) {
+      if UIApplication.shared.canOpenURL(url) {
+        return true
+      }
+    }
+  }
+  
+  return false
+}
+
+/**
+ * Checks if the device is compromised (jailbroken or has security issues)
+ */
+public func isDeviceCompromised() -> Bool {
+  return isDeviceJailbroken()
+}
+
+/**
+ * Gets device integrity status
+ */
+public func getDeviceIntegrityStatus() -> [String: Any] {
+  let isJailbroken = isDeviceJailbroken()
+  
+  return [
+    "isJailbroken": isJailbroken,
+    "isCompromised": isJailbroken,
+    "riskLevel": isJailbroken ? "HIGH" : "NONE"
+  ]
 }

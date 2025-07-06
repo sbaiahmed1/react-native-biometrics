@@ -18,10 +18,12 @@ import {
   verifyKeySignature,
   validateSignature,
   getKeyAttributes,
+  getDeviceIntegrityStatus,
   type KeyIntegrityResult,
   type SignatureResult,
   type SignatureValidationResult,
   type KeyAttributesResult,
+  type DeviceIntegrityResult,
 } from '@sbaiahmed1/react-native-biometrics';
 
 interface TestResult {
@@ -245,12 +247,40 @@ export default function CombinedBiometricsDemo() {
     }
   };
 
+  const handleDeviceIntegrityCheck = async () => {
+    setIsLoading(true);
+    try {
+      const result: DeviceIntegrityResult = await getDeviceIntegrityStatus();
+      addTestResult('Device Integrity Check', result, !result.isCompromised);
+
+      // Show alert with device status
+      const statusMessage = result.isCompromised
+        ? `⚠️ Device Compromised!\nRisk Level: ${result.riskLevel}\n${result.isRooted ? 'Device is rooted' : ''}${result.isJailbroken ? 'Device is jailbroken' : ''}`
+        : `✅ Device Secure\nRisk Level: ${result.riskLevel}`;
+
+      Alert.alert('Device Integrity Status', statusMessage);
+    } catch (error) {
+      addTestResult(
+        'Device Integrity Check',
+        null,
+        false,
+        error instanceof Error ? error.message : 'Unknown error'
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const runComprehensiveTest = async () => {
     setIsLoading(true);
     clearResults();
 
     const alias = customKeyAlias.trim() || currentKeyAlias;
     const tests = [
+      {
+        name: 'Device Integrity Check',
+        fn: () => handleDeviceIntegrityCheck(),
+      },
       { name: 'Create Keys', fn: () => handleCreateKeys(alias) },
       {
         name: 'Validate Key Integrity',
@@ -352,6 +382,20 @@ export default function CombinedBiometricsDemo() {
       {/* Testing Section */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Security Testing</Text>
+        <TouchableOpacity
+          style={[
+            styles.button,
+            styles.warningButton,
+            styles.largeButton,
+            isLoading && styles.buttonDisabled,
+          ]}
+          onPress={handleDeviceIntegrityCheck}
+          disabled={isLoading}
+        >
+          <Text style={[styles.buttonText, styles.darkText]}>
+            🛡️ Check Device Integrity
+          </Text>
+        </TouchableOpacity>
         <View style={styles.buttonRow}>
           <TouchableOpacity
             style={[

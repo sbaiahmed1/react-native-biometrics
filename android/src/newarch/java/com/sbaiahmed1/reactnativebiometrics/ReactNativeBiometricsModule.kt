@@ -95,4 +95,9 @@ class ReactNativeBiometricsModule(reactContext: ReactApplicationContext) :
   override fun setDebugMode(enabled: Boolean, promise: Promise) {
     sharedImpl.setDebugMode(enabled, promise)
   }
+  
+  @ReactMethod
+  override fun getDeviceIntegrityStatus(promise: Promise) {
+    sharedImpl.getDeviceIntegrityStatus(promise)
+  }
 }

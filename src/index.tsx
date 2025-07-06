@@ -333,6 +333,31 @@ export function setDebugMode(enabled: boolean): Promise<void> {
     });
 }
 
+export function getDeviceIntegrityStatus(): Promise<DeviceIntegrityResult> {
+  logger.debug('Getting device integrity status', 'getDeviceIntegrityStatus');
+
+  return ReactNativeBiometrics.getDeviceIntegrityStatus()
+    .then((result) => {
+      logger.info(
+        'Device integrity status retrieved',
+        'getDeviceIntegrityStatus',
+        {
+          isCompromised: result.isCompromised,
+          riskLevel: result.riskLevel,
+        }
+      );
+      return result;
+    })
+    .catch((error) => {
+      logger.error(
+        'Failed to get device integrity status',
+        'getDeviceIntegrityStatus',
+        error
+      );
+      throw error;
+    });
+}
+
 // Configuration types
 export type BiometricConfig = {
   keyAlias?: string;
@@ -473,6 +498,16 @@ export type BiometricTestResult = {
   };
   errors: string[];
   warnings: string[];
+};
+
+export type DeviceIntegrityResult = {
+  isRooted?: boolean;
+  isJailbroken?: boolean;
+  isKeyguardSecure?: boolean;
+  hasSecureHardware?: boolean;
+  isCompromised: boolean;
+  riskLevel: 'NONE' | 'LOW' | 'MEDIUM' | 'HIGH' | 'UNKNOWN';
+  error?: string;
 };
 
 // Export logging utilities

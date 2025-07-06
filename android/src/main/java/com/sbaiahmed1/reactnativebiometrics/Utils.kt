@@ -268,4 +268,134 @@ object BiometricUtils {
         
         return null
     }
+    
+    /**
+     * Checks if the device is rooted
+     * This performs multiple checks to detect root access
+     */
+    fun isDeviceRooted(context: Context): Boolean {
+        return checkRootMethod1() || checkRootMethod2() || checkRootMethod3(context)
+    }
+    
+    /**
+     * Check for common root binaries
+     */
+    private fun checkRootMethod1(): Boolean {
+        val rootPaths = arrayOf(
+            "/system/app/Superuser.apk",
+            "/sbin/su",
+            "/system/bin/su",
+            "/system/xbin/su",
+            "/data/local/xbin/su",
+            "/data/local/bin/su",
+            "/system/sd/xbin/su",
+            "/system/bin/failsafe/su",
+            "/data/local/su",
+            "/su/bin/su",
+            "/system/etc/init.d/99SuperSUDaemon",
+            "/dev/com.koushikdutta.superuser.daemon/",
+            "/system/xbin/daemonsu"
+        )
+        
+        for (path in rootPaths) {
+            if (java.io.File(path).exists()) {
+                return true
+            }
+        }
+        return false
+    }
+    
+    /**
+     * Check for dangerous properties
+     */
+    private fun checkRootMethod2(): Boolean {
+        val dangerousProps = mapOf(
+            "ro.debuggable" to "1",
+            "ro.secure" to "0"
+        )
+        
+        for ((prop, value) in dangerousProps) {
+            try {
+                val process = Runtime.getRuntime().exec("getprop $prop")
+                val reader = java.io.BufferedReader(java.io.InputStreamReader(process.inputStream))
+                val result = reader.readLine()
+                if (result != null && result == value) {
+                    return true
+                }
+            } catch (e: Exception) {
+                // Ignore exceptions
+            }
+        }
+        return false
+    }
+    
+    /**
+     * Check for root management apps
+     */
+    private fun checkRootMethod3(context: Context): Boolean {
+        val rootApps = arrayOf(
+            "com.noshufou.android.su",
+            "com.noshufou.android.su.elite",
+            "eu.chainfire.supersu",
+            "com.koushikdutta.superuser",
+            "com.thirdparty.superuser",
+            "com.yellowes.su",
+            "com.koushikdutta.rommanager",
+            "com.koushikdutta.rommanager.license",
+            "com.dimonvideo.luckypatcher",
+            "com.chelpus.lackypatch",
+            "com.ramdroid.appquarantine",
+            "com.ramdroid.appquarantinepro",
+            "com.devadvance.rootcloak",
+            "com.devadvance.rootcloakplus",
+            "de.robv.android.xposed.installer",
+            "com.saurik.substrate",
+            "com.zachspong.temprootremovejb",
+            "com.amphoras.hidemyroot",
+            "com.amphoras.hidemyrootadfree",
+            "com.formyhm.hiderootPremium",
+            "com.formyhm.hideroot"
+        )
+        
+        val packageManager = context.packageManager
+        for (packageName in rootApps) {
+            try {
+                packageManager.getPackageInfo(packageName, 0)
+                return true
+            } catch (e: Exception) {
+                // Package not found, continue
+            }
+        }
+        return false
+    }
+    
+    /**
+     * Checks if the device is compromised (rooted or has security issues)
+     */
+    fun isDeviceCompromised(context: Context): Boolean {
+        return isDeviceRooted(context) || !isKeyguardSecure(context) || !isSecureHardware(context)
+    }
+    
+    /**
+     * Gets device integrity status
+     */
+    fun getDeviceIntegrityStatus(context: Context): WritableMap {
+        val status = Arguments.createMap()
+        val isRooted = isDeviceRooted(context)
+        val isKeyguardSecure = isKeyguardSecure(context)
+        val hasSecureHardware = isSecureHardware(context)
+        
+        status.putBoolean("isRooted", isRooted)
+        status.putBoolean("isKeyguardSecure", isKeyguardSecure)
+        status.putBoolean("hasSecureHardware", hasSecureHardware)
+        status.putBoolean("isCompromised", isRooted || !isKeyguardSecure || !hasSecureHardware)
+        status.putString("riskLevel", when {
+            isRooted -> "HIGH"
+            !isKeyguardSecure -> "MEDIUM"
+            !hasSecureHardware -> "LOW"
+            else -> "NONE"
+        })
+        
+        return status
+    }
 }

@@ -1052,4 +1052,24 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
       false
     }
   }
+
+  fun getDeviceIntegrityStatus(promise: Promise) {
+    debugLog("getDeviceIntegrityStatus called")
+    
+    try {
+      val integrityStatus = BiometricUtils.getDeviceIntegrityStatus(context)
+      debugLog("Device integrity check completed - isCompromised: ${integrityStatus.getBoolean("isCompromised")}")
+      promise.resolve(integrityStatus)
+    } catch (e: Exception) {
+      debugLog("getDeviceIntegrityStatus failed - ${e.message}")
+      val errorResult = Arguments.createMap()
+      errorResult.putBoolean("isRooted", false)
+      errorResult.putBoolean("isKeyguardSecure", false)
+      errorResult.putBoolean("hasSecureHardware", false)
+      errorResult.putBoolean("isCompromised", true)
+      errorResult.putString("riskLevel", "UNKNOWN")
+      errorResult.putString("error", "Failed to check device integrity: ${e.message}")
+      promise.resolve(errorResult)
+    }
+  }
 }

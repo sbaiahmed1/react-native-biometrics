@@ -112,6 +112,15 @@ export interface Spec extends TurboModule {
   }>;
   setDebugMode(enabled: boolean): Promise<void>;
   getDefaultKeyAlias(): Promise<string>;
+  getDeviceIntegrityStatus(): Promise<{
+    isRooted?: boolean;
+    isJailbroken?: boolean;
+    isKeyguardSecure?: boolean;
+    hasSecureHardware?: boolean;
+    isCompromised: boolean;
+    riskLevel: 'NONE' | 'LOW' | 'MEDIUM' | 'HIGH' | 'UNKNOWN';
+    error?: string;
+  }>;
 }
 
 export default TurboModuleRegistry.getEnforcing<Spec>(

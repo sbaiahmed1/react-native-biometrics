@@ -783,4 +783,23 @@ class ReactNativeBiometrics: NSObject {
     ReactNativeBiometricDebug.debugLog("getKeyAttributes completed successfully")
     resolve(["exists": true, "attributes": attributes])
   }
+  
+  @objc
+  func getDeviceIntegrityStatus(_ resolver: @escaping RCTPromiseResolveBlock,
+                                rejecter reject: @escaping RCTPromiseRejectBlock) {
+    ReactNativeBiometricDebug.debugLog("getDeviceIntegrityStatus called")
+    
+    // Call the global function from Utils.swift
+    let integrityStatus: [String: Any] = {
+      let isJailbroken = isDeviceJailbroken()
+      return [
+        "isJailbroken": isJailbroken,
+        "isCompromised": isJailbroken,
+        "riskLevel": isJailbroken ? "HIGH" : "NONE"
+      ]
+    }()
+    
+    ReactNativeBiometricDebug.debugLog("Device integrity check completed - isCompromised: \(integrityStatus["isCompromised"] as? Bool ?? false)")
+    resolver(integrityStatus)
+  }
 }
