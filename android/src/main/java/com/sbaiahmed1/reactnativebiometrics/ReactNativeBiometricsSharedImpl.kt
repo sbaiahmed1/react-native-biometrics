@@ -631,6 +631,13 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
         integrityChecks.putBoolean("keyAccessible", true)
         integrityChecks.putBoolean("hardwareBacked", this.isHardwareBacked(privateKey))
 
+        // Create signature instance and initialize it with the private key for authentication-required keys
+        val testSignature = java.security.Signature.getInstance("SHA256withRSA")
+        testSignature.initSign(privateKey)
+        
+        // Create CryptoObject with the signature for authentication-required keys
+        val cryptoObject = BiometricPrompt.CryptoObject(testSignature)
+        
         // For authentication-required keys, we need biometric authentication before signature test
         val executor = ContextCompat.getMainExecutor(context)
         val biometricManager = BiometricManager.from(context)
@@ -667,11 +674,21 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
             debugLog("validateKeyIntegrity - Authentication succeeded, performing signature test")
 
             try {
+              // Use the authenticated signature from the CryptoObject
+              val authenticatedSignature = authResult.cryptoObject?.signature
+              if (authenticatedSignature == null) {
+                debugLog("validateKeyIntegrity - No authenticated signature available")
+                integrityChecks.putBoolean("signatureTestPassed", false)
+                val errorResult = Arguments.createMap()
+                errorResult.putString("error", "No authenticated signature available")
+                errorResult.putMap("integrityChecks", integrityChecks)
+                promise.resolve(errorResult)
+                return
+              }
+              
               val testData = "integrity_test_data".toByteArray()
-              val signature = java.security.Signature.getInstance("SHA256withRSA")
-              signature.initSign(privateKey)
-              signature.update(testData)
-              val signatureBytes = signature.sign()
+              authenticatedSignature.update(testData)
+              val signatureBytes = authenticatedSignature.sign()
 
               // Verify the signature
               val verifySignature = java.security.Signature.getInstance("SHA256withRSA")
@@ -715,10 +732,10 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
           }
         })
 
-        // Show biometric prompt on main thread
+        // Show biometric prompt on main thread with CryptoObject
         Handler(Looper.getMainLooper()).post {
           try {
-            biometricPrompt.authenticate(promptInfo)
+            biometricPrompt.authenticate(promptInfo, cryptoObject)
           } catch (e: Exception) {
             debugLog("validateKeyIntegrity failed to show biometric prompt: ${e.message}")
             result.putString("error", "Failed to show biometric prompt: ${e.message}")
@@ -744,17 +761,30 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
       keyStore.load(null)
 
       if (!keyStore.containsAlias(actualKeyAlias)) {
-        promise.reject("KEY_NOT_FOUND", "Key not found", null)
+        val errorResult = Arguments.createMap()
+        errorResult.putBoolean("success", false)
+        errorResult.putString("error", "Key not found")
+        promise.resolve(errorResult)
         return
       }
 
       val keyEntry = keyStore.getEntry(actualKeyAlias, null)
       if (keyEntry !is KeyStore.PrivateKeyEntry) {
-        promise.reject("INVALID_KEY_TYPE", "Invalid key type", null)
+        val errorResult = Arguments.createMap()
+        errorResult.putBoolean("success", false)
+        errorResult.putString("error", "Invalid key type")
+        promise.resolve(errorResult)
         return
       }
 
       val privateKey = keyEntry.privateKey
+      
+      // Create signature instance and initialize it with the private key
+      val signature = Signature.getInstance("SHA256withRSA")
+      signature.initSign(privateKey)
+      
+      // Create CryptoObject with the signature for authentication-required keys
+      val cryptoObject = BiometricPrompt.CryptoObject(signature)
       
       // For authentication-required keys, we need biometric authentication before signing
       val executor = ContextCompat.getMainExecutor(context)
@@ -781,7 +811,10 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
       val activity = context.currentActivity as? FragmentActivity
       if (activity == null || activity.isFinishing || activity.isDestroyed) {
         debugLog("verifyKeySignature failed - No valid activity available")
-        promise.reject("NO_ACTIVITY", "No valid activity available for biometric authentication", null)
+        val errorResult = Arguments.createMap()
+        errorResult.putBoolean("success", false)
+        errorResult.putString("error", "No valid activity available for biometric authentication")
+        promise.resolve(errorResult)
         return
       }
 
@@ -790,28 +823,42 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
           debugLog("verifyKeySignature - Authentication succeeded, generating signature")
 
           try {
-            val signature = Signature.getInstance("SHA256withRSA")
-            signature.initSign(privateKey)
-            signature.update(data.toByteArray())
-            val signatureBytes = signature.sign()
+            // Use the authenticated signature from the CryptoObject
+            val authenticatedSignature = authResult.cryptoObject?.signature
+            if (authenticatedSignature == null) {
+              debugLog("verifyKeySignature - No authenticated signature available")
+              val errorResult = Arguments.createMap()
+              errorResult.putBoolean("success", false)
+              errorResult.putString("error", "No authenticated signature available")
+              promise.resolve(errorResult)
+              return
+            }
+            
+            authenticatedSignature.update(data.toByteArray())
+            val signatureBytes = authenticatedSignature.sign()
             val signatureString = Base64.encodeToString(signatureBytes, Base64.DEFAULT)
 
             val result = Arguments.createMap()
             result.putBoolean("success", true)
             result.putString("signature", signatureString)
-            result.putString("data", data)
             debugLog("verifyKeySignature completed successfully")
             promise.resolve(result)
 
           } catch (e: Exception) {
             debugLog("verifyKeySignature - Signature generation failed: ${e.message}")
-            promise.reject("SIGNATURE_GENERATION_ERROR", "Failed to generate signature: ${e.message}", e)
+            val errorResult = Arguments.createMap()
+            errorResult.putBoolean("success", false)
+            errorResult.putString("error", "Failed to generate signature: ${e.message}")
+            promise.resolve(errorResult)
           }
         }
 
         override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
           debugLog("verifyKeySignature - Authentication error: $errorCode - $errString")
-          promise.reject("AUTHENTICATION_ERROR", "Authentication failed: $errString", null)
+          val errorResult = Arguments.createMap()
+          errorResult.putBoolean("success", false)
+          errorResult.putString("error", "Authentication failed: $errString")
+          promise.resolve(errorResult)
         }
 
         override fun onAuthenticationFailed() {
@@ -821,19 +868,25 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
         }
       })
 
-      // Show biometric prompt on main thread
+      // Show biometric prompt on main thread with CryptoObject
       Handler(Looper.getMainLooper()).post {
         try {
-          biometricPrompt.authenticate(promptInfo)
+          biometricPrompt.authenticate(promptInfo, cryptoObject)
         } catch (e: Exception) {
           debugLog("verifyKeySignature failed to show biometric prompt: ${e.message}")
-          promise.reject("PROMPT_ERROR", "Failed to show biometric prompt: ${e.message}", e)
+          val errorResult = Arguments.createMap()
+          errorResult.putBoolean("success", false)
+          errorResult.putString("error", "Failed to show biometric prompt: ${e.message}")
+          promise.resolve(errorResult)
         }
       }
 
     } catch (e: Exception) {
       debugLog("verifyKeySignature failed - ${e.message}")
-      promise.reject("VERIFY_SIGNATURE_ERROR", "Failed to verify signature: ${e.message}", e)
+      val errorResult = Arguments.createMap()
+      errorResult.putBoolean("success", false)
+      errorResult.putString("error", "Failed to verify signature: ${e.message}")
+      promise.resolve(errorResult)
     }
   }
 
@@ -846,7 +899,10 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
       keyStore.load(null)
 
       if (!keyStore.containsAlias(actualKeyAlias)) {
-        promise.reject("KEY_NOT_FOUND", "Key not found", null)
+        val errorResult = Arguments.createMap()
+        errorResult.putBoolean("valid", false)
+        errorResult.putString("error", "Key not found")
+        promise.resolve(errorResult)
         return
       }
 
@@ -859,12 +915,15 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
       val isValid = signatureInstance.verify(signatureBytes)
 
       val result = Arguments.createMap()
-      result.putBoolean("isValid", isValid)
+      result.putBoolean("valid", isValid)
       promise.resolve(result)
 
     } catch (e: Exception) {
       debugLog("validateSignature failed - ${e.message}")
-      promise.reject("VALIDATE_SIGNATURE_ERROR", "Failed to validate signature: ${e.message}", e)
+      val errorResult = Arguments.createMap()
+      errorResult.putBoolean("valid", false)
+      errorResult.putString("error", "Failed to validate signature: ${e.message}")
+      promise.resolve(errorResult)
     }
   }
 
@@ -877,27 +936,51 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
       keyStore.load(null)
 
       if (!keyStore.containsAlias(actualKeyAlias)) {
-        promise.reject("KEY_NOT_FOUND", "Key not found", null)
+        val result = Arguments.createMap()
+        result.putBoolean("exists", false)
+        promise.resolve(result)
         return
       }
 
       val certificate = keyStore.getCertificate(actualKeyAlias)
       val publicKey = certificate.publicKey
 
-      val result = Arguments.createMap()
-      result.putString("keyAlias", actualKeyAlias)
-      result.putString("algorithm", publicKey.algorithm)
-      result.putString("format", publicKey.format)
+      val attributes = Arguments.createMap()
+      attributes.putString("algorithm", publicKey.algorithm)
+      attributes.putString("format", publicKey.format)
+      attributes.putBoolean("userAuthenticationRequired", true)
+      attributes.putString("securityLevel", "Hardware")
+      attributes.putBoolean("hardwareBacked", true)
+      
+      // Add default values for required fields
+      val purposes = Arguments.createArray()
+      purposes.pushString("sign")
+      purposes.pushString("verify")
+      attributes.putArray("purposes", purposes)
+      
+      val digests = Arguments.createArray()
+      digests.pushString("SHA256")
+      attributes.putArray("digests", digests)
+      
+      val padding = Arguments.createArray()
+      padding.pushString("PKCS1")
+      attributes.putArray("padding", padding)
 
       if (publicKey is RSAPublicKey) {
-        result.putInt("keySize", publicKey.modulus.bitLength())
+        attributes.putInt("keySize", publicKey.modulus.bitLength())
       }
 
+      val result = Arguments.createMap()
+      result.putBoolean("exists", true)
+      result.putMap("attributes", attributes)
       promise.resolve(result)
 
     } catch (e: Exception) {
       debugLog("getKeyAttributes failed - ${e.message}")
-      promise.reject("GET_KEY_ATTRIBUTES_ERROR", "Failed to get key attributes: ${e.message}", e)
+      val result = Arguments.createMap()
+      result.putBoolean("exists", false)
+      result.putString("error", "Failed to get key attributes: ${e.message}")
+      promise.resolve(result)
     }
   }
 

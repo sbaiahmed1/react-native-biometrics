@@ -654,13 +654,13 @@ class ReactNativeBiometrics: NSObject {
     
     guard !dataString.isEmpty else {
       ReactNativeBiometricDebug.debugLog("validateSignature failed - Empty data provided")
-      handleErrorWithResult(.emptyData, resolve: resolve)
+      resolve(["valid": false, "error": "Empty data provided"])
       return
     }
     
     guard !signatureString.isEmpty else {
       ReactNativeBiometricDebug.debugLog("validateSignature failed - Empty signature provided")
-      handleErrorWithResult(.emptySignature, resolve: resolve)
+      resolve(["valid": false, "error": "Empty signature provided"])
       return
     }
     
@@ -679,7 +679,7 @@ class ReactNativeBiometrics: NSObject {
     guard status == errSecSuccess else {
       let biometricsError = ReactNativeBiometricsError.fromOSStatus(status)
       ReactNativeBiometricDebug.debugLog("validateSignature failed - \(biometricsError.errorInfo.message)")
-      handleErrorWithResult(biometricsError, resolve: resolve)
+      resolve(["valid": false, "error": biometricsError.errorInfo.message])
       return
     }
     
@@ -688,19 +688,19 @@ class ReactNativeBiometrics: NSObject {
     
     guard let publicKey = SecKeyCopyPublicKey(keyRef) else {
       ReactNativeBiometricDebug.debugLog("validateSignature failed - Could not extract public key")
-      handleErrorWithResult(.publicKeyExtractionFailed, resolve: resolve)
+      resolve(["valid": false, "error": "Could not extract public key"])
       return
     }
     
     // Enhanced signature validation with detailed error context
     guard let signatureData = Data(base64Encoded: signatureString) else {
       ReactNativeBiometricDebug.debugLog("validateSignature failed - Invalid base64 signature format. Length: \(signatureString.count), First 20 chars: \(String(signatureString.prefix(20)))")
-      handleErrorWithResult(.invalidBase64, resolve: resolve)
+      resolve(["valid": false, "error": "Invalid base64 signature format"])
       return
     }
     
     guard let dataToVerify = dataString.data(using: .utf8) else {
-      handleErrorWithResult(.dataEncodingFailed, resolve: resolve)
+      resolve(["valid": false, "error": "Data encoding failed"])
       return
     }
     var error: Unmanaged<CFError>?
@@ -713,7 +713,7 @@ class ReactNativeBiometrics: NSObject {
     if let cfError = error?.takeRetainedValue() {
       let biometricsError = ReactNativeBiometricsError.signatureVerificationFailed
       ReactNativeBiometricDebug.debugLog("validateSignature failed - \(cfError.localizedDescription)")
-      handleErrorWithResult(biometricsError, resolve: resolve)
+      resolve(["valid": false, "error": biometricsError.errorInfo.message])
     } else {
       ReactNativeBiometricDebug.debugLog("validateSignature completed - valid: \(isValid)")
       resolve(["valid": isValid])
