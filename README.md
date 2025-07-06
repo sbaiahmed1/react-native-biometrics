@@ -18,8 +18,9 @@
 
 ## 🎬 Demo
 
-<div align="center">
-  <img src="./demo.gif" alt="React Native Biometrics Demo" width="300" />
+<div style="display: flex; justify-content: center; gap: 20px;">
+  <img src="./demo.gif" alt="React Native Biometrics Demo" width="300" height="803" />
+  <img src="./android-demo.gif" alt="React Native Biometrics Demo" width="300" height="803" />
 </div>
 
 ---
@@ -665,7 +666,7 @@ type DeviceIntegrityResult = {
   isJailbroken?: boolean;       // 🍎 iOS ONLY: Whether device is jailbroken
   isKeyguardSecure?: boolean;   // 🤖 ANDROID ONLY: Whether device lock is secure
   hasSecureHardware?: boolean;  // 🤖 ANDROID ONLY: Whether secure hardware is available
-  
+
   // Cross-platform properties
   isCompromised: boolean;       // 🤖🍎 Overall compromise status (always present)
   riskLevel: 'NONE' | 'LOW' | 'MEDIUM' | 'HIGH' | 'UNKNOWN';  // 🤖🍎 Risk assessment (always present)
