@@ -79,4 +79,8 @@ RCT_EXTERN_METHOD(getDeviceIntegrityStatus:
     (RCTPromiseResolveBlock)resolve
     rejecter:(RCTPromiseRejectBlock)reject)
 
+// Event emitter methods
+RCT_EXTERN_METHOD(addListener:(NSString *)eventName)
+RCT_EXTERN_METHOD(removeListeners:(double)count)
+
 @end

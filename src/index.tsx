@@ -1,5 +1,8 @@
-import ReactNativeBiometrics from './NativeReactNativeBiometrics';
+import ReactNativeBiometrics, {
+  type BiometricChangeEvent,
+} from './NativeReactNativeBiometrics';
 import { logger, LogLevel, type LogEntry } from './logger';
+import type { EventSubscription } from 'react-native';
 
 export function isSensorAvailable(): Promise<BiometricSensorInfo> {
   logger.debug('Checking sensor availability', 'isSensorAvailable');
@@ -510,6 +513,9 @@ export type DeviceIntegrityResult = {
   error?: string;
 };
 
+// Export biometric change event types
+export type { BiometricChangeEvent } from './NativeReactNativeBiometrics';
+
 // Export logging utilities
 export {
   logger,
@@ -529,4 +535,92 @@ export function getLogs(): LogEntry[] {
 // Convenience function to clear logs
 export function clearLogs(): void {
   logger.clearLogs();
+}
+
+// Biometric Change Detection Event Functions
+export function subscribeToBiometricChanges(
+  callback: (event: BiometricChangeEvent) => void
+): EventSubscription {
+  logger.debug(
+    'Subscribing to biometric changes',
+    'subscribeToBiometricChanges'
+  );
+
+  if (!ReactNativeBiometrics) {
+    logger.error(
+      'ReactNativeBiometrics module not available',
+      'subscribeToBiometricChanges'
+    );
+    throw new Error(
+      'ReactNativeBiometrics module not available. Make sure the library is properly installed and linked.'
+    );
+  }
+
+  // Note: We don't need to check for onBiometricChange property since NativeEventEmitter handles event subscription
+
+  try {
+    // Import NativeEventEmitter for proper event subscription
+    const { NativeEventEmitter } = require('react-native');
+    const eventEmitter = new NativeEventEmitter(ReactNativeBiometrics);
+
+    const subscription = eventEmitter.addListener(
+      'onBiometricChange',
+      (event: BiometricChangeEvent) => {
+        logger.info('Biometric change detected', 'onBiometricChange', {
+          changeType: event.changeType,
+          available: event.available,
+          biometryType: event.biometryType,
+          timestamp: event.timestamp,
+        });
+        callback(event);
+      }
+    );
+
+    if (!subscription) {
+      logger.warn(
+        'Failed to create biometric change subscription',
+        'subscribeToBiometricChanges'
+      );
+      throw new Error(
+        'Failed to subscribe to biometric changes. Event emitter returned null.'
+      );
+    }
+
+    logger.info(
+      'Successfully subscribed to biometric changes',
+      'subscribeToBiometricChanges'
+    );
+    return subscription;
+  } catch (error) {
+    logger.error(
+      'Error subscribing to biometric changes',
+      'subscribeToBiometricChanges',
+      error instanceof Error ? error : undefined
+    );
+    throw new Error(
+      `Failed to subscribe to biometric changes: ${error instanceof Error ? error.message : 'Unknown error'}`
+    );
+  }
+}
+
+export function unsubscribeFromBiometricChanges(
+  subscription: EventSubscription
+): void {
+  logger.debug(
+    'Unsubscribing from biometric changes',
+    'unsubscribeFromBiometricChanges'
+  );
+
+  if (subscription && typeof subscription.remove === 'function') {
+    subscription.remove();
+    logger.info(
+      'Successfully unsubscribed from biometric changes',
+      'unsubscribeFromBiometricChanges'
+    );
+  } else {
+    logger.warn(
+      'Invalid subscription provided for unsubscribe',
+      'unsubscribeFromBiometricChanges'
+    );
+  }
 }

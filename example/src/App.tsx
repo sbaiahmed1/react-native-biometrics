@@ -3,10 +3,12 @@ import DebuggingExample from './DebuggingExample';
 import AuthExample from './AuthExample';
 import ColorDemo from './ColorExample';
 import CombinedBiometricsDemo from './CombinedBiometricsDemo';
+import BiometricChangeExample from '../BiometricChangeExample';
 export default function App() {
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView>
+        <BiometricChangeExample />
         <AuthExample />
         <ColorDemo />
         <CombinedBiometricsDemo />

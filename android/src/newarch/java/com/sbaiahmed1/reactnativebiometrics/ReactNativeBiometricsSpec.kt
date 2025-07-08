@@ -23,9 +23,21 @@ abstract class ReactNativeBiometricsSpec(reactContext: ReactApplicationContext) 
   abstract fun configureKeyAlias(keyAlias: String, promise: Promise)
   abstract fun getDefaultKeyAlias(promise: Promise)
   // Debugging utilities
+  @ReactMethod
   abstract fun getDiagnosticInfo(promise: Promise)
+  @ReactMethod
   abstract fun runBiometricTest(promise: Promise)
+  @ReactMethod
   abstract fun setDebugMode(enabled: Boolean, promise: Promise)
+  
   // Device security
+  @ReactMethod
   abstract fun getDeviceIntegrityStatus(promise: Promise)
+  
+  // Event emitter methods
+  @ReactMethod
+  abstract fun addListener(eventName: String)
+  
+  @ReactMethod
+  abstract fun removeListeners(count: Int)
 }

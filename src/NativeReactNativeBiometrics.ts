@@ -1,6 +1,19 @@
 import { TurboModuleRegistry, NativeModules } from 'react-native';
 import { type TurboModule } from 'react-native/Libraries/TurboModule/RCTExport';
 
+export type BiometricChangeEvent = {
+  changeType:
+    | 'ENROLLMENT_CHANGED'
+    | 'BIOMETRIC_DISABLED'
+    | 'BIOMETRIC_ENABLED'
+    | 'HARDWARE_UNAVAILABLE'
+    | 'HARDWARE_AVAILABLE';
+  timestamp: number;
+  biometryType?: 'Biometrics' | 'FaceID' | 'TouchID' | 'None' | 'Unknown';
+  available: boolean;
+  details?: string;
+};
+
 export interface Spec extends TurboModule {
   isSensorAvailable(): Promise<{
     available: boolean;
@@ -121,6 +134,7 @@ export interface Spec extends TurboModule {
     riskLevel: 'NONE' | 'LOW' | 'MEDIUM' | 'HIGH' | 'UNKNOWN';
     error?: string;
   }>;
+  // Note: Biometric change events are handled via NativeEventEmitter, not as a property
 }
 
 export default TurboModuleRegistry.getEnforcing<Spec>(
