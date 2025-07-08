@@ -1140,7 +1140,7 @@ This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) 
 ### 🔄 In Progress
 
 - [ ] **Performance Optimization**: Optimize biometric operations and reduce latency
-- [ ] **To Be defined**
+- [x] **Biometrics Change Event Handling**: Implement event listeners for biometric changes (e.g., new enrollment, removal)
 
 ## 🙏 Acknowledgments
 
