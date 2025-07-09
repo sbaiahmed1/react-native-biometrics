@@ -1138,9 +1138,8 @@ This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) 
 - [x] **Advanced Security Features**: Enhanced security measures and validation
 
 ### 🔄 In Progress
-
-- [ ] **Performance Optimization**: Optimize biometric operations and reduce latency
 - [x] **Biometrics Change Event Handling**: Implement event listeners for biometric changes (e.g., new enrollment, removal)
+- [ ] **Performance Optimization**: Optimize biometric operations and reduce latency
 
 ## 🙏 Acknowledgments
 
