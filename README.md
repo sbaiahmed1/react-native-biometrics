@@ -7,6 +7,8 @@
     <img src="https://img.shields.io/npm/dm/@sbaiahmed1/react-native-biometrics?style=for-the-badge&color=green" alt="downloads" />
     <img src="https://img.shields.io/github/license/sbaiahmed1/react-native-biometrics?style=for-the-badge&color=orange" alt="license" />
     <img src="https://img.shields.io/github/stars/sbaiahmed1/react-native-biometrics?style=for-the-badge&color=yellow" alt="stars" />
+    <img src="https://img.shields.io/bundlephobia/minzip/@sbaiahmed1/react-native-biometrics?style=for-the-badge&color=purple" alt="bundle size" />
+    <img src="https://img.shields.io/npm/types/@sbaiahmed1/react-native-biometrics?style=for-the-badge&color=blue" alt="typescript" />
   </p>
 
   <p>
@@ -37,9 +39,12 @@
 - 🔐 **Key Integrity Validation** - Comprehensive cryptographic key validation and signature verification
 - 📦 **Lightweight** - Minimal dependencies and optimized for performance
 - 🎯 **TypeScript** - Full TypeScript support with detailed type definitions
-- 🔄 **New Architecture** - Compatible with React Native's new architecture
+- 🔄 **New Architecture** - Compatible with React Native's new architecture (TurboModules)
 - ✅ **Old Architecture** - Compatible with React Native's old architecture
-- 📱 **Modern** - Made with swift and kotlin for iOS and Android respectively
+- 🌟 **Expo Compatible** - Works seamlessly with Expo development workflow
+- 📱 **Modern** - Made with Swift and Kotlin for iOS and Android respectively
+- 🚀 **Easy Integration** - Simple setup with comprehensive documentation
+- 🔐 **Secure by Default** - Industry-standard security practices built-in
 
 ## 📋 Requirements
 
@@ -1007,6 +1012,52 @@ npx react-native run-android
 ```
 
 The example app provides hands-on experience with all library features and serves as a reference implementation for integration patterns.
+
+## 📊 Library Comparison
+
+| Feature | @sbaiahmed1/react-native-biometrics | react-native-biometrics | react-native-touch-id |
+|---------|-----------------------------------|------------------------|----------------------|
+| **TypeScript Support** | ✅ Full support | ❌ Limited | ❌ No |
+| **New Architecture** | ✅ TurboModules | ❌ No | ❌ No |
+| **Expo Compatibility** | ✅ Yes | ❌ No | ❌ No |
+| **Key Management** | ✅ Advanced | ✅ Basic | ❌ No |
+| **Debug Tools** | ✅ Comprehensive | ❌ Limited | ❌ No |
+| **Active Maintenance** | ✅ Yes | ❌ Outdated | ❌ Outdated |
+| **Bundle Size** | 🟢 Small | 🟡 Medium | 🟢 Small |
+| **Documentation** | ✅ Extensive | 🟡 Basic | 🟡 Basic |
+| **Security Features** | ✅ Advanced | 🟡 Basic | 🟡 Basic |
+
+## 🎯 Use Cases
+
+### Mobile Banking & Finance
+- Secure login for banking applications
+- Transaction authentication
+- Account access protection
+- Compliance with financial security standards
+
+### Healthcare Applications
+- Patient data access control
+- Medical record security
+- HIPAA compliance support
+- Secure prescription management
+
+### Enterprise & Business
+- Employee authentication
+- Corporate app security
+- Document access control
+- Time tracking applications
+
+### E-commerce & Retail
+- Secure payment authentication
+- Account protection
+- Purchase confirmation
+- Loyalty program access
+
+### Social & Communication
+- Private message protection
+- Profile security
+- Content access control
+- Privacy-focused features
 
 ## 🔧 Troubleshooting
 
