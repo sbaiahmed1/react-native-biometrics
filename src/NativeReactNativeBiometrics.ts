@@ -1,5 +1,6 @@
 import { TurboModuleRegistry, NativeModules } from 'react-native';
 import { type TurboModule } from 'react-native/Libraries/TurboModule/RCTExport';
+import type { EventEmitter } from 'react-native/Libraries/Types/CodegenTypes';
 
 export type BiometricChangeEvent = {
   changeType:
@@ -135,6 +136,7 @@ export interface Spec extends TurboModule {
     error?: string;
   }>;
   // Note: Biometric change events are handled via NativeEventEmitter, not as a property
+  readonly onKeyAdded: EventEmitter<BiometricChangeEvent>;
 }
 
 export default TurboModuleRegistry.getEnforcing<Spec>(

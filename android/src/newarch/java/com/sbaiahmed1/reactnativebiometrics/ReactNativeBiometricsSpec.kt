@@ -2,6 +2,7 @@ package com.sbaiahmed1.reactnativebiometrics
 
 import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.Promise
+import com.facebook.react.bridge.ReactMethod
 import com.facebook.react.turbomodule.core.interfaces.TurboModule
 import com.facebook.react.bridge.ReactContextBaseJavaModule
 
@@ -29,15 +30,15 @@ abstract class ReactNativeBiometricsSpec(reactContext: ReactApplicationContext) 
   abstract fun runBiometricTest(promise: Promise)
   @ReactMethod
   abstract fun setDebugMode(enabled: Boolean, promise: Promise)
-  
+
   // Device security
   @ReactMethod
   abstract fun getDeviceIntegrityStatus(promise: Promise)
-  
+
   // Event emitter methods
   @ReactMethod
   abstract fun addListener(eventName: String)
-  
+
   @ReactMethod
   abstract fun removeListeners(count: Int)
 }
