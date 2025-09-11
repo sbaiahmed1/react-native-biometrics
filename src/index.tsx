@@ -134,13 +134,22 @@ export function validateKeyIntegrity(
 
 export function verifyKeySignature(
   keyAlias: string = '',
-  data: string
+  data: string,
+  promptTitle?: string,
+  promptSubtitle?: string,
+  cancelButtonText?: string
 ): Promise<SignatureResult> {
   logger.debug('Verifying key signature', 'verifyKeySignature', {
     keyAlias,
     dataLength: data.length,
   });
-  return ReactNativeBiometrics.verifyKeySignature(keyAlias, data)
+  return ReactNativeBiometrics.verifyKeySignature(
+    keyAlias,
+    data,
+    promptTitle,
+    promptSubtitle,
+    cancelButtonText
+  )
     .then((result) => {
       logger.info(
         'Key signature verification completed',

@@ -574,7 +574,8 @@ class ReactNativeBiometrics: NSObject {
   func verifyKeySignature(_ keyAlias: NSString?,
                           data: NSString,
                           resolver resolve: @escaping RCTPromiseResolveBlock,
-                          rejecter reject: @escaping RCTPromiseRejectBlock) {
+                          rejecter reject: @escaping RCTPromiseRejectBlock,
+                          promptTitle: NSString?) {
     ReactNativeBiometricDebug.debugLog("verifyKeySignature called with keyAlias: \(keyAlias ?? "default")")
     
     let keyTag = getKeyAlias(keyAlias as String?)
@@ -605,7 +606,7 @@ class ReactNativeBiometrics: NSObject {
     }
     
     // For Secure Enclave keys, we need biometric authentication before signing
-    performBiometricAuthentication(reason: "Authenticate to create signature") { success, authenticationError in
+    performBiometricAuthentication(reason: promptTitle ?? "Authenticate to create signature") { success, authenticationError in
       DispatchQueue.main.async {
         guard success else {
           let biometricsError: ReactNativeBiometricsError

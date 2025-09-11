@@ -905,7 +905,7 @@ console.log('Recent logs:', logs);
 #### `validateKeyIntegrity(keyAlias?: string): Promise<KeyIntegrityResult>`
 Performs comprehensive validation of key integrity including format checks, accessibility tests, signature validation, and hardware backing verification.
 
-#### `verifyKeySignature(data: string, keyAlias?: string): Promise<SignatureResult>`
+#### `verifyKeySignature(data: string, keyAlias?: string, promptTitle?: string, promptSubtitle?: string, cancelButtonText?: string): Promise<SignatureResult>`
 Generates a cryptographic signature for the provided data using the specified key.
 
 #### `validateSignature(data: string, signature: string, keyAlias?: string): Promise<SignatureValidationResult>`
