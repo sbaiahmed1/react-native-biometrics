@@ -149,7 +149,7 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
 
       override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
         debugLog("simplePrompt authentication error: $errorCode - $errString")
-        
+
         // Map Android BiometricPrompt error codes to consistent error codes
         val mappedErrorCode = when (errorCode) {
           BiometricPrompt.ERROR_USER_CANCELED -> "USER_CANCELED"
@@ -167,7 +167,7 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
           BiometricPrompt.ERROR_NO_DEVICE_CREDENTIAL -> "NO_DEVICE_CREDENTIAL"
           else -> "BIOMETRIC_ERROR"
         }
-        
+
         promise.reject(mappedErrorCode, errString.toString(), null)
       }
 
@@ -470,7 +470,7 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
 
       override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
         debugLog("authenticateWithOptions authentication error: $errorCode - $errString")
-        
+
         // Map Android BiometricPrompt error codes to consistent error codes
         val mappedErrorCode = when (errorCode) {
           BiometricPrompt.ERROR_USER_CANCELED -> "USER_CANCELED"
@@ -488,7 +488,7 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
           BiometricPrompt.ERROR_NO_DEVICE_CREDENTIAL -> "NO_DEVICE_CREDENTIAL"
           else -> "BIOMETRIC_ERROR"
         }
-        
+
         promise.reject(mappedErrorCode, errString.toString(), null)
       }
 
@@ -634,10 +634,10 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
         // Create signature instance and initialize it with the private key for authentication-required keys
         val testSignature = java.security.Signature.getInstance("SHA256withRSA")
         testSignature.initSign(privateKey)
-        
+
         // Create CryptoObject with the signature for authentication-required keys
         val cryptoObject = BiometricPrompt.CryptoObject(testSignature)
-        
+
         // For authentication-required keys, we need biometric authentication before signature test
         val executor = ContextCompat.getMainExecutor(context)
         val biometricManager = BiometricManager.from(context)
@@ -685,7 +685,7 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
                 promise.resolve(errorResult)
                 return
               }
-              
+
               val testData = "integrity_test_data".toByteArray()
               authenticatedSignature.update(testData)
               val signatureBytes = authenticatedSignature.sign()
@@ -752,7 +752,8 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
       }
   }
 
-  fun verifyKeySignature(keyAlias: String?, data: String, promise: Promise) {
+  fun verifyKeySignature(keyAlias: String?, data: String, promise: Promise,
+                         promptTitle?: String, promptSubtitle?: String, cancelButtonText?: String) {
     val actualKeyAlias = getKeyAlias(keyAlias)
     debugLog("verifyKeySignature called with keyAlias: ${keyAlias ?: "default"}, using: $actualKeyAlias")
 
@@ -778,14 +779,14 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
       }
 
       val privateKey = keyEntry.privateKey
-      
+
       // Create signature instance and initialize it with the private key
       val signature = Signature.getInstance("SHA256withRSA")
       signature.initSign(privateKey)
-      
+
       // Create CryptoObject with the signature for authentication-required keys
       val cryptoObject = BiometricPrompt.CryptoObject(signature)
-      
+
       // For authentication-required keys, we need biometric authentication before signing
       val executor = ContextCompat.getMainExecutor(context)
       val biometricManager = BiometricManager.from(context)
@@ -798,12 +799,12 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
       }
 
       val promptInfoBuilder = BiometricPrompt.PromptInfo.Builder()
-        .setTitle("Authenticate to sign data")
-        .setSubtitle("Please verify your identity to generate signature")
+        .setTitle(promptTitle ?: "Authenticate to sign data")
+        .setSubtitle(promptSubtitle ?: "Please verify your identity to generate signature")
         .setAllowedAuthenticators(authenticators)
 
       if (authenticators == BiometricManager.Authenticators.BIOMETRIC_STRONG) {
-        promptInfoBuilder.setNegativeButtonText("Cancel")
+        promptInfoBuilder.setNegativeButtonText(cancelButtonText ?: "Cancel")
       }
 
       val promptInfo = promptInfoBuilder.build()
@@ -833,7 +834,7 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
               promise.resolve(errorResult)
               return
             }
-            
+
             authenticatedSignature.update(data.toByteArray())
             val signatureBytes = authenticatedSignature.sign()
             val signatureString = Base64.encodeToString(signatureBytes, Base64.DEFAULT)
@@ -951,17 +952,17 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
       attributes.putBoolean("userAuthenticationRequired", true)
       attributes.putString("securityLevel", "Hardware")
       attributes.putBoolean("hardwareBacked", true)
-      
+
       // Add default values for required fields
       val purposes = Arguments.createArray()
       purposes.pushString("sign")
       purposes.pushString("verify")
       attributes.putArray("purposes", purposes)
-      
+
       val digests = Arguments.createArray()
       digests.pushString("SHA256")
       attributes.putArray("digests", digests)
-      
+
       val padding = Arguments.createArray()
       padding.pushString("PKCS1")
       attributes.putArray("padding", padding)
@@ -1055,7 +1056,7 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
 
   fun getDeviceIntegrityStatus(promise: Promise) {
     debugLog("getDeviceIntegrityStatus called")
-    
+
     try {
       val integrityStatus = BiometricUtils.getDeviceIntegrityStatus(context)
       debugLog("Device integrity check completed - isCompromised: ${integrityStatus.getBoolean("isCompromised")}")

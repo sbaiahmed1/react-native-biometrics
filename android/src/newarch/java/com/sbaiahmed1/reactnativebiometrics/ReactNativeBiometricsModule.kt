@@ -57,8 +57,8 @@ class ReactNativeBiometricsModule(reactContext: ReactApplicationContext) :
   }
   
   @ReactMethod
-  override fun verifyKeySignature(keyAlias: String?, data: String, promise: Promise) {
-    sharedImpl.verifyKeySignature(keyAlias, data, promise)
+  override fun verifyKeySignature(keyAlias: String?, data: String, promise: Promise, promptTitle: String?, promptSubtitle: String?, cancelButtonText: String?) {
+    sharedImpl.verifyKeySignature(keyAlias, data, promise, promptTitle, promptSubtitle, cancelButtonText)
   }
   
   @ReactMethod

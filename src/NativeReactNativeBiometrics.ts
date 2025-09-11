@@ -58,7 +58,10 @@ export interface Spec extends TurboModule {
   }>;
   verifyKeySignature(
     keyAlias: string,
-    data: string
+    data: string,
+    promptTitle?: string,
+    promptSubtitle?: string,
+    cancelButtonText?: string
   ): Promise<{
     success: boolean;
     signature?: string;
