@@ -908,6 +908,12 @@ Performs comprehensive validation of key integrity including format checks, acce
 #### `verifyKeySignature(data: string, keyAlias?: string, promptTitle?: string, promptSubtitle?: string, cancelButtonText?: string): Promise<SignatureResult>`
 Generates a cryptographic signature for the provided data using the specified key.
 
+- `data`: The data to be signed.
+- `keyAlias` (optional): The alias of the key to use for signing.
+- `promptTitle` (optional): Title text displayed in the signature prompt dialog.
+- `promptSubtitle` (optional): Subtitle text providing additional context in the prompt dialog (Android only).
+- `cancelButtonText` (optional): Text for the cancel button in the prompt dialog (Android only).
+
 #### `validateSignature(data: string, signature: string, keyAlias?: string): Promise<SignatureValidationResult>`
 Validates a signature against the original data using the public key.
 

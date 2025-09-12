@@ -606,7 +606,7 @@ class ReactNativeBiometrics: NSObject {
     }
     
     // For Secure Enclave keys, we need biometric authentication before signing
-    performBiometricAuthentication(reason: promptTitle ?? "Authenticate to create signature") { success, authenticationError in
+    performBiometricAuthentication(reason: (promptTitle ?? "Authenticate to create signature") as String) { success, authenticationError in
       DispatchQueue.main.async {
         guard success else {
           let biometricsError: ReactNativeBiometricsError
