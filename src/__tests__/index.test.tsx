@@ -555,6 +555,30 @@ describe('ReactNativeBiometrics', () => {
       ).rejects.toThrow('Signature verification failed');
     });
 
+    it('should verify key signature with additional prompt parameters', async () => {
+      jest.resetModules();
+      jest.doMock('../NativeReactNativeBiometrics', () =>
+        createMockNative({
+          verifyKeySignature: jest.fn(() =>
+            Promise.resolve({
+              success: true,
+              signature: 'mockSignatureWithParams123',
+            })
+          ),
+        })
+      );
+      const BiometricsModule = await import('../index');
+      const result = await BiometricsModule.verifyKeySignature(
+        'testAlias',
+        'testData',
+        'Custom Title',
+        'Custom Subtitle',
+        'Custom Cancel'
+      );
+      expect(result.success).toBe(true);
+      expect(result.signature).toBe('mockSignatureWithParams123');
+    });
+
     it('should handle signature validation errors', async () => {
       jest.resetModules();
       jest.doMock('../NativeReactNativeBiometrics', () =>
