@@ -60,9 +60,9 @@ RCT_EXTERN_METHOD(validateKeyIntegrity:
 RCT_EXTERN_METHOD(verifyKeySignature:
     (NSString *)keyAlias
     data:(NSString *)data
+    promptTitle:(NSString *)promptTitle
     resolver:(RCTPromiseResolveBlock)resolve
-    rejecter:(RCTPromiseRejectBlock)reject
-    promptTitle:(NSString *)promptTitle)
+    rejecter:(RCTPromiseRejectBlock)reject)
 
 RCT_EXTERN_METHOD(validateSignature:
     (NSString *)keyAlias

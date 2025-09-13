@@ -573,9 +573,9 @@ class ReactNativeBiometrics: NSObject {
   @objc
   func verifyKeySignature(_ keyAlias: NSString?,
                           data: NSString,
+                          promptTitle: NSString?,
                           resolver resolve: @escaping RCTPromiseResolveBlock,
-                          rejecter reject: @escaping RCTPromiseRejectBlock,
-                          promptTitle: NSString?) {
+                          rejecter reject: @escaping RCTPromiseRejectBlock) {
     ReactNativeBiometricDebug.debugLog("verifyKeySignature called with keyAlias: \(keyAlias ?? "default")")
     
     let keyTag = getKeyAlias(keyAlias as String?)

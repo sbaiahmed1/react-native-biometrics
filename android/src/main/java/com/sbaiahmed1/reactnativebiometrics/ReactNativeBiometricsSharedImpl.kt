@@ -752,8 +752,7 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
       }
   }
 
-  fun verifyKeySignature(keyAlias: String?, data: String, promise: Promise,
-                         promptTitle: String?, promptSubtitle: String?, cancelButtonText: String?) {
+  fun verifyKeySignature(keyAlias: String?, data: String, promptTitle: String?, promptSubtitle: String?, cancelButtonText: String?, promise: Promise) {
     val actualKeyAlias = getKeyAlias(keyAlias)
     debugLog("verifyKeySignature called with keyAlias: ${keyAlias ?: "default"}, using: $actualKeyAlias")
 
