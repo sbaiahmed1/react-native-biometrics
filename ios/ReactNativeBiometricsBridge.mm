@@ -61,6 +61,8 @@ RCT_EXTERN_METHOD(verifyKeySignature:
     (NSString *)keyAlias
     data:(NSString *)data
     promptTitle:(NSString *)promptTitle
+    promptSubtitle:(NSString *)promptSubtitle
+    cancelButtonText:(NSString *)cancelButtonText
     resolver:(RCTPromiseResolveBlock)resolve
     rejecter:(RCTPromiseRejectBlock)reject)
 
