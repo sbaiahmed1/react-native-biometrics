@@ -47,8 +47,8 @@ class ReactNativeBiometricsModule(reactContext: ReactApplicationContext) :
   }
   
   @ReactMethod
-  fun getAllKeys(promise: Promise) {
-    sharedImpl.getAllKeys(promise)
+  fun getAllKeys(customAlias: String?, promise: Promise) {
+    sharedImpl.getAllKeys(customAlias, promise)
   }
   
   @ReactMethod

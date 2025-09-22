@@ -263,12 +263,13 @@ export function getDefaultKeyAlias(): Promise<string> {
     });
 }
 
-export function getAllKeys(): Promise<GetAllKeysResult> {
-  logger.debug('Getting all keys', 'getAllKeys');
-  return ReactNativeBiometrics.getAllKeys()
+export function getAllKeys(customAlias?: string): Promise<GetAllKeysResult> {
+  logger.debug('Getting all keys', 'getAllKeys', { customAlias });
+  return ReactNativeBiometrics.getAllKeys(customAlias)
     .then((result) => {
       logger.info('All keys retrieved', 'getAllKeys', {
         keyCount: result.keys?.length || 0,
+        customAlias,
       });
       return result;
     })

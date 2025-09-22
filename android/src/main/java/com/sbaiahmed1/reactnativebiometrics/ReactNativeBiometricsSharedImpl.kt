@@ -516,8 +516,8 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
     }
   }
 
-  fun getAllKeys(promise: Promise) {
-    debugLog("getAllKeys called")
+  fun getAllKeys(customAlias: String? = null, promise: Promise) {
+    debugLog("getAllKeys called with customAlias: ${customAlias ?: "null"}")
         try {
           val keyStore = KeyStore.getInstance("AndroidKeyStore")
           keyStore.load(null)
@@ -529,7 +529,15 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
             val alias = aliases.nextElement()
 
             // Filter for our biometric keys
-            if (alias.equals(getKeyAlias())) {
+            val shouldIncludeKey = if (customAlias != null) {
+              // If customAlias is provided, filter for that specific alias
+              alias.equals(getKeyAlias(customAlias))
+            } else {
+              // Default behavior: check if it contains the default key alias
+              alias.equals(getKeyAlias())
+            }
+
+            if (shouldIncludeKey) {
               try {
                 val keyEntry = keyStore.getEntry(alias, null)
                 if (keyEntry is KeyStore.PrivateKeyEntry) {
