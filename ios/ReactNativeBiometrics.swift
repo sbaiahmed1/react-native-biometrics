@@ -607,40 +607,33 @@ class ReactNativeBiometrics: NSObject {
       return
     }
     
-    // For Secure Enclave keys, we need biometric authentication before signing
-    performBiometricAuthentication(reason: (promptTitle ?? "Authenticate to create signature") as String) { success, authenticationError in
-      DispatchQueue.main.async {
-        guard success else {
-          let biometricsError: ReactNativeBiometricsError
-          if let laError = authenticationError as? LAError {
-            biometricsError = ReactNativeBiometricsError.fromLAError(laError)
-          } else {
-            biometricsError = .authenticationFailed
-          }
-          ReactNativeBiometricDebug.debugLog("verifyKeySignature failed - Authentication: \(biometricsError.errorInfo.message)")
-          resolve(["success": false, "error": biometricsError.errorInfo.message, "errorCode": biometricsError.errorInfo.code])
-          return
+    // SecKeyCreateSignature will automatically handle biometric authentication for Secure Enclave keys
+    var error: Unmanaged<CFError>?
+    guard let signature = SecKeyCreateSignature(keyRef, algorithm, dataToSign as CFData, &error) else {
+      let biometricsError: ReactNativeBiometricsError
+      if let cfError = error?.takeRetainedValue() {
+        // Check if the error is due to user cancellation or authentication failure
+        let errorCode = CFErrorGetCode(cfError)
+        if errorCode == errSecUserCancel {
+          biometricsError = ReactNativeBiometricsError.userCancel
+        } else if errorCode == errSecAuthFailed {
+          biometricsError = ReactNativeBiometricsError.authenticationFailed
+        } else {
+          biometricsError = ReactNativeBiometricsError.signatureCreationFailed
         }
-        
-        // Create the signature with the authenticated context
-        var error: Unmanaged<CFError>?
-        guard let signature = SecKeyCreateSignature(keyRef, algorithm, dataToSign as CFData, &error) else {
-          let biometricsError = ReactNativeBiometricsError.signatureCreationFailed
-          if let cfError = error?.takeRetainedValue() {
-            ReactNativeBiometricDebug.debugLog("verifyKeySignature failed - \(cfError.localizedDescription)")
-          } else {
-            ReactNativeBiometricDebug.debugLog("verifyKeySignature failed - Signature creation failed (unknown error)")
-          }
-          resolve(["success": false, "error": biometricsError.errorInfo.message, "errorCode": biometricsError.errorInfo.code])
-          return
-        }
-        
-        let signatureBase64 = (signature as Data).base64EncodedString()
-        
-        ReactNativeBiometricDebug.debugLog("verifyKeySignature completed successfully")
-        resolve(["success": true, "signature": signatureBase64])
+        ReactNativeBiometricDebug.debugLog("verifyKeySignature failed - \(cfError.localizedDescription)")
+      } else {
+        biometricsError = ReactNativeBiometricsError.signatureCreationFailed
+        ReactNativeBiometricDebug.debugLog("verifyKeySignature failed - Signature creation failed (unknown error)")
       }
+      resolve(["success": false, "error": biometricsError.errorInfo.message, "errorCode": biometricsError.errorInfo.code])
+      return
     }
+    
+    let signatureBase64 = (signature as Data).base64EncodedString()
+    
+    ReactNativeBiometricDebug.debugLog("verifyKeySignature completed successfully")
+    resolve(["success": true, "signature": signatureBase64])
   }
   
   @objc
