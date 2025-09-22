@@ -165,7 +165,7 @@ The key management functions have been updated and are now named exports. Here a
 
 Additionally, this library introduces several new key management functions:
 - `getKeyAttributes()`: Get detailed attributes of a key.
-- `getAllKeys()`: Retrieve all keys managed by the library.
+- `getAllKeys(customAlias?)`: Retrieve all keys managed by the library, optionally filtered by custom alias.
 - `configureKeyAlias()`: Set a default alias for keys.
 
 #### Using Fallback (Device Credentials)
@@ -500,6 +500,7 @@ const deleteBiometricKeys = async () => {
 // Retrieve all stored biometric keys
 const getAllBiometricKeys = async () => {
   try {
+    // Get all keys (no filter)
     const result = await getAllKeys();
 
     console.log(`📋 Found ${result.keys.length} stored keys`);
@@ -831,12 +832,12 @@ try {
 }
 ```
 
-#### `getAllKeys()`
+#### `getAllKeys(customAlias?)`
 
-Retrieves all stored cryptographic keys.
+Retrieves all stored cryptographic keys, optionally filtered by a custom alias.
 
 ```typescript
-const getAllKeys = (): Promise<GetAllKeysResult> => {
+const getAllKeys = (customAlias?: string): Promise<GetAllKeysResult> => {
 };
 
 type GetAllKeysResult = {
@@ -846,6 +847,22 @@ type GetAllKeysResult = {
     creationDate?: string;   // Key creation date (if available)
   }>;
 }
+```
+
+**Usage Examples:**
+
+```typescript
+// Get all keys
+const allKeys = await getAllKeys();
+console.log(`Found ${allKeys.keys.length} keys`);
+
+// Get keys for a specific custom alias
+const customKeys = await getAllKeys('my-custom-alias');
+console.log(`Found ${customKeys.keys.length} keys with custom alias`);
+
+// Get keys with default alias (null)
+const defaultKeys = await getAllKeys(null);
+console.log(`Found ${defaultKeys.keys.length} keys with default alias`);
 ```
 
 ### Device Security

@@ -32,7 +32,7 @@ export interface Spec extends TurboModule {
     success: boolean;
   }>;
   configureKeyAlias(keyAlias: string): Promise<void>;
-  getAllKeys(): Promise<{
+  getAllKeys(customAlias?: string | null): Promise<{
     keys: Array<{
       alias: string;
       publicKey: string;

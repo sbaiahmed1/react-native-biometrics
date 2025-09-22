@@ -370,9 +370,10 @@ class ReactNativeBiometrics: NSObject {
   }
   
   @objc
-  func getAllKeys(_ resolve: @escaping RCTPromiseResolveBlock,
+  func getAllKeys(_ customAlias: NSString?,
+                  resolver resolve: @escaping RCTPromiseResolveBlock,
                   rejecter reject: @escaping RCTPromiseRejectBlock) {
-    ReactNativeBiometricDebug.debugLog("getAllKeys called")
+    ReactNativeBiometricDebug.debugLog("getAllKeys called with customAlias: \(customAlias ?? "nil")")
     
     // Query to find all keys in the Keychain
     let query: [String: Any] = [
@@ -398,31 +399,43 @@ class ReactNativeBiometrics: NSObject {
       for item in items {
         // Filter for our biometric keys
         if let keyTag = item[kSecAttrApplicationTag as String] as? Data,
-           let keyTagString = String(data: keyTag, encoding: .utf8),
-           (keyTagString.contains(getKeyAlias())) {
+           let keyTagString = String(data: keyTag, encoding: .utf8) {
           
-          // Get the key reference
-          guard let keyRef = item[kSecValueRef as String] as! SecKey? else {
-            ReactNativeBiometricDebug.debugLog("Failed to get key reference for tag: \(keyTagString)")
-            continue
+          // If customAlias is provided, filter for that specific alias
+          // Otherwise, check if it contains any of our key aliases (default behavior)
+          let shouldIncludeKey: Bool
+          if let customAlias = customAlias as String? {
+            let targetAlias = getKeyAlias(customAlias)
+            shouldIncludeKey = keyTagString.contains(targetAlias)
+          } else {
+            // Default behavior: include all keys that match our key alias pattern
+            shouldIncludeKey = keyTagString.contains(getKeyAlias())
           }
           
-          // Get the public key from the private key reference
-          if let publicKey = SecKeyCopyPublicKey(keyRef) {
-            // Export the public key data
-            if let publicKeyString = exportPublicKeyToBase64(publicKey) {
-              let keyInfo: [String: Any] = [
-                "alias": keyTagString,
-                "publicKey": publicKeyString
-              ]
-              
-              keysList.append(keyInfo)
-              ReactNativeBiometricDebug.debugLog("Found key with tag: \(keyTagString)")
-            } else {
-              ReactNativeBiometricDebug.debugLog("Failed to export public key for tag: \(keyTagString)")
+          if shouldIncludeKey {
+            // Get the key reference
+            guard let keyRef = item[kSecValueRef as String] as! SecKey? else {
+              ReactNativeBiometricDebug.debugLog("Failed to get key reference for tag: \(keyTagString)")
+              continue
             }
-          } else {
-            ReactNativeBiometricDebug.debugLog("Failed to get public key for tag: \(keyTagString)")
+            
+            // Get the public key from the private key reference
+            if let publicKey = SecKeyCopyPublicKey(keyRef) {
+              // Export the public key data
+              if let publicKeyString = exportPublicKeyToBase64(publicKey) {
+                let keyInfo: [String: Any] = [
+                  "alias": keyTagString,
+                  "publicKey": publicKeyString
+                ]
+                
+                keysList.append(keyInfo)
+                ReactNativeBiometricDebug.debugLog("Found key with tag: \(keyTagString)")
+              } else {
+                ReactNativeBiometricDebug.debugLog("Failed to export public key for tag: \(keyTagString)")
+              }
+            } else {
+              ReactNativeBiometricDebug.debugLog("Failed to get public key for tag: \(keyTagString)")
+            }
           }
         }
       }

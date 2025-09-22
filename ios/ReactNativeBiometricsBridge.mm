@@ -27,7 +27,8 @@ RCT_EXTERN_METHOD(deleteKeys:
     rejecter:(RCTPromiseRejectBlock)reject)
 
 RCT_EXTERN_METHOD(getAllKeys:
-    (RCTPromiseResolveBlock)resolve
+    (NSString *)customAlias
+    resolver:(RCTPromiseResolveBlock)resolve
     rejecter:(RCTPromiseRejectBlock)reject)
 
 RCT_EXTERN_METHOD(getDiagnosticInfo:
