@@ -860,7 +860,9 @@ console.log(`Found ${allKeys.keys.length} keys`);
 const customKeys = await getAllKeys('my-custom-alias');
 console.log(`Found ${customKeys.keys.length} keys with custom alias`);
 
-// Get keys with default alias (null)
+/**
+ * Passing null as the alias retrieves keys for the default alias.
+ */
 const defaultKeys = await getAllKeys(null);
 console.log(`Found ${defaultKeys.keys.length} keys with default alias`);
 ```

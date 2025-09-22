@@ -402,14 +402,14 @@ class ReactNativeBiometrics: NSObject {
            let keyTagString = String(data: keyTag, encoding: .utf8) {
           
           // If customAlias is provided, filter for that specific alias
-          // Otherwise, check if it contains any of our key aliases (default behavior)
+          // Otherwise, check if it exactly matches our key alias (default behavior)
           let shouldIncludeKey: Bool
           if let customAlias = customAlias as String? {
             let targetAlias = getKeyAlias(customAlias)
-            shouldIncludeKey = keyTagString.contains(targetAlias)
+            shouldIncludeKey = keyTagString == targetAlias
           } else {
-            // Default behavior: include all keys that match our key alias pattern
-            shouldIncludeKey = keyTagString.contains(getKeyAlias())
+            // Default behavior: include all keys that exactly match our key alias pattern
+            shouldIncludeKey = keyTagString == getKeyAlias()
           }
           
           if shouldIncludeKey {
