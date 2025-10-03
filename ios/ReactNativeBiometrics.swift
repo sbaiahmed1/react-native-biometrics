@@ -627,7 +627,7 @@ class ReactNativeBiometrics: NSObject {
       if let cfError = error?.takeRetainedValue() {
         // Check if the error is due to user cancellation or authentication failure
         let errorCode = CFErrorGetCode(cfError)
-        if errorCode == errSecUserCancel {
+        if errorCode == errSecUserCanceled {
           biometricsError = ReactNativeBiometricsError.userCancel
         } else if errorCode == errSecAuthFailed {
           biometricsError = ReactNativeBiometricsError.authenticationFailed
