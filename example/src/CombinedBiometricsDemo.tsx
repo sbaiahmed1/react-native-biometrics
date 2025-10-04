@@ -37,6 +37,9 @@ interface TestResult {
 export default function CombinedBiometricsDemo() {
   const [currentKeyAlias, setCurrentKeyAlias] = useState<string>('');
   const [customKeyAlias, setCustomKeyAlias] = useState<string>('');
+  const [selectedKeyType, setSelectedKeyType] = useState<'rsa2048' | 'ec256'>(
+    'ec256'
+  );
   const [testData, setTestData] = useState<string>('Hello, secure world!');
   const [signature, setSignature] = useState<string>('');
   const [allKeys, setAllKeys] = useState<any[]>([]);
@@ -112,12 +115,12 @@ export default function CombinedBiometricsDemo() {
   const handleCreateKeys = async (alias?: string) => {
     setIsLoading(true);
     try {
-      const result = await createKeys(alias);
+      const result = await createKeys(alias, selectedKeyType);
       setSignature(''); // Clear signature since new keys invalidate existing signatures
       await loadAllKeys();
       const message = alias
-        ? `Keys created with alias: ${alias}`
-        : 'Keys created successfully!';
+        ? `Keys created with alias: ${alias} (${selectedKeyType.toUpperCase()})`
+        : `Keys created successfully! (${selectedKeyType.toUpperCase()})`;
       Alert.alert('Success', message);
       addTestResult('Create Keys', result, true);
     } catch (error) {
@@ -353,6 +356,48 @@ export default function CombinedBiometricsDemo() {
       {/* Key Management Section */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Key Management</Text>
+
+        {/* Key Type Selector */}
+        <View style={styles.keyTypeSelector}>
+          <Text style={styles.keyTypeSelectorLabel}>Key Type:</Text>
+          <View style={styles.keyTypeOptions}>
+            <TouchableOpacity
+              style={[
+                styles.keyTypeOption,
+                selectedKeyType === 'ec256' && styles.keyTypeOptionSelected,
+              ]}
+              onPress={() => setSelectedKeyType('ec256')}
+            >
+              <Text
+                style={[
+                  styles.keyTypeOptionText,
+                  selectedKeyType === 'ec256' &&
+                    styles.keyTypeOptionTextSelected,
+                ]}
+              >
+                EC256
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.keyTypeOption,
+                selectedKeyType === 'rsa2048' && styles.keyTypeOptionSelected,
+              ]}
+              onPress={() => setSelectedKeyType('rsa2048')}
+            >
+              <Text
+                style={[
+                  styles.keyTypeOptionText,
+                  selectedKeyType === 'rsa2048' &&
+                    styles.keyTypeOptionTextSelected,
+                ]}
+              >
+                RSA2048
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
         <View style={styles.buttonRow}>
           <TouchableOpacity
             style={[
@@ -732,5 +777,41 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#856404',
     textAlign: 'center',
+  },
+  keyTypeSelector: {
+    marginBottom: 15,
+  },
+  keyTypeSelectorLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 8,
+  },
+  keyTypeOptions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  keyTypeOption: {
+    flex: 1,
+    backgroundColor: '#f8f9fa',
+    borderWidth: 2,
+    borderColor: '#dee2e6',
+    borderRadius: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    marginHorizontal: 4,
+    alignItems: 'center',
+  },
+  keyTypeOptionSelected: {
+    backgroundColor: '#007bff',
+    borderColor: '#007bff',
+  },
+  keyTypeOptionText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#495057',
+  },
+  keyTypeOptionTextSelected: {
+    color: 'white',
   },
 });
