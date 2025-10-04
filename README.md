@@ -31,7 +31,7 @@
 - 🔒 **Unified API** - Single interface for iOS and Android biometric authentication
 - 📱 **Multiple Biometric Types** - Face ID, Touch ID, Fingerprint, and more
 - 🛠️ **Advanced Options** - Customizable prompts, fallback options, and device credentials
-- 🔑 **Key Management** - Create and manage cryptographic keys for secure operations
+- 🔑 **Key Management** - Create and manage cryptographic keys (EC256/RSA2048) for secure operations
 - 🛡️ **Device Integrity** - Detect compromised devices (rooted/jailbroken) for enhanced security
 - 🐛 **Debug Tools** - Comprehensive diagnostic and testing utilities
 - 📝 **Centralized Logging** - Advanced logging system for debugging and monitoring
@@ -158,7 +158,7 @@ The key management functions have been updated and are now named exports. Here a
 
 | `react-native-biometrics` (Old) | `@sbaiahmed1/react-native-biometrics` (New) | Notes |
 | ------------------------------- | ------------------------------------------- | ----- |
-| `createKeys()`                  | `createKeys()`                              | No change in function name. |
+| `createKeys()`                  | `createKeys(keyAlias?, keyType?)`           | Now supports optional `keyType` parameter ('ec256' or 'rsa2048'). |
 | `biometricKeysExist()`          | `validateKeyIntegrity()`                    | Check the `keyExists` boolean in the returned object. |
 | `createSignature()`             | `verifyKeySignature()`                      | This function now creates the signature. The name is updated to reflect its primary use in verification flows. |
 | `deleteKeys()`                  | `deleteKeys()`                              | No change in function name. |
@@ -469,14 +469,26 @@ import { createKeys, deleteKeys, getAllKeys } from '@sbaiahmed1/react-native-bio
 // Create biometric keys for secure operations
 const createBiometricKeys = async () => {
   try {
+    // Create EC256 keys (default, recommended)
     const result = await createKeys();
-    console.log('✅ Keys created successfully');
+    console.log('✅ EC256 keys created successfully');
     console.log('🔑 Public key:', result.publicKey);
 
     // Store the public key for server-side verification
     await storePublicKeyOnServer(result.publicKey);
   } catch (error) {
     console.error('💥 Failed to create keys:', error);
+  }
+};
+
+// Create RSA keys for legacy system compatibility
+const createRSAKeys = async () => {
+  try {
+    const result = await createKeys('com.myapp.rsa.key', 'rsa2048');
+    console.log('✅ RSA2048 keys created successfully');
+    console.log('🔑 Public key:', result.publicKey);
+  } catch (error) {
+    console.error('💥 Failed to create RSA keys:', error);
   }
 };
 
@@ -530,9 +542,9 @@ const keyLifecycleExample = async () => {
       throw new Error('Biometric authentication not available');
     }
 
-    // 2. Create keys for the user
+    // 2. Create keys for the user (EC256 by default)
     const keyResult = await createKeys();
-    console.log('🔐 Biometric keys created for user');
+    console.log('🔐 EC256 biometric keys created for user');
 
     // 3. Perform authenticated operations
     const authResult = await authenticateWithOptions({
@@ -764,12 +776,12 @@ type AuthResult = {
 
 ### Key Management
 
-#### `createKeys(keyAlias?: string)`
+#### `createKeys(keyAlias?: string, keyType?: 'ec256' | 'rsa2048')`
 
-Generates cryptographic keys for secure biometric operations. Optionally accepts a custom key alias.
+Generates cryptographic keys for secure biometric operations. Optionally accepts a custom key alias and key type.
 
 ```typescript
-const createKeys = (keyAlias?: string): Promise<KeyResult> => {
+const createKeys = (keyAlias?: string, keyType?: 'ec256' | 'rsa2048'): Promise<KeyResult> => {
 };
 
 type KeyResult = {
@@ -777,25 +789,44 @@ type KeyResult = {
 }
 ```
 
+**Parameters:**
+- `keyAlias` (optional): Custom key identifier. If not provided, uses the configured default alias.
+- `keyType` (optional): Type of cryptographic key to generate:
+  - `'ec256'` (default): Elliptic Curve P-256 key. Stored in Secure Enclave on iOS for enhanced security.
+  - `'rsa2048'`: RSA 2048-bit key. Stored in regular keychain on iOS, Android Keystore on Android.
+
+**Key Type Considerations:**
+- **EC256**: Recommended for most use cases. Provides excellent security with smaller key sizes and better performance. On iOS, stored in Secure Enclave for hardware-level protection.
+- **RSA2048**: Use when compatibility with legacy systems is required or when EC keys are not supported by your infrastructure.
+
 **Example:**
 ```javascript
 import { createKeys } from '@sbaiahmed1/react-native-biometrics';
 
-// Create keys with default (configured) alias
+// Create EC256 keys with default alias (recommended)
 try {
   const result = await createKeys();
-  console.log('Keys created successfully:', result.publicKey);
+  console.log('EC256 keys created successfully:', result.publicKey);
 } catch (error) {
   console.error('Error creating keys:', error);
 }
 
-// Create keys with custom alias
+// Create RSA2048 keys with custom alias
 try {
-  const result = await createKeys('com.myapp.biometric.backup');
-  console.log('Keys created with custom alias:', result.publicKey);
+  const result = await createKeys('com.myapp.biometric.backup', 'rsa2048');
+  console.log('RSA2048 keys created with custom alias:', result.publicKey);
 } catch (error) {
   console.error('Error creating keys:', error);
 }
+
+// Create EC256 keys with custom alias (explicit key type)
+try {
+  const result = await createKeys('com.myapp.secure.key', 'ec256');
+  console.log('EC256 keys created:', result.publicKey);
+} catch (error) {
+  console.error('Error creating keys:', error);
+}
+```
 ```
 
 #### `deleteKeys(keyAlias?: string)`
@@ -1405,6 +1436,7 @@ This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) 
 - [x] **Enhanced Testing**: Expand unit test coverage and add integration tests
 - [x] **Centralized Logging**: Implemented comprehensive logging and error reporting system
 - [x] **Advanced Security Features**: Enhanced security measures and validation
+- [x] **Key Type Support**: Added support for EC256 and RSA2048 key types in createKeys function
 
 ### 🔄 In Progress
 - [x] **Biometrics Change Event Handling**: Implement event listeners for biometric changes (e.g., new enrollment, removal)

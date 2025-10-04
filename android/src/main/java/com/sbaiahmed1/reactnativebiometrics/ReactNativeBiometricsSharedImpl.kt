@@ -196,10 +196,15 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
   }
 
   fun createKeys(keyAlias: String?, promise: Promise) {
-    val actualKeyAlias = getKeyAlias(keyAlias)
-    debugLog("createKeys called with keyAlias: ${keyAlias ?: "default"}, using: $actualKeyAlias")
-    try {
+    createKeysWithType(keyAlias, null, promise)
+  }
 
+  fun createKeysWithType(keyAlias: String?, keyType: String?, promise: Promise) {
+    val actualKeyAlias = getKeyAlias(keyAlias)
+    val actualKeyType = keyType?.lowercase() ?: "rsa2048"
+    debugLog("createKeys called with keyAlias: ${keyAlias ?: "default"}, using: $actualKeyAlias, keyType: $actualKeyType")
+    
+    try {
       // Check if key already exists
       val keyStore = KeyStore.getInstance("AndroidKeyStore")
       keyStore.load(null)
@@ -209,33 +214,70 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
         keyStore.deleteEntry(actualKeyAlias)
       }
 
-      // Generate new key pair
-      val keyPairGenerator = KeyPairGenerator.getInstance(KeyProperties.KEY_ALGORITHM_RSA, "AndroidKeyStore")
+      // Generate new key pair based on key type
+      when (actualKeyType) {
+        "rsa2048" -> {
+          val keyPairGenerator = KeyPairGenerator.getInstance(KeyProperties.KEY_ALGORITHM_RSA, "AndroidKeyStore")
+          val keyGenParameterSpec = KeyGenParameterSpec.Builder(
+            actualKeyAlias,
+            KeyProperties.PURPOSE_SIGN or KeyProperties.PURPOSE_VERIFY
+          )
+            .setDigests(KeyProperties.DIGEST_SHA256)
+            .setSignaturePaddings(KeyProperties.SIGNATURE_PADDING_RSA_PKCS1)
+            .setKeySize(2048)
+            .setUserAuthenticationRequired(true)
+            .setUserAuthenticationValidityDurationSeconds(-1) // Require auth for every use
+            .build()
 
-      val keyGenParameterSpec = KeyGenParameterSpec.Builder(
-        actualKeyAlias,
-        KeyProperties.PURPOSE_SIGN or KeyProperties.PURPOSE_VERIFY
-      )
-        .setDigests(KeyProperties.DIGEST_SHA256)
-        .setSignaturePaddings(KeyProperties.SIGNATURE_PADDING_RSA_PKCS1)
-        .setKeySize(2048)
-        .setUserAuthenticationRequired(true)
-        .setUserAuthenticationValidityDurationSeconds(-1) // Require auth for every use
-        .build()
+          keyPairGenerator.initialize(keyGenParameterSpec)
+          val keyPair = keyPairGenerator.generateKeyPair()
 
-      keyPairGenerator.initialize(keyGenParameterSpec)
-      val keyPair = keyPairGenerator.generateKeyPair()
+          // Get public key and encode it
+          val publicKey = keyPair.public
+          val publicKeyBytes = publicKey.encoded
+          val publicKeyString = Base64.encodeToString(publicKeyBytes, Base64.DEFAULT)
 
-      // Get public key and encode it
-      val publicKey = keyPair.public
-      val publicKeyBytes = publicKey.encoded
-      val publicKeyString = Base64.encodeToString(publicKeyBytes, Base64.DEFAULT)
+          val result = Arguments.createMap()
+          result.putString("publicKey", publicKeyString)
 
-      val result = Arguments.createMap()
-      result.putString("publicKey", publicKeyString)
+          debugLog("RSA Keys created successfully with alias: $actualKeyAlias")
+          promise.resolve(result)
+        }
+        
+        "ec256" -> {
+          val keyPairGenerator = KeyPairGenerator.getInstance(KeyProperties.KEY_ALGORITHM_EC, "AndroidKeyStore")
+          val keyGenParameterSpec = KeyGenParameterSpec.Builder(
+            actualKeyAlias,
+            KeyProperties.PURPOSE_SIGN or KeyProperties.PURPOSE_VERIFY
+          )
+            .setDigests(KeyProperties.DIGEST_SHA256)
+            .setSignaturePaddings(KeyProperties.SIGNATURE_PADDING_RSA_PKCS1) // This will be ignored for EC
+            .setKeySize(256)
+            .setUserAuthenticationRequired(true)
+            .setUserAuthenticationValidityDurationSeconds(-1) // Require auth for every use
+            .build()
 
-      debugLog("Keys created successfully with alias: $actualKeyAlias")
-      promise.resolve(result)
+          keyPairGenerator.initialize(keyGenParameterSpec)
+          val keyPair = keyPairGenerator.generateKeyPair()
+
+          // Get public key and encode it
+          val publicKey = keyPair.public
+          val publicKeyBytes = publicKey.encoded
+          val publicKeyString = Base64.encodeToString(publicKeyBytes, Base64.DEFAULT)
+
+          val result = Arguments.createMap()
+          result.putString("publicKey", publicKeyString)
+
+          debugLog("EC Keys created successfully with alias: $actualKeyAlias")
+          promise.resolve(result)
+        }
+        
+        else -> {
+          debugLog("createKeys failed - Unsupported key type: $actualKeyType")
+          promise.reject("CREATE_KEYS_ERROR", "Unsupported key type: $actualKeyType. Supported types: rsa2048, ec256", null)
+          return
+        }
+      }
 
     } catch (e: NoSuchAlgorithmException) {
       debugLog("createKeys failed - Algorithm not supported: ${e.message}")
@@ -699,7 +741,7 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
               val signatureBytes = authenticatedSignature.sign()
 
               // Verify the signature
-              val verifySignature = java.security.Signature.getInstance("SHA256withRSA")
+              val verifySignature = java.security.Signature.getInstance(BiometricUtils.getSignatureAlgorithm(publicKey))
               verifySignature.initVerify(publicKey)
               verifySignature.update(testData)
               val isValid = verifySignature.verify(signatureBytes)
@@ -788,7 +830,7 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
       val privateKey = keyEntry.privateKey
 
       // Create signature instance and initialize it with the private key
-      val signature = Signature.getInstance("SHA256withRSA")
+      val signature = Signature.getInstance(BiometricUtils.getSignatureAlgorithm(privateKey))
       signature.initSign(privateKey)
 
       // Create CryptoObject with the signature for authentication-required keys
@@ -915,7 +957,7 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
       }
 
       val publicKey = keyStore.getCertificate(actualKeyAlias).publicKey
-      val signatureInstance = Signature.getInstance("SHA256withRSA")
+      val signatureInstance = Signature.getInstance(BiometricUtils.getSignatureAlgorithm(publicKey))
       signatureInstance.initVerify(publicKey)
       signatureInstance.update(data.toByteArray())
 

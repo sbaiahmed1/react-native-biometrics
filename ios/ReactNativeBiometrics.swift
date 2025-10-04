@@ -262,9 +262,10 @@ class ReactNativeBiometrics: NSObject {
   
   @objc
   func createKeys(_ keyAlias: NSString?,
+                  keyType: NSString?,
                   resolver resolve: @escaping RCTPromiseResolveBlock,
                   rejecter reject: @escaping RCTPromiseRejectBlock) {
-    ReactNativeBiometricDebug.debugLog("createKeys called with keyAlias: \(keyAlias ?? "default")")
+    ReactNativeBiometricDebug.debugLog("createKeys called with keyAlias: \(keyAlias ?? "default"), keyType: \(keyType ?? "ec256")")
     
     let keyTag = getKeyAlias(keyAlias as String?)
     guard let keyTagData = keyTag.data(using: .utf8) else {
@@ -272,20 +273,37 @@ class ReactNativeBiometrics: NSObject {
       return
     }
     
+    // Parse key type
+    let biometricKeyType: BiometricKeyType
+    if let keyTypeString = keyType as String?, keyTypeString.lowercased() == "rsa2048" {
+      biometricKeyType = .rsa2048
+    } else {
+      biometricKeyType = .ec256
+    }
+    
     // Delete existing key if it exists
-    let deleteQuery = createKeychainQuery(keyTag: keyTag, includeSecureEnclave: false)
+    // For RSA keys, we need to delete without Secure Enclave attributes
+    // For EC keys, we include Secure Enclave attributes
+    let deleteQuery = createKeychainQuery(keyTag: keyTag, includeSecureEnclave: biometricKeyType == .ec256)
     SecItemDelete(deleteQuery as CFDictionary)
+    
+    // Also try deleting without Secure Enclave attributes for RSA keys to ensure cleanup
+    if biometricKeyType == .rsa2048 {
+      let fallbackDeleteQuery = createKeychainQuery(keyTag: keyTag, includeSecureEnclave: false)
+      SecItemDelete(fallbackDeleteQuery as CFDictionary)
+    }
+    
     ReactNativeBiometricDebug.debugLog("Deleted existing key (if any)")
     
     // Create access control for biometric authentication
-    guard let accessControl = createBiometricAccessControl() else {
+    guard let accessControl = createBiometricAccessControl(for: biometricKeyType) else {
       ReactNativeBiometricDebug.debugLog("createKeys failed - Could not create access control")
       handleError(.accessControlCreationFailed, reject: reject)
       return
     }
     
     // Key generation parameters
-    let keyAttributes = createKeyGenerationAttributes(keyTagData: keyTagData, accessControl: accessControl)
+    let keyAttributes = createKeyGenerationAttributes(keyTagData: keyTagData, accessControl: accessControl, keyType: biometricKeyType)
     
     var error: Unmanaged<CFError>?
     guard let privateKey = SecKeyCreateRandomKey(keyAttributes as CFDictionary, &error) else {
@@ -317,7 +335,7 @@ class ReactNativeBiometrics: NSObject {
       "publicKey": publicKeyBase64
     ]
     
-    ReactNativeBiometricDebug.debugLog("Keys created successfully with tag: \(keyTag)")
+    ReactNativeBiometricDebug.debugLog("Keys created successfully with tag: \(keyTag), type: \(biometricKeyType)")
     resolve(result)
   }
   

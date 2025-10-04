@@ -25,7 +25,10 @@ export interface Spec extends TurboModule {
     error?: string;
     errorCode?: string;
   }>;
-  createKeys(keyAlias?: string | null): Promise<{
+  createKeys(
+    keyAlias?: string | null,
+    keyType?: string | null
+  ): Promise<{
     publicKey: string;
   }>;
   deleteKeys(keyAlias?: string | null): Promise<{

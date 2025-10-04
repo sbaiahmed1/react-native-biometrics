@@ -140,38 +140,74 @@ public func createKeychainQuery(
 
 /**
  * Creates access control for biometric authentication
+ * - Parameter keyType: The type of key being created
  * - Returns: SecAccessControl for biometric keys or nil if creation fails
  */
-public func createBiometricAccessControl() -> SecAccessControl? {
-  return SecAccessControlCreateWithFlags(
-    kCFAllocatorDefault,
-    kSecAttrAccessibleWhenUnlockedThisDeviceOnly,
-    [.biometryAny, .privateKeyUsage],
-    nil
-  )
+public func createBiometricAccessControl(for keyType: BiometricKeyType = .ec256) -> SecAccessControl? {
+  // For RSA keys (not in Secure Enclave), we use simpler access control
+  if keyType == .rsa2048 {
+    return SecAccessControlCreateWithFlags(
+      kCFAllocatorDefault,
+      kSecAttrAccessibleWhenUnlockedThisDeviceOnly,
+      [.biometryAny],
+      nil
+    )
+  } else {
+    // For EC keys (in Secure Enclave), we use privateKeyUsage
+    return SecAccessControlCreateWithFlags(
+      kCFAllocatorDefault,
+      kSecAttrAccessibleWhenUnlockedThisDeviceOnly,
+      [.biometryAny, .privateKeyUsage],
+      nil
+    )
+  }
 }
 
 /**
- * Creates key generation attributes for Secure Enclave keys
+ * Biometric key type enumeration for key generation
+ */
+public enum BiometricKeyType {
+  case rsa2048
+  case ec256
+}
+
+/**
+ * Creates key generation attributes for biometric keys
  * - Parameters:
- *   - keyTag: The key tag data
+ *   - keyTagData: The key tag data
  *   - accessControl: The access control for the key
+ *   - keyType: The type of key to generate (RSA or EC)
  * - Returns: Key generation attributes dictionary
  */
 public func createKeyGenerationAttributes(
   keyTagData: Data,
-  accessControl: SecAccessControl
+  accessControl: SecAccessControl,
+  keyType: BiometricKeyType = .ec256
 ) -> [String: Any] {
-  return [
-    kSecAttrKeyType as String: kSecAttrKeyTypeECSECPrimeRandom,
-    kSecAttrKeySizeInBits as String: 256,
-    kSecAttrTokenID as String: kSecAttrTokenIDSecureEnclave,
-    kSecPrivateKeyAttrs as String: [
-      kSecAttrIsPermanent as String: true,
-      kSecAttrApplicationTag as String: keyTagData,
-      kSecAttrAccessControl as String: accessControl
+  switch keyType {
+  case .rsa2048:
+    return [
+      kSecAttrKeyType as String: kSecAttrKeyTypeRSA,
+      kSecAttrKeySizeInBits as String: 2048,
+      kSecPrivateKeyAttrs as String: [
+        kSecAttrIsPermanent as String: true,
+        kSecAttrApplicationTag as String: keyTagData,
+        kSecAttrAccessControl as String: accessControl
+      ]
     ]
-  ]
+    
+  case .ec256:
+    return [
+      kSecAttrKeyType as String: kSecAttrKeyTypeECSECPrimeRandom,
+      kSecAttrKeySizeInBits as String: 256,
+      kSecAttrTokenID as String: kSecAttrTokenIDSecureEnclave,
+      kSecPrivateKeyAttrs as String: [
+        kSecAttrIsPermanent as String: true,
+        kSecAttrApplicationTag as String: keyTagData,
+        kSecAttrAccessControl as String: accessControl
+      ]
+    ]
+  }
 }
 
 /**

@@ -270,6 +270,17 @@ object BiometricUtils {
     }
     
     /**
+     * Gets the appropriate signature algorithm for a given key
+     */
+    fun getSignatureAlgorithm(key: java.security.Key): String {
+        return when (key) {
+            is RSAKey -> "SHA256withRSA"
+            is ECKey -> "SHA256withECDSA"
+            else -> "SHA256withRSA" // Default fallback
+        }
+    }
+    
+    /**
      * Checks if the device is rooted
      * This performs multiple checks to detect root access
      */

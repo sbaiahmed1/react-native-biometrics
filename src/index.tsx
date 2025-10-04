@@ -69,18 +69,25 @@ export function authenticateWithOptions(
     });
 }
 
-export function createKeys(keyAlias?: string): Promise<KeyCreationResult> {
-  logger.debug('Creating biometric keys', 'createKeys', { keyAlias });
-  return ReactNativeBiometrics.createKeys(keyAlias)
+export function createKeys(
+  keyAlias?: string,
+  keyType?: 'rsa2048' | 'ec256'
+): Promise<KeyCreationResult> {
+  logger.debug('Creating biometric keys', 'createKeys', { keyAlias, keyType });
+  return ReactNativeBiometrics.createKeys(keyAlias, keyType)
     .then((result) => {
       logger.info('Keys created successfully', 'createKeys', {
         keyAlias,
+        keyType,
         publicKeyLength: result.publicKey?.length,
       });
       return result;
     })
     .catch((error) => {
-      logger.error('Key creation failed', 'createKeys', error, { keyAlias });
+      logger.error('Key creation failed', 'createKeys', error, {
+        keyAlias,
+        keyType,
+      });
       throw error;
     });
 }
