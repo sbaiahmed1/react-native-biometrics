@@ -539,48 +539,46 @@ class ReactNativeBiometrics: NSObject {
     let testData = "integrity_test_data".data(using: .utf8)!
     let algorithm = getSignatureAlgorithm(for: keyRef)
     
-    // For Secure Enclave keys, we need biometric authentication
-    performBiometricAuthentication(reason: "Authenticate to test key integrity") { success, authenticationError in
-      DispatchQueue.main.async {
-        if success {
-          var error: Unmanaged<CFError>?
-          if let signature = SecKeyCreateSignature(keyRef, algorithm, testData as CFData, &error) {
-            // Verify the signature with public key
-            if let publicKey = SecKeyCopyPublicKey(keyRef) {
-              let isValid = SecKeyVerifySignature(publicKey, algorithm, testData as CFData, signature, &error)
-              checks["signatureTestPassed"] = isValid
-              
-              if isValid {
-                integrityResult["valid"] = true
-              }
-            } else {
-              ReactNativeBiometricDebug.debugLog("validateKeyIntegrity - Public key extraction failed for verification.")
-              checks["signatureTestPassed"] = false
-              integrityResult["error"] = ReactNativeBiometricsError.publicKeyExtractionFailed.errorInfo.message
-            }
-          } else {
-            let errorDescription = error?.takeRetainedValue().localizedDescription ?? "Unknown error"
-            ReactNativeBiometricDebug.debugLog("validateKeyIntegrity - Signature test failed: \(errorDescription)")
-            checks["signatureTestPassed"] = false
-            integrityResult["error"] = ReactNativeBiometricsError.signatureCreationFailed.errorInfo.message
-          }
-        } else {
-          let biometricsError: ReactNativeBiometricsError
-          if let laError = authenticationError as? LAError {
-            biometricsError = ReactNativeBiometricsError.fromLAError(laError)
-          } else {
-            biometricsError = .authenticationFailed
-          }
-          ReactNativeBiometricDebug.debugLog("validateKeyIntegrity - Authentication failed: \(biometricsError.errorInfo.message)")
-          checks["signatureTestPassed"] = false
-          integrityResult["error"] = biometricsError.errorInfo.message
-        }
+    // Directly attempt signature creation; Secure Enclave will prompt as needed
+    var error: Unmanaged<CFError>?
+    if let signature = SecKeyCreateSignature(keyRef, algorithm, testData as CFData, &error) {
+      // Verify the signature with public key
+      if let publicKey = SecKeyCopyPublicKey(keyRef) {
+        let isValid = SecKeyVerifySignature(publicKey, algorithm, testData as CFData, signature, &error)
+        checks["signatureTestPassed"] = isValid
         
-        integrityResult["integrityChecks"] = checks
-        ReactNativeBiometricDebug.debugLog("validateKeyIntegrity completed")
-        resolve(integrityResult)
+        if isValid {
+          integrityResult["valid"] = true
+        }
+      } else {
+        ReactNativeBiometricDebug.debugLog("validateKeyIntegrity - Public key extraction failed for verification.")
+        checks["signatureTestPassed"] = false
+        integrityResult["error"] = ReactNativeBiometricsError.publicKeyExtractionFailed.errorInfo.message
       }
+    } else {
+      let biometricsError: ReactNativeBiometricsError
+      if let cfError = error?.takeRetainedValue() {
+        // Map common auth-related errors
+        let errorCode = CFErrorGetCode(cfError)
+        if errorCode == errSecUserCanceled {
+          biometricsError = .userCancel
+        } else if errorCode == errSecAuthFailed {
+          biometricsError = .authenticationFailed
+        } else {
+          biometricsError = .signatureCreationFailed
+        }
+        ReactNativeBiometricDebug.debugLog("validateKeyIntegrity - Signature test failed: \(cfError.localizedDescription)")
+      } else {
+        biometricsError = .signatureCreationFailed
+        ReactNativeBiometricDebug.debugLog("validateKeyIntegrity - Signature test failed: Unknown error")
+      }
+      checks["signatureTestPassed"] = false
+      integrityResult["error"] = biometricsError.errorInfo.message
     }
+    
+    integrityResult["integrityChecks"] = checks
+    ReactNativeBiometricDebug.debugLog("validateKeyIntegrity completed")
+    resolve(integrityResult)
   }
   
   @objc
