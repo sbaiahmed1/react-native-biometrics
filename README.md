@@ -791,41 +791,21 @@ type KeyResult = {
 
 **Parameters:**
 - `keyAlias` (optional): Custom key identifier. If not provided, uses the configured default alias.
-- `keyType` (optional): Type of cryptographic key to generate:
-  - `'ec256'` (default): Elliptic Curve P-256 key. Stored in Secure Enclave on iOS for enhanced security.
-  - `'rsa2048'`: RSA 2048-bit key. Stored in regular keychain on iOS, Android Keystore on Android.
+- `keyType` (optional): Type of cryptographic key to generate. Defaults to `'ec256'` on iOS and `'rsa2048'` on Android.
 
-**Key Type Considerations:**
-- **EC256**: Recommended for most use cases. Provides excellent security with smaller key sizes and better performance. On iOS, stored in Secure Enclave for hardware-level protection.
-- **RSA2048**: Use when compatibility with legacy systems is required or when EC keys are not supported by your infrastructure.
+> 📖 **For detailed key type information, security considerations, and advanced usage patterns, see the [Cryptographic Keys Guide](./docs/CRYPTOGRAPHIC_KEYS.md)**
 
 **Example:**
 ```javascript
 import { createKeys } from '@sbaiahmed1/react-native-biometrics';
 
-// Create EC256 keys with default alias (recommended)
-try {
-  const result = await createKeys();
-  console.log('EC256 keys created successfully:', result.publicKey);
-} catch (error) {
-  console.error('Error creating keys:', error);
-}
+// Create keys with platform defaults
+const result = await createKeys();
+console.log('Keys created:', result.publicKey);
 
-// Create RSA2048 keys with custom alias
-try {
-  const result = await createKeys('com.myapp.biometric.backup', 'rsa2048');
-  console.log('RSA2048 keys created with custom alias:', result.publicKey);
-} catch (error) {
-  console.error('Error creating keys:', error);
-}
-
-// Create EC256 keys with custom alias (explicit key type)
-try {
-  const result = await createKeys('com.myapp.secure.key', 'ec256');
-  console.log('EC256 keys created:', result.publicKey);
-} catch (error) {
-  console.error('Error creating keys:', error);
-}
+// Create keys with specific type
+const rsaKeys = await createKeys(undefined, 'rsa2048');
+const ecKeys = await createKeys(undefined, 'ec256');
 ```
 ```
 
@@ -1419,6 +1399,12 @@ const alias = await getDefaultKeyAlias();
 ```
 
 For detailed security information, see [KEY_ALIAS_SECURITY.md](./KEY_ALIAS_SECURITY.md).
+
+## 📚 Documentation
+
+- **[Cryptographic Keys Guide](./docs/CRYPTOGRAPHIC_KEYS.md)** - Comprehensive guide to key types, security considerations, and advanced usage patterns
+- **[Logging Guide](./docs/LOGGING.md)** - Debugging and troubleshooting with centralized logging
+- **[Key Alias Security](./KEY_ALIAS_SECURITY.md)** - Security considerations for key aliases
 
 ## 📄 License
 
