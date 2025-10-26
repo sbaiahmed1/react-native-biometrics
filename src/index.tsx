@@ -3,8 +3,37 @@ import { logger, LogLevel, type LogEntry } from './logger';
 import { Platform } from 'react-native';
 import { BiometricStrength } from './types';
 
-export function isSensorAvailable(): Promise<BiometricSensorInfo> {
+export function isSensorAvailable(options?: {
+  biometricStrength?: BiometricStrength;
+}): Promise<BiometricSensorInfo> {
   logger.debug('Checking sensor availability', 'isSensorAvailable');
+
+  if (Platform.OS === 'android') {
+    const biometricStrength =
+      options?.biometricStrength || BiometricStrength.Strong;
+    return ReactNativeBiometrics.isSensorAvailable(biometricStrength)
+      .then((result) => {
+        logger.info(
+          'Sensor availability check completed',
+          'isSensorAvailable',
+          {
+            available: result.available,
+            biometryType: result.biometryType,
+          }
+        );
+        return result;
+      })
+      .catch((error) => {
+        logger.error(
+          'Sensor availability check failed',
+          'isSensorAvailable',
+          error
+        );
+        throw error;
+      });
+  }
+
+  // For iOS, we still call without parameters as iOS doesn't support biometric strength
   return ReactNativeBiometrics.isSensorAvailable()
     .then((result) => {
       logger.info('Sensor availability check completed', 'isSensorAvailable', {
@@ -73,23 +102,50 @@ export function authenticateWithOptions(
 ): Promise<BiometricAuthResult> {
   logger.debug(
     'Starting authentication with options',
-    'authenticateWithOptions',
-    options
+    'authenticateWithOptions'
   );
-  return ReactNativeBiometrics.authenticateWithOptions(options)
-    .then((result) => {
-      logger.info('Authentication completed', 'authenticateWithOptions', {
-        success: result.success,
-        errorCode: result.errorCode,
+
+  if (Platform.OS === 'android' && options.biometricStrength) {
+    return ReactNativeBiometrics.authenticateWithOptions(options)
+      .then((result) => {
+        logger.info(
+          'Authentication with options completed',
+          'authenticateWithOptions',
+          {
+            success: result.success,
+          }
+        );
+        return result;
+      })
+      .catch((error) => {
+        logger.error(
+          'Authentication with options failed',
+          'authenticateWithOptions',
+          error
+        );
+        throw error;
       });
+  }
+
+  // For iOS or Android without biometricStrength, remove biometricStrength from options
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { biometricStrength: _, ...cleanOptions } = options;
+  return ReactNativeBiometrics.authenticateWithOptions(cleanOptions)
+    .then((result) => {
+      logger.info(
+        'Authentication with options completed',
+        'authenticateWithOptions',
+        {
+          success: result.success,
+        }
+      );
       return result;
     })
     .catch((error) => {
       logger.error(
-        'Authentication failed',
+        'Authentication with options failed',
         'authenticateWithOptions',
-        error,
-        options
+        error
       );
       throw error;
     });
@@ -441,6 +497,8 @@ export type BiometricSensorInfo = {
   available: boolean;
   biometryType?: 'Biometrics' | 'FaceID' | 'TouchID' | 'None' | 'Unknown';
   error?: string;
+  fallbackUsed?: boolean;
+  biometricStrength?: BiometricStrength;
 };
 
 export type BiometricAuthOptions = {
@@ -451,12 +509,15 @@ export type BiometricAuthOptions = {
   cancelLabel?: string;
   disableDeviceFallback?: boolean;
   allowDeviceCredentials?: boolean;
+  biometricStrength?: BiometricStrength;
 };
 
 export type BiometricAuthResult = {
   success: boolean;
   error?: string;
   errorCode?: string;
+  fallbackUsed?: boolean;
+  biometricStrength?: BiometricStrength;
 };
 
 export type KeyCreationResult = {

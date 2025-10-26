@@ -2,7 +2,7 @@ import { TurboModuleRegistry, NativeModules } from 'react-native';
 import { type TurboModule } from 'react-native/Libraries/TurboModule/RCTExport';
 
 export interface Spec extends TurboModule {
-  isSensorAvailable(): Promise<{
+  isSensorAvailable(biometricStrength?: 'weak' | 'strong'): Promise<{
     available: boolean;
     biometryType?: 'Biometrics' | 'FaceID' | 'TouchID' | 'None' | 'Unknown';
     error?: string;
@@ -23,6 +23,7 @@ export interface Spec extends TurboModule {
     cancelLabel?: string;
     disableDeviceFallback?: boolean;
     allowDeviceCredentials?: boolean;
+    biometricStrength?: 'weak' | 'strong';
   }): Promise<{
     success: boolean;
     error?: string;

@@ -50,62 +50,96 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
 
   fun isSensorAvailable(promise: Promise) {
     debugLog("isSensorAvailable called")
-      debugLog("isSensorAvailable called")
-        try {
-          val biometricManager = BiometricManager.from(context)
-          val result = Arguments.createMap()
-          val status = biometricManager.canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_STRONG)
-          debugLog("Biometric status: $status")
+    isSensorAvailable(null, promise)
+  }
 
-          when (status) {
-            BiometricManager.BIOMETRIC_SUCCESS -> {
-              debugLog("Biometric authentication available")
-              result.putBoolean("available", true)
-              result.putString("biometryType", "Biometrics")
-            }
-            BiometricManager.BIOMETRIC_ERROR_NO_HARDWARE -> {
-              debugLog("No biometric hardware available")
-              result.putBoolean("available", false)
-              result.putString("error", "No biometric hardware available")
-            }
-            BiometricManager.BIOMETRIC_ERROR_HW_UNAVAILABLE -> {
-              debugLog("Biometric hardware unavailable")
-              result.putBoolean("available", false)
-              result.putString("error", "Biometric hardware unavailable")
-            }
-            BiometricManager.BIOMETRIC_ERROR_NONE_ENROLLED -> {
-              debugLog("No biometric credentials enrolled")
-              result.putBoolean("available", false)
-              result.putString("error", "No biometric credentials enrolled")
-            }
-            BiometricManager.BIOMETRIC_ERROR_SECURITY_UPDATE_REQUIRED -> {
-              debugLog("Security update required")
-              result.putBoolean("available", false)
-              result.putString("error", "Security update required")
-            }
-            BiometricManager.BIOMETRIC_ERROR_UNSUPPORTED -> {
-              debugLog("Biometric authentication unsupported")
-              result.putBoolean("available", false)
-              result.putString("error", "Biometric authentication unsupported")
-            }
-            BiometricManager.BIOMETRIC_STATUS_UNKNOWN -> {
-              debugLog("Biometric status unknown")
-              result.putBoolean("available", false)
-              result.putString("error", "Biometric status unknown")
-            }
-            else -> {
-              debugLog("Unknown biometric status: $status")
-              result.putBoolean("available", false)
-              result.putString("error", "Unknown biometric status")
-            }
-          }
-
-          debugLog("isSensorAvailable result: ${result.toHashMap()}")
-          promise.resolve(result)
-        } catch (e: Exception) {
-          debugLog("Error in isSensorAvailable: ${e.message}")
-          promise.reject("BIOMETRIC_ERROR", "Error checking biometric availability: ${e.message}", e)
+  fun isSensorAvailable(biometricStrength: String?, promise: Promise) {
+    debugLog("isSensorAvailable called with biometricStrength: $biometricStrength")
+    try {
+      val biometricManager = BiometricManager.from(context)
+      val result = Arguments.createMap()
+      
+      // Determine authenticator based on biometric strength
+      val requestedAuthenticator = when (biometricStrength?.lowercase()) {
+        "weak" -> BiometricManager.Authenticators.BIOMETRIC_WEAK
+        "strong", null -> BiometricManager.Authenticators.BIOMETRIC_STRONG
+        else -> {
+          debugLog("Invalid biometric strength: $biometricStrength, defaulting to STRONG")
+          BiometricManager.Authenticators.BIOMETRIC_STRONG
         }
+      }
+      
+      var authenticator = requestedAuthenticator
+      var status = biometricManager.canAuthenticate(authenticator)
+      debugLog("Biometric status: $status for authenticator: $authenticator")
+      
+      // Implement fallback logic: if strong biometrics is requested but not available, try weak
+      if (requestedAuthenticator == BiometricManager.Authenticators.BIOMETRIC_STRONG && 
+          status != BiometricManager.BIOMETRIC_SUCCESS) {
+        debugLog("Strong biometrics not available, attempting fallback to weak biometrics")
+        authenticator = BiometricManager.Authenticators.BIOMETRIC_WEAK
+        val fallbackStatus = biometricManager.canAuthenticate(authenticator)
+        debugLog("Fallback biometric status: $fallbackStatus for weak authenticator")
+        
+        if (fallbackStatus == BiometricManager.BIOMETRIC_SUCCESS) {
+          debugLog("Fallback to weak biometrics successful")
+          status = fallbackStatus
+          result.putString("fallbackUsed", "weak")
+        }
+      }
+
+      when (status) {
+        BiometricManager.BIOMETRIC_SUCCESS -> {
+          debugLog("Biometric authentication available")
+          result.putBoolean("available", true)
+          result.putString("biometryType", "Biometrics")
+          // Indicate which strength is actually being used
+          val actualStrength = if (authenticator == BiometricManager.Authenticators.BIOMETRIC_WEAK) "weak" else "strong"
+          result.putString("biometricStrength", actualStrength)
+        }
+        BiometricManager.BIOMETRIC_ERROR_NO_HARDWARE -> {
+          debugLog("No biometric hardware available")
+          result.putBoolean("available", false)
+          result.putString("error", "No biometric hardware available")
+        }
+        BiometricManager.BIOMETRIC_ERROR_HW_UNAVAILABLE -> {
+          debugLog("Biometric hardware unavailable")
+          result.putBoolean("available", false)
+          result.putString("error", "Biometric hardware unavailable")
+        }
+        BiometricManager.BIOMETRIC_ERROR_NONE_ENROLLED -> {
+          debugLog("No biometric credentials enrolled")
+          result.putBoolean("available", false)
+          result.putString("error", "No biometric credentials enrolled")
+        }
+        BiometricManager.BIOMETRIC_ERROR_SECURITY_UPDATE_REQUIRED -> {
+          debugLog("Security update required")
+          result.putBoolean("available", false)
+          result.putString("error", "Security update required")
+        }
+        BiometricManager.BIOMETRIC_ERROR_UNSUPPORTED -> {
+          debugLog("Biometric authentication unsupported")
+          result.putBoolean("available", false)
+          result.putString("error", "Biometric authentication unsupported")
+        }
+        BiometricManager.BIOMETRIC_STATUS_UNKNOWN -> {
+          debugLog("Biometric status unknown")
+          result.putBoolean("available", false)
+          result.putString("error", "Biometric status unknown")
+        }
+        else -> {
+          debugLog("Unknown biometric status: $status")
+          result.putBoolean("available", false)
+          result.putString("error", "Unknown biometric status")
+        }
+      }
+
+      debugLog("isSensorAvailable result: ${result.toHashMap()}")
+      promise.resolve(result)
+    } catch (e: Exception) {
+      debugLog("Error in isSensorAvailable: ${e.message}")
+      promise.reject("BIOMETRIC_ERROR", "Error checking biometric availability: ${e.message}", e)
+    }
   }
 
   fun simplePrompt(promptMessage: String, promise: Promise) {
@@ -497,16 +531,45 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
     val cancelLabel = if (options.hasKey("cancelLabel")) options.getString("cancelLabel") else "Cancel"
     val allowDeviceCredentials = if (options.hasKey("allowDeviceCredentials")) options.getBoolean("allowDeviceCredentials") else false
     val disableDeviceFallback = if (options.hasKey("disableDeviceFallback")) options.getBoolean("disableDeviceFallback") else false
+    val biometricStrength = if (options.hasKey("biometricStrength")) options.getString("biometricStrength") else null
 
-    debugLog("Authentication options - title: $title, allowDeviceCredentials: $allowDeviceCredentials, disableDeviceFallback: $disableDeviceFallback")
+    debugLog("Authentication options - title: $title, allowDeviceCredentials: $allowDeviceCredentials, disableDeviceFallback: $disableDeviceFallback, biometricStrength: $biometricStrength")
 
-    val authenticators = if (allowDeviceCredentials && !disableDeviceFallback) {
-      BiometricManager.Authenticators.BIOMETRIC_STRONG or BiometricManager.Authenticators.DEVICE_CREDENTIAL
-    } else {
-      BiometricManager.Authenticators.BIOMETRIC_STRONG
+    // Determine base authenticator based on biometric strength
+    val requestedBaseAuthenticator = when (biometricStrength?.lowercase()) {
+      "weak" -> BiometricManager.Authenticators.BIOMETRIC_WEAK
+      "strong", null -> BiometricManager.Authenticators.BIOMETRIC_STRONG
+      else -> {
+        debugLog("Invalid biometric strength: $biometricStrength, defaulting to STRONG")
+        BiometricManager.Authenticators.BIOMETRIC_STRONG
+      }
     }
 
-    debugLog("Using authenticators: $authenticators")
+    // Implement fallback logic: check if requested strength is available
+    val biometricManager = BiometricManager.from(context)
+    var baseAuthenticator = requestedBaseAuthenticator
+    var fallbackUsed = false
+    
+    if (requestedBaseAuthenticator == BiometricManager.Authenticators.BIOMETRIC_STRONG) {
+      val strongStatus = biometricManager.canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_STRONG)
+      if (strongStatus != BiometricManager.BIOMETRIC_SUCCESS) {
+        debugLog("Strong biometrics not available for authentication, attempting fallback to weak biometrics")
+        val weakStatus = biometricManager.canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_WEAK)
+        if (weakStatus == BiometricManager.BIOMETRIC_SUCCESS) {
+          debugLog("Fallback to weak biometrics successful for authentication")
+          baseAuthenticator = BiometricManager.Authenticators.BIOMETRIC_WEAK
+          fallbackUsed = true
+        }
+      }
+    }
+
+    val authenticators = if (allowDeviceCredentials && !disableDeviceFallback) {
+      baseAuthenticator or BiometricManager.Authenticators.DEVICE_CREDENTIAL
+    } else {
+      baseAuthenticator
+    }
+
+    debugLog("Using authenticators: $authenticators (base: $baseAuthenticator, fallback used: $fallbackUsed)")
 
     val promptInfoBuilder = BiometricPrompt.PromptInfo.Builder()
       .setTitle(title!!)
@@ -528,6 +591,14 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
         debugLog("authenticateWithOptions authentication succeeded")
         val successResult = Arguments.createMap()
         successResult.putBoolean("success", true)
+        
+        // Include information about fallback usage and actual strength used
+        if (fallbackUsed) {
+          successResult.putString("fallbackUsed", "weak")
+        }
+        val actualStrength = if (baseAuthenticator == BiometricManager.Authenticators.BIOMETRIC_WEAK) "weak" else "strong"
+        successResult.putString("biometricStrength", actualStrength)
+        
         promise.resolve(successResult)
       }
 
@@ -652,6 +723,10 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
   }
 
   fun validateKeyIntegrity(keyAlias: String?, promise: Promise) {
+    validateKeyIntegrity(keyAlias, "strong", promise)
+  }
+
+  fun validateKeyIntegrity(keyAlias: String?, biometricStrength: String?, promise: Promise) {
       debugLog("validateKeyIntegrity called with keyAlias: ${keyAlias ?: "default"}")
 
       val actualKeyAlias = getKeyAlias(keyAlias)
@@ -712,10 +787,30 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
         // For authentication-required keys, we need biometric authentication before signature test
         val executor = ContextCompat.getMainExecutor(context)
         val biometricManager = BiometricManager.from(context)
-        val biometricStatus = biometricManager.canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_STRONG)
+        
+        // Determine authenticator based on biometric strength preference
+        val requestedStrength = biometricStrength ?: "strong"
+        var authenticator = if (requestedStrength == "weak") {
+          BiometricManager.Authenticators.BIOMETRIC_WEAK
+        } else {
+          BiometricManager.Authenticators.BIOMETRIC_STRONG
+        }
+        
+        var fallbackUsed = false
+        var biometricStatus = biometricManager.canAuthenticate(authenticator)
+        
+        // Fallback logic: if strong biometrics requested but not available, try weak
+        if (requestedStrength == "strong" && biometricStatus != BiometricManager.BIOMETRIC_SUCCESS) {
+          val weakStatus = biometricManager.canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_WEAK)
+          if (weakStatus == BiometricManager.BIOMETRIC_SUCCESS) {
+            authenticator = BiometricManager.Authenticators.BIOMETRIC_WEAK
+            biometricStatus = weakStatus
+            fallbackUsed = true
+          }
+        }
 
         val authenticators = if (biometricStatus == BiometricManager.BIOMETRIC_SUCCESS) {
-          BiometricManager.Authenticators.BIOMETRIC_STRONG
+          authenticator
         } else {
           BiometricManager.Authenticators.DEVICE_CREDENTIAL
         }
@@ -725,7 +820,7 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
           .setSubtitle("Please verify your identity to test the key")
           .setAllowedAuthenticators(authenticators)
 
-        if (authenticators == BiometricManager.Authenticators.BIOMETRIC_STRONG) {
+        if (authenticators == BiometricManager.Authenticators.BIOMETRIC_STRONG || authenticators == BiometricManager.Authenticators.BIOMETRIC_WEAK) {
           promptInfoBuilder.setNegativeButtonText("Cancel")
         }
 
@@ -774,6 +869,9 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
                 successResult.putBoolean("valid", true)
               }
 
+              successResult.putBoolean("fallbackUsed", fallbackUsed)
+              val actualStrength = if (authenticators == BiometricManager.Authenticators.BIOMETRIC_WEAK) "weak" else "strong"
+              successResult.putString("biometricStrength", actualStrength)
               successResult.putMap("integrityChecks", integrityChecks)
               debugLog("validateKeyIntegrity completed - valid: ${successResult.getBoolean("valid")}")
               promise.resolve(successResult)
@@ -824,8 +922,12 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
   }
 
   fun verifyKeySignature(keyAlias: String?, data: String, promptTitle: String?, promptSubtitle: String?, cancelButtonText: String?, promise: Promise) {
+    verifyKeySignature(keyAlias, data, promptTitle, promptSubtitle, cancelButtonText, null, promise)
+  }
+
+  fun verifyKeySignature(keyAlias: String?, data: String, promptTitle: String?, promptSubtitle: String?, cancelButtonText: String?, biometricStrength: String?, promise: Promise) {
     val actualKeyAlias = getKeyAlias(keyAlias)
-    debugLog("verifyKeySignature called with keyAlias: ${keyAlias ?: "default"}, using: $actualKeyAlias")
+    debugLog("verifyKeySignature called with keyAlias: ${keyAlias ?: "default"}, using: $actualKeyAlias, biometricStrength: ${biometricStrength ?: "strong"}")
 
     try {
       val keyStore = KeyStore.getInstance("AndroidKeyStore")
@@ -860,10 +962,39 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
       // For authentication-required keys, we need biometric authentication before signing
       val executor = ContextCompat.getMainExecutor(context)
       val biometricManager = BiometricManager.from(context)
-      val biometricStatus = biometricManager.canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_STRONG)
+      
+      // Determine authenticator based on biometric strength
+      val requestedAuthenticator = when (biometricStrength?.lowercase()) {
+        "weak" -> BiometricManager.Authenticators.BIOMETRIC_WEAK
+        "strong", null -> BiometricManager.Authenticators.BIOMETRIC_STRONG
+        else -> {
+          debugLog("Invalid biometric strength: $biometricStrength, defaulting to STRONG")
+          BiometricManager.Authenticators.BIOMETRIC_STRONG
+        }
+      }
+      
+      var authenticator = requestedAuthenticator
+      var biometricStatus = biometricManager.canAuthenticate(authenticator)
+      var fallbackUsed = false
+      debugLog("verifyKeySignature - Biometric status: $biometricStatus for authenticator: $authenticator")
+      
+      // Implement fallback logic: if strong biometrics is requested but not available, try weak
+      if (requestedAuthenticator == BiometricManager.Authenticators.BIOMETRIC_STRONG && 
+          biometricStatus != BiometricManager.BIOMETRIC_SUCCESS) {
+        debugLog("verifyKeySignature - Strong biometrics not available, attempting fallback to weak biometrics")
+        authenticator = BiometricManager.Authenticators.BIOMETRIC_WEAK
+        val fallbackStatus = biometricManager.canAuthenticate(authenticator)
+        debugLog("verifyKeySignature - Fallback biometric status: $fallbackStatus for weak authenticator")
+        
+        if (fallbackStatus == BiometricManager.BIOMETRIC_SUCCESS) {
+          debugLog("verifyKeySignature - Fallback to weak biometrics successful")
+          biometricStatus = fallbackStatus
+          fallbackUsed = true
+        }
+      }
 
       val authenticators = if (biometricStatus == BiometricManager.BIOMETRIC_SUCCESS) {
-        BiometricManager.Authenticators.BIOMETRIC_STRONG
+        authenticator
       } else {
         BiometricManager.Authenticators.DEVICE_CREDENTIAL
       }
@@ -873,7 +1004,8 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
         .setSubtitle(promptSubtitle ?: "Please verify your identity to generate signature")
         .setAllowedAuthenticators(authenticators)
 
-      if (authenticators == BiometricManager.Authenticators.BIOMETRIC_STRONG) {
+      if (authenticators == BiometricManager.Authenticators.BIOMETRIC_STRONG || 
+          authenticators == BiometricManager.Authenticators.BIOMETRIC_WEAK) {
         promptInfoBuilder.setNegativeButtonText(cancelButtonText ?: "Cancel")
       }
 
@@ -912,6 +1044,9 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
             val result = Arguments.createMap()
             result.putBoolean("success", true)
             result.putString("signature", signatureString)
+            result.putBoolean("fallbackUsed", fallbackUsed)
+            val actualStrength = if (authenticator == BiometricManager.Authenticators.BIOMETRIC_WEAK) "weak" else "strong"
+            result.putString("biometricStrength", actualStrength)
             debugLog("verifyKeySignature completed successfully")
             promise.resolve(result)
 
@@ -1056,6 +1191,10 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
   }
 
   fun runBiometricTest(promise: Promise) {
+    runBiometricTest("strong", promise)
+  }
+
+  fun runBiometricTest(biometricStrength: String?, promise: Promise) {
     debugLog("runBiometricTest called")
 
     val biometricManager = BiometricManager.from(context)
@@ -1064,13 +1203,21 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
     val errors = Arguments.createArray()
     val warnings = Arguments.createArray()
 
-    // Test sensor availability
-    val canAuthenticateStrong = biometricManager.canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_STRONG)
-    val sensorAvailable = canAuthenticateStrong == BiometricManager.BIOMETRIC_SUCCESS
+    // Test sensor availability based on requested strength
+    val requestedStrength = biometricStrength ?: "strong"
+    val authenticator = if (requestedStrength == "weak") {
+      BiometricManager.Authenticators.BIOMETRIC_WEAK
+    } else {
+      BiometricManager.Authenticators.BIOMETRIC_STRONG
+    }
+    
+    val canAuthenticateRequested = biometricManager.canAuthenticate(authenticator)
+    val sensorAvailable = canAuthenticateRequested == BiometricManager.BIOMETRIC_SUCCESS
     results.putBoolean("sensorAvailable", sensorAvailable)
+    results.putString("testedStrength", requestedStrength)
 
     if (!sensorAvailable) {
-      when (canAuthenticateStrong) {
+      when (canAuthenticateRequested) {
         BiometricManager.BIOMETRIC_ERROR_NO_HARDWARE ->
           errors.pushString("No biometric hardware available")
         BiometricManager.BIOMETRIC_ERROR_HW_UNAVAILABLE ->
@@ -1093,11 +1240,11 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
     results.putBoolean("canAuthenticate", canAuthenticateAny == BiometricManager.BIOMETRIC_SUCCESS)
 
     // Check hardware detection
-    val hardwareDetected = canAuthenticateStrong != BiometricManager.BIOMETRIC_ERROR_NO_HARDWARE
+    val hardwareDetected = canAuthenticateRequested != BiometricManager.BIOMETRIC_ERROR_NO_HARDWARE
     results.putBoolean("hardwareDetected", hardwareDetected)
 
     // Check enrolled biometrics
-    val hasEnrolledBiometrics = canAuthenticateStrong != BiometricManager.BIOMETRIC_ERROR_NONE_ENROLLED
+    val hasEnrolledBiometrics = canAuthenticateRequested != BiometricManager.BIOMETRIC_ERROR_NONE_ENROLLED
     results.putBoolean("hasEnrolledBiometrics", hasEnrolledBiometrics)
 
     // Check secure hardware
