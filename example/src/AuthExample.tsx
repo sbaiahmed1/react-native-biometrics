@@ -3,6 +3,7 @@ import {
   isSensorAvailable,
   simplePrompt,
   authenticateWithOptions,
+  BiometricStrength,
 } from '@sbaiahmed1/react-native-biometrics';
 import { useState, useEffect } from 'react';
 
@@ -22,6 +23,22 @@ const AuthExample = () => {
       setSensorInfo(info);
     } catch (error) {
       console.error('Error checking sensor:', error);
+    }
+  };
+
+  const checkSensorAvailabilityWeak = async () => {
+    try {
+      const info = await isSensorAvailable({
+        biometricStrength: BiometricStrength.Weak,
+      });
+      console.log('Weak biometric info', info);
+      Alert.alert(
+        'Weak Biometric Check',
+        `Available: ${info.available ? 'Yes' : 'No'}\nType: ${info.biometryType || 'None'}`
+      );
+    } catch (error) {
+      console.error('Error checking weak sensor:', error);
+      Alert.alert('Error', 'Failed to check weak biometric sensor');
     }
   };
   const handleAuthenticate = async () => {
@@ -86,6 +103,79 @@ const AuthExample = () => {
     }
   };
 
+  const handleAuthenticateWithOptionsWeak = async () => {
+    setIsLoading(true);
+    try {
+      const result = await authenticateWithOptions({
+        title: 'Weak Biometric Authentication',
+        subtitle: 'Verify your identity with Class 2 biometrics',
+        description:
+          'This demonstrates weak biometric authentication (BIOMETRIC_WEAK)',
+        cancelLabel: 'Not Now',
+        fallbackLabel: 'Use Password',
+        allowDeviceCredentials: true,
+        disableDeviceFallback: false,
+        biometricStrength: BiometricStrength.Weak,
+      });
+
+      console.log('Weak biometric auth result:', result);
+
+      if (result.success) {
+        Alert.alert('Success', 'Weak biometric authentication successful!');
+      } else {
+        Alert.alert(
+          'Failed',
+          `Authentication failed: ${result.error || 'Unknown error'}`
+        );
+      }
+    } catch (error) {
+      console.log('Weak biometric auth error:', error);
+      Alert.alert('Error', 'Weak biometric authentication failed');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleAuthenticateWithFallback = async () => {
+    if (!sensorInfo?.available) {
+      Alert.alert('Error', 'Biometric sensor not available');
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      // First try with strong biometrics
+      const result = await authenticateWithOptions({
+        title: 'Fallback Authentication',
+        subtitle: 'Trying strong biometrics first',
+        description:
+          'Will automatically fallback to weak if strong is unavailable',
+        cancelLabel: 'Cancel',
+        biometricStrength: BiometricStrength.Strong,
+      });
+
+      console.log('Fallback auth result:', result);
+
+      if (result.success) {
+        const strengthUsed = result.biometricStrength || 'strong';
+        const fallbackMessage = result.fallbackUsed
+          ? `Authentication successful using ${strengthUsed} biometrics (fallback occurred)`
+          : `Authentication successful using ${strengthUsed} biometrics`;
+        Alert.alert('Success', fallbackMessage);
+      } else {
+        Alert.alert(
+          'Failed',
+          `Authentication failed: ${result.error || 'Unknown error'}`
+        );
+      }
+    } catch (error) {
+      console.log('Fallback auth error:', error);
+      Alert.alert('Error', 'Fallback authentication failed');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <View style={styles.container}>
       <Text style={styles.title}>React Native Biometrics</Text>
@@ -125,6 +215,46 @@ const AuthExample = () => {
           >
             <Text style={styles.buttonText}>
               {isLoading ? 'Processing...' : 'Enhanced Auth'}
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.button,
+              { backgroundColor: '#FF9500' },
+              isLoading && styles.buttonDisabled,
+            ]}
+            onPress={checkSensorAvailabilityWeak}
+            disabled={isLoading}
+          >
+            <Text style={styles.buttonText}>Check Weak Biometric</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.button,
+              { backgroundColor: '#FF6B35' },
+              isLoading && styles.buttonDisabled,
+            ]}
+            onPress={handleAuthenticateWithOptionsWeak}
+            disabled={isLoading}
+          >
+            <Text style={styles.buttonText}>
+              {isLoading ? 'Processing...' : 'Weak Biometric Auth'}
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.button,
+              styles.fallbackButton,
+              isLoading && styles.buttonDisabled,
+            ]}
+            onPress={handleAuthenticateWithFallback}
+            disabled={isLoading || !sensorInfo?.available}
+          >
+            <Text style={styles.buttonText}>
+              {isLoading ? 'Processing...' : 'Test Fallback (Strong→Weak)'}
             </Text>
           </TouchableOpacity>
         </View>
@@ -206,5 +336,8 @@ const styles = StyleSheet.create({
   },
   enhancedButton: {
     backgroundColor: '#34C759',
+  },
+  fallbackButton: {
+    backgroundColor: '#FF9500',
   },
 });

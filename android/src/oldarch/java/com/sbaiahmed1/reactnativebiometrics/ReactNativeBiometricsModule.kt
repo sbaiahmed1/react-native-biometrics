@@ -18,6 +18,11 @@ class ReactNativeBiometricsModule(reactContext: ReactApplicationContext) :
   }
 
   @ReactMethod
+  fun isSensorAvailable(biometricStrength: String?, promise: Promise) {
+    sharedImpl.isSensorAvailable(biometricStrength, promise)
+  }
+
+  @ReactMethod
   fun simplePrompt(promptMessage: String, biometricStrength: String?, promise: Promise) {
     sharedImpl.simplePrompt(promptMessage, "Cancel", biometricStrength, promise)
   }

@@ -21,8 +21,8 @@ class ReactNativeBiometricsModule(reactContext: ReactApplicationContext) :
   override fun getName() = NAME
 
   @ReactMethod
-  override fun isSensorAvailable(promise: Promise) {
-    sharedImpl.isSensorAvailable(promise)
+  override fun isSensorAvailable(biometricStrength: String?, promise: Promise) {
+    sharedImpl.isSensorAvailable(biometricStrength, promise)
   }
 
   @ReactMethod
