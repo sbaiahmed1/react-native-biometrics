@@ -113,17 +113,39 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
   }
 
   fun simplePrompt(promptMessage: String, cancelButtonText: String, promise: Promise) {
-    debugLog("simplePrompt called with message: $promptMessage, cancelButton: $cancelButtonText")
+    // Delegate to the new implementation with default (strong) strength
+    simplePrompt(promptMessage, cancelButtonText, null, promise)
+  }
+
+  fun simplePrompt(
+    promptMessage: String,
+    cancelButtonText: String,
+    biometricStrength: String?,
+    promise: Promise
+  ) {
+    debugLog(
+      "simplePrompt called with message: $promptMessage, cancelButton: $cancelButtonText, strength: ${biometricStrength ?: "strong"}"
+    )
     val biometricManager = BiometricManager.from(context)
-    val result = Arguments.createMap()
     val executor = ContextCompat.getMainExecutor(context)
 
-    val biometricStatus = biometricManager.canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_STRONG)
-    debugLog("simplePrompt - Biometric status: $biometricStatus")
+    val requestedAuthenticator = when (biometricStrength?.lowercase()) {
+      "weak" -> BiometricManager.Authenticators.BIOMETRIC_WEAK
+      "strong" -> BiometricManager.Authenticators.BIOMETRIC_STRONG
+      else -> BiometricManager.Authenticators.BIOMETRIC_STRONG
+    }
+
+    val biometricStatus = biometricManager.canAuthenticate(requestedAuthenticator)
+    debugLog("simplePrompt - Biometric status for requested strength: $biometricStatus")
 
     val authenticators = if (biometricStatus == BiometricManager.BIOMETRIC_SUCCESS) {
-      debugLog("simplePrompt - Using BIOMETRIC_STRONG authenticator")
-      BiometricManager.Authenticators.BIOMETRIC_STRONG
+      if (requestedAuthenticator == BiometricManager.Authenticators.BIOMETRIC_WEAK) {
+        debugLog("simplePrompt - Using BIOMETRIC_WEAK authenticator")
+        BiometricManager.Authenticators.BIOMETRIC_WEAK
+      } else {
+        debugLog("simplePrompt - Using BIOMETRIC_STRONG authenticator")
+        BiometricManager.Authenticators.BIOMETRIC_STRONG
+      }
     } else {
       debugLog("simplePrompt - Using DEVICE_CREDENTIAL fallback")
       BiometricManager.Authenticators.DEVICE_CREDENTIAL
@@ -133,7 +155,9 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
       .setTitle(promptMessage)
       .setAllowedAuthenticators(authenticators)
 
-    if (authenticators == BiometricManager.Authenticators.BIOMETRIC_STRONG) {
+    // Negative button is only allowed when DEVICE_CREDENTIAL is NOT used
+    val includesDeviceCredential = (authenticators and BiometricManager.Authenticators.DEVICE_CREDENTIAL) != 0
+    if (!includesDeviceCredential) {
       promptInfoBuilder.setNegativeButtonText(cancelButtonText)
     }
 
@@ -150,7 +174,6 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
       override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
         debugLog("simplePrompt authentication error: $errorCode - $errString")
 
-        // Map Android BiometricPrompt error codes to consistent error codes
         val mappedErrorCode = when (errorCode) {
           BiometricPrompt.ERROR_USER_CANCELED -> "USER_CANCELED"
           BiometricPrompt.ERROR_NEGATIVE_BUTTON -> "USER_CANCELED"
@@ -173,8 +196,6 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
 
       override fun onAuthenticationFailed() {
         debugLog("simplePrompt authentication failed - allowing retry")
-        // Do not resolve promise here - this allows the user to retry
-        // The promise will only be resolved on success or unrecoverable error
       }
     }
 
@@ -189,8 +210,8 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
           promise.reject("PROMPT_ERROR", "Failed to show biometric prompt: ${e.message}", e)
         }
       } else {
-        debugLog("simplePrompt - No valid activity available")
-        promise.reject("NO_ACTIVITY", "No active activity available for biometric authentication", null)
+        debugLog("simplePrompt failed - Activity not available or in invalid state")
+        promise.reject("ACTIVITY_ERROR", "Activity not available or in invalid state", null)
       }
     }
   }

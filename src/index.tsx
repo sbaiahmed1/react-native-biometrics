@@ -1,5 +1,7 @@
 import ReactNativeBiometrics from './NativeReactNativeBiometrics';
 import { logger, LogLevel, type LogEntry } from './logger';
+import { Platform } from 'react-native';
+import { BiometricStrength } from './types';
 
 export function isSensorAvailable(): Promise<BiometricSensorInfo> {
   logger.debug('Checking sensor availability', 'isSensorAvailable');
@@ -22,11 +24,33 @@ export function isSensorAvailable(): Promise<BiometricSensorInfo> {
 }
 
 export function simplePrompt(
-  promptMessage: string
+  promptMessage: string,
+  options?: { biometricStrength?: BiometricStrength }
 ): Promise<BiometricAuthResult> {
   logger.debug('Starting simple biometric prompt', 'simplePrompt', {
     promptMessage,
+    biometricStrength: options?.biometricStrength,
   });
+  if (Platform.OS === 'android') {
+    return ReactNativeBiometrics.simplePrompt(
+      promptMessage,
+      options?.biometricStrength
+    )
+      .then((result) => {
+        logger.info('Simple prompt completed', 'simplePrompt', {
+          success: result,
+        });
+        return result;
+      })
+      .catch((error) => {
+        logger.error('Simple prompt failed', 'simplePrompt', error, {
+          promptMessage,
+          biometricStrength: options?.biometricStrength,
+        });
+        throw error;
+      });
+  }
+  // iOS and other platforms ignore biometricStrength and use default behavior
   return ReactNativeBiometrics.simplePrompt(promptMessage)
     .then((result) => {
       logger.info('Simple prompt completed', 'simplePrompt', {
@@ -41,6 +65,8 @@ export function simplePrompt(
       throw error;
     });
 }
+
+export { BiometricStrength } from './types';
 
 export function authenticateWithOptions(
   options: BiometricAuthOptions
