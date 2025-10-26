@@ -8,7 +8,7 @@ import com.facebook.react.bridge.ReactContextBaseJavaModule
 abstract class ReactNativeBiometricsSpec(reactContext: ReactApplicationContext) :
   ReactContextBaseJavaModule(reactContext), TurboModule {
   abstract fun isSensorAvailable(promise: Promise)
-  abstract fun simplePrompt(reason: String, promise: Promise)
+  abstract fun simplePrompt(reason: String, biometricStrength: String?, promise: Promise)
   abstract fun authenticateWithOptions(options: com.facebook.react.bridge.ReadableMap, promise: Promise)
   // Key management
   abstract fun createKeys(keyAlias: String?, keyType: String?, promise: Promise)

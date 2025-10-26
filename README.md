@@ -395,6 +395,16 @@ const authenticate = async () => {
 };
 ```
 
+> Android: choose biometric strength using an enum
+
+```typescript
+import { simplePrompt, BiometricStrength } from '@sbaiahmed1/react-native-biometrics';
+
+await simplePrompt('Please authenticate to continue', {
+  biometricStrength: BiometricStrength.Weak, // or BiometricStrength.Strong
+});
+```
+
 ### ⚙️ Enhanced Authentication
 
 Use advanced authentication options with customizable prompts and fallback mechanisms.

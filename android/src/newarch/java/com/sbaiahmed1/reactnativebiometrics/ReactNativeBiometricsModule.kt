@@ -26,8 +26,8 @@ class ReactNativeBiometricsModule(reactContext: ReactApplicationContext) :
   }
 
   @ReactMethod
-  override fun simplePrompt(reason: String, promise: Promise) {
-    sharedImpl.simplePrompt(reason, promise)
+  override fun simplePrompt(reason: String, biometricStrength: String?, promise: Promise) {
+    sharedImpl.simplePrompt(reason, "Cancel", biometricStrength, promise)
   }
 
   // Delegate all other methods to shared implementation
