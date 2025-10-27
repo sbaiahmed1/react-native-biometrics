@@ -281,7 +281,8 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
       val canAuthenticate = biometricManager.canAuthenticate(authenticator)
       
       // Determine if we should require user authentication
-      val requireUserAuth = canAuthenticate == BiometricManager.BIOMETRIC_SUCCESS
+      // For weak biometrics, we don't require authentication because crypto-based auth is not supported
+      val requireUserAuth = canAuthenticate == BiometricManager.BIOMETRIC_SUCCESS && requestedStrength != "weak"
 
       // Generate new key pair based on key type
       when (actualKeyType) {
@@ -798,14 +799,50 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
         integrityChecks.putBoolean("keyAccessible", true)
         integrityChecks.putBoolean("hardwareBacked", this.isHardwareBacked(privateKey))
 
-        // Create signature instance and initialize it with the private key for authentication-required keys
-        val testSignature = java.security.Signature.getInstance("SHA256withRSA")
-        testSignature.initSign(privateKey)
+        // Check if the key requires user authentication
+        val requiresAuth = try {
+          val keyFactory = java.security.KeyFactory.getInstance(privateKey.algorithm, "AndroidKeyStore")
+          val keyInfo = keyFactory.getKeySpec(privateKey, android.security.keystore.KeyInfo::class.java)
+          keyInfo.isUserAuthenticationRequired
+        } catch (e: Exception) {
+          false
+        }
 
-        // Create CryptoObject with the signature for authentication-required keys
-        val cryptoObject = BiometricPrompt.CryptoObject(testSignature)
+        // If the key doesn't require authentication, we can test it directly
+        if (!requiresAuth) {
+          debugLog("validateKeyIntegrity - Key doesn't require authentication, testing directly")
+          try {
+            val testSignature = java.security.Signature.getInstance("SHA256withRSA")
+            testSignature.initSign(privateKey)
+            
+            val testData = "integrity_test_data".toByteArray()
+            testSignature.update(testData)
+            val signatureBytes = testSignature.sign()
+
+            // Verify the signature
+            val verifySignature = java.security.Signature.getInstance(BiometricUtils.getSignatureAlgorithm(publicKey))
+            verifySignature.initVerify(publicKey)
+            verifySignature.update(testData)
+            val isValid = verifySignature.verify(signatureBytes)
+
+            integrityChecks.putBoolean("signatureTestPassed", isValid)
+            result.putBoolean("valid", isValid)
+            result.putMap("integrityChecks", integrityChecks)
+            debugLog("validateKeyIntegrity completed without authentication - valid: $isValid")
+            promise.resolve(result)
+            return
+          } catch (e: Exception) {
+            debugLog("validateKeyIntegrity - Direct signature test failed: ${e.message}")
+            integrityChecks.putBoolean("signatureTestPassed", false)
+            result.putString("error", "Signature test failed: ${e.message}")
+            result.putMap("integrityChecks", integrityChecks)
+            promise.resolve(result)
+            return
+          }
+        }
 
         // For authentication-required keys, we need biometric authentication before signature test
+        debugLog("validateKeyIntegrity - Key requires authentication, proceeding with biometric prompt")
         val executor = ContextCompat.getMainExecutor(context)
         val biometricManager = BiometricManager.from(context)
         
@@ -846,6 +883,11 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
         }
 
         val promptInfo = promptInfoBuilder.build()
+
+        // Create signature instance and CryptoObject for authentication-required keys
+        val testSignature = java.security.Signature.getInstance("SHA256withRSA")
+        testSignature.initSign(privateKey)
+        val cryptoObject = BiometricPrompt.CryptoObject(testSignature)
 
         val activity = context.currentActivity as? FragmentActivity
         if (activity == null || activity.isFinishing || activity.isDestroyed) {
@@ -972,6 +1014,44 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
       }
 
       val privateKey = keyEntry.privateKey
+
+      // Check if the key requires user authentication
+      val requiresAuth = try {
+        val keyFactory = java.security.KeyFactory.getInstance(privateKey.algorithm, "AndroidKeyStore")
+        val keyInfo = keyFactory.getKeySpec(privateKey, android.security.keystore.KeyInfo::class.java)
+        keyInfo.isUserAuthenticationRequired
+      } catch (e: Exception) {
+        false
+      }
+
+      // If the key doesn't require authentication, we can sign directly
+      if (!requiresAuth) {
+        debugLog("verifyKeySignature - Key doesn't require authentication, signing directly")
+        try {
+          val signature = Signature.getInstance(BiometricUtils.getSignatureAlgorithm(privateKey))
+          signature.initSign(privateKey)
+          signature.update(data.toByteArray())
+          val signatureBytes = signature.sign()
+          val signatureString = Base64.encodeToString(signatureBytes, Base64.DEFAULT)
+
+          val result = Arguments.createMap()
+          result.putBoolean("success", true)
+          result.putString("signature", signatureString)
+          debugLog("verifyKeySignature completed without authentication")
+          promise.resolve(result)
+          return
+        } catch (e: Exception) {
+          debugLog("verifyKeySignature - Direct signing failed: ${e.message}")
+          val errorResult = Arguments.createMap()
+          errorResult.putBoolean("success", false)
+          errorResult.putString("error", "Signing failed: ${e.message}")
+          promise.resolve(errorResult)
+          return
+        }
+      }
+
+      // For authentication-required keys, we need biometric authentication before signing
+      debugLog("verifyKeySignature - Key requires authentication, proceeding with biometric prompt")
 
       // Create signature instance and initialize it with the private key
       val signature = Signature.getInstance(BiometricUtils.getSignatureAlgorithm(privateKey))
@@ -1175,7 +1255,19 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
       val attributes = Arguments.createMap()
       attributes.putString("algorithm", publicKey.algorithm)
       attributes.putString("format", publicKey.format)
-      attributes.putBoolean("userAuthenticationRequired", true)
+      
+      // Check if the key actually requires user authentication
+      val requiresAuth = try {
+        val privateKey = keyStore.getKey(actualKeyAlias, null) as java.security.PrivateKey
+        val keyFactory = java.security.KeyFactory.getInstance(privateKey.algorithm, "AndroidKeyStore")
+        val keyInfo = keyFactory.getKeySpec(privateKey, android.security.keystore.KeyInfo::class.java)
+        keyInfo.isUserAuthenticationRequired
+      } catch (e: Exception) {
+        // If we can't determine, assume it doesn't require auth
+        false
+      }
+      attributes.putBoolean("userAuthenticationRequired", requiresAuth)
+      
       attributes.putString("securityLevel", "Hardware")
       attributes.putBoolean("hardwareBacked", true)
 

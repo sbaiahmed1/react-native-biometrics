@@ -34,19 +34,24 @@ object BiometricUtils {
     }
     
     /**
-     * Creates KeyGenParameterSpec for biometric key generation
+     * Creates KeyGenParameterSpec for biometric key generation with authentication requirements
      */
-    fun createKeyGenParameterSpec(keyAlias: String): KeyGenParameterSpec {
-        return KeyGenParameterSpec.Builder(
+    fun createKeyGenParameterSpec(keyAlias: String, biometricStrength: String? = null): KeyGenParameterSpec {
+        val builder = KeyGenParameterSpec.Builder(
             keyAlias,
             KeyProperties.PURPOSE_SIGN or KeyProperties.PURPOSE_VERIFY
         )
             .setDigests(KeyProperties.DIGEST_SHA256)
             .setSignaturePaddings(KeyProperties.SIGNATURE_PADDING_RSA_PKCS1)
             .setKeySize(2048)
-            .setUserAuthenticationRequired(true)
-            .setUserAuthenticationValidityDurationSeconds(-1) // Require auth for every use
-            .build()
+            
+        // Only require authentication if biometric strength is specified
+        if (biometricStrength != null) {
+            builder.setUserAuthenticationRequired(true)
+                .setUserAuthenticationValidityDurationSeconds(-1) // Require auth for every use
+        }
+        
+        return builder.build()
     }
     
     /**
@@ -201,7 +206,7 @@ object BiometricUtils {
     }
     
     /**
-     * Creates key attributes map for response
+     * Creates a map of key attributes including authentication requirements
      */
     fun createKeyAttributesMap(privateKey: java.security.Key): WritableMap {
         val attributes = Arguments.createMap()
@@ -223,7 +228,17 @@ object BiometricUtils {
         
         attributes.putString("securityLevel", if (isHardwareBacked(privateKey)) "Hardware" else "Software")
         attributes.putBoolean("hardwareBacked", isHardwareBacked(privateKey))
-        attributes.putBoolean("userAuthenticationRequired", true)
+        
+        // Check if the key actually requires user authentication
+        val requiresAuth = try {
+            val keyFactory = java.security.KeyFactory.getInstance(privateKey.algorithm, "AndroidKeyStore")
+            val keyInfo = keyFactory.getKeySpec(privateKey, android.security.keystore.KeyInfo::class.java)
+            keyInfo.isUserAuthenticationRequired
+        } catch (e: Exception) {
+            // If we can't determine, assume it doesn't require auth
+            false
+        }
+        attributes.putBoolean("userAuthenticationRequired", requiresAuth)
         
         return attributes
     }
