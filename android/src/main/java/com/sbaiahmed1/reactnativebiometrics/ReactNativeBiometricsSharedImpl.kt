@@ -251,13 +251,14 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
   }
 
   fun createKeys(keyAlias: String?, promise: Promise) {
-    createKeysWithType(keyAlias, null, promise)
+    createKeysWithType(keyAlias, null, null, promise)
   }
 
-  fun createKeysWithType(keyAlias: String?, keyType: String?, promise: Promise) {
+  fun createKeysWithType(keyAlias: String?, keyType: String?, biometricStrength: String?, promise: Promise) {
     val actualKeyAlias = getKeyAlias(keyAlias)
     val actualKeyType = keyType?.lowercase() ?: "rsa2048"
-    debugLog("createKeys called with keyAlias: ${keyAlias ?: "default"}, using: $actualKeyAlias, keyType: $actualKeyType")
+    val requestedStrength = biometricStrength ?: "strong"
+    debugLog("createKeys called with keyAlias: ${keyAlias ?: "default"}, using: $actualKeyAlias, keyType: $actualKeyType, biometricStrength: $requestedStrength")
     
     try {
       // Check if key already exists
@@ -269,21 +270,38 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
         keyStore.deleteEntry(actualKeyAlias)
       }
 
+      // Check biometric availability based on requested strength
+      val biometricManager = BiometricManager.from(context)
+      val authenticator = if (requestedStrength == "weak") {
+        BiometricManager.Authenticators.BIOMETRIC_WEAK or BiometricManager.Authenticators.DEVICE_CREDENTIAL
+      } else {
+        BiometricManager.Authenticators.BIOMETRIC_STRONG
+      }
+      
+      val canAuthenticate = biometricManager.canAuthenticate(authenticator)
+      
+      // Determine if we should require user authentication
+      val requireUserAuth = canAuthenticate == BiometricManager.BIOMETRIC_SUCCESS
+
       // Generate new key pair based on key type
       when (actualKeyType) {
         "rsa2048" -> {
           val keyPairGenerator = KeyPairGenerator.getInstance(KeyProperties.KEY_ALGORITHM_RSA, "AndroidKeyStore")
-          val keyGenParameterSpec = KeyGenParameterSpec.Builder(
+          val keyGenParameterSpecBuilder = KeyGenParameterSpec.Builder(
             actualKeyAlias,
             KeyProperties.PURPOSE_SIGN or KeyProperties.PURPOSE_VERIFY
           )
             .setDigests(KeyProperties.DIGEST_SHA256)
             .setSignaturePaddings(KeyProperties.SIGNATURE_PADDING_RSA_PKCS1)
             .setKeySize(2048)
-            .setUserAuthenticationRequired(true)
-            .setUserAuthenticationValidityDurationSeconds(-1) // Require auth for every use
-            .build()
 
+          if (requireUserAuth) {
+            keyGenParameterSpecBuilder
+              .setUserAuthenticationRequired(true)
+              .setUserAuthenticationValidityDurationSeconds(-1) // Require auth for every use
+          }
+
+          val keyGenParameterSpec = keyGenParameterSpecBuilder.build()
           keyPairGenerator.initialize(keyGenParameterSpec)
           val keyPair = keyPairGenerator.generateKeyPair()
 
@@ -295,23 +313,26 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
           val result = Arguments.createMap()
           result.putString("publicKey", publicKeyString)
 
-          debugLog("RSA Keys created successfully with alias: $actualKeyAlias")
+          debugLog("RSA Keys created successfully with alias: $actualKeyAlias, requiresAuth: $requireUserAuth, strength: $requestedStrength")
           promise.resolve(result)
         }
         
         "ec256" -> {
           val keyPairGenerator = KeyPairGenerator.getInstance(KeyProperties.KEY_ALGORITHM_EC, "AndroidKeyStore")
-          val keyGenParameterSpec = KeyGenParameterSpec.Builder(
+          val keyGenParameterSpecBuilder = KeyGenParameterSpec.Builder(
             actualKeyAlias,
             KeyProperties.PURPOSE_SIGN or KeyProperties.PURPOSE_VERIFY
           )
             .setDigests(KeyProperties.DIGEST_SHA256)
-            .setSignaturePaddings(KeyProperties.SIGNATURE_PADDING_RSA_PKCS1) // This will be ignored for EC
             .setKeySize(256)
-            .setUserAuthenticationRequired(true)
-            .setUserAuthenticationValidityDurationSeconds(-1) // Require auth for every use
-            .build()
 
+          if (requireUserAuth) {
+            keyGenParameterSpecBuilder
+              .setUserAuthenticationRequired(true)
+              .setUserAuthenticationValidityDurationSeconds(-1) // Require auth for every use
+          }
+
+          val keyGenParameterSpec = keyGenParameterSpecBuilder.build()
           keyPairGenerator.initialize(keyGenParameterSpec)
           val keyPair = keyPairGenerator.generateKeyPair()
 
@@ -323,7 +344,7 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
           val result = Arguments.createMap()
           result.putString("publicKey", publicKeyString)
 
-          debugLog("EC Keys created successfully with alias: $actualKeyAlias")
+          debugLog("EC Keys created successfully with alias: $actualKeyAlias, requiresAuth: $requireUserAuth, strength: $requestedStrength")
           promise.resolve(result)
         }
         
