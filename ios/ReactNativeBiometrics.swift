@@ -263,9 +263,10 @@ class ReactNativeBiometrics: NSObject {
   @objc
   func createKeys(_ keyAlias: NSString?,
                   keyType: NSString?,
+                  biometricStrength: NSString?,
                   resolver resolve: @escaping RCTPromiseResolveBlock,
                   rejecter reject: @escaping RCTPromiseRejectBlock) {
-    ReactNativeBiometricDebug.debugLog("createKeys called with keyAlias: \(keyAlias ?? "default"), keyType: \(keyType ?? "ec256")")
+    ReactNativeBiometricDebug.debugLog("createKeys called with keyAlias: \(keyAlias ?? "default"), keyType: \(keyType ?? "ec256"), biometricStrength: \(biometricStrength ?? "strong")")
     
     let keyTag = getKeyAlias(keyAlias as String?)
     guard let keyTagData = keyTag.data(using: .utf8) else {
