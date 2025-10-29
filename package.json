@@ -1,6 +1,6 @@
 {
   "name": "@sbaiahmed1/react-native-biometrics",
-  "version": "0.7.2",
+  "version": "0.8.0",
   "description": "React Native biometric authentication library for iOS and Android. Easy integration of Face ID, Touch ID, and Fingerprint authentication with TypeScript support. Compatible with new architecture (TurboModules) and Expo. Secure mobile login solution.",
   "main": "./lib/commonjs/index.js",
   "module": "./lib/module/index.js",
