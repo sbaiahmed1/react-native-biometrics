@@ -1410,6 +1410,17 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
    */
   fun createSignature(payload: String, keyAlias: String?, biometricStrength: String?, promise: Promise) {
     debugLog("createSignature called with keyAlias: ${keyAlias ?: "default"}, biometricStrength: ${biometricStrength ?: "strong"}")
+    
+    // Validate payload parameter
+    if (payload.isEmpty()) {
+      debugLog("createSignature failed - payload is empty")
+      val errorResult = Arguments.createMap()
+      errorResult.putBoolean("success", false)
+      errorResult.putString("error", "Payload cannot be empty")
+      promise.resolve(errorResult)
+      return
+    }
+    
     // Delegate to verifyKeySignature with default prompt messages
     verifyKeySignature(keyAlias, payload, "Biometric Authentication", "Use your biometric to sign", "Cancel", biometricStrength, promise)
   }
@@ -1420,6 +1431,27 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
    */
   fun verifySignature(signature: String, payload: String, keyAlias: String?, promise: Promise) {
     debugLog("verifySignature called with keyAlias: ${keyAlias ?: "default"}")
+    
+    // Validate signature parameter
+    if (signature.isEmpty()) {
+      debugLog("verifySignature failed - signature is empty")
+      val errorResult = Arguments.createMap()
+      errorResult.putBoolean("valid", false)
+      errorResult.putString("error", "Signature cannot be empty")
+      promise.resolve(errorResult)
+      return
+    }
+    
+    // Validate payload parameter
+    if (payload.isEmpty()) {
+      debugLog("verifySignature failed - payload is empty")
+      val errorResult = Arguments.createMap()
+      errorResult.putBoolean("valid", false)
+      errorResult.putString("error", "Payload cannot be empty")
+      promise.resolve(errorResult)
+      return
+    }
+    
     // Delegate to validateSignature
     validateSignature(keyAlias, payload, signature, promise)
   }
