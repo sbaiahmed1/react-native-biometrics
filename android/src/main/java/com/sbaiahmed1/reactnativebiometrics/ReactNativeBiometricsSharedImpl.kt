@@ -1403,4 +1403,24 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
       promise.resolve(errorResult)
     }
   }
+
+  /**
+   * Creates a signature for the given payload using the specified key alias.
+   * This method is used by the old architecture module.
+   */
+  fun createSignature(payload: String, keyAlias: String?, biometricStrength: String?, promise: Promise) {
+    debugLog("createSignature called with keyAlias: ${keyAlias ?: "default"}, biometricStrength: ${biometricStrength ?: "strong"}")
+    // Delegate to verifyKeySignature with default prompt messages
+    verifyKeySignature(keyAlias, payload, "Biometric Authentication", "Use your biometric to sign", "Cancel", biometricStrength, promise)
+  }
+
+  /**
+   * Verifies a signature against the given payload using the specified key alias.
+   * This method is used by the old architecture module.
+   */
+  fun verifySignature(signature: String, payload: String, keyAlias: String?, promise: Promise) {
+    debugLog("verifySignature called with keyAlias: ${keyAlias ?: "default"}")
+    // Delegate to validateSignature
+    validateSignature(keyAlias, payload, signature, promise)
+  }
 }
