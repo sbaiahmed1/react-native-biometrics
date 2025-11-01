@@ -742,8 +742,15 @@ type SensorInfo = {
   available: boolean;        // Whether biometric auth is available
   biometryType?: string;     // Type of biometry ('FaceID', 'TouchID', 'Fingerprint', etc.)
   error?: string;            // Error message if not available
+  errorCode?: string;        // Error code if not available (platform-specific)
 }
 ```
+
+**Platform Notes:**
+- `errorCode` is available on both iOS and Android platforms
+- iOS returns specific error codes like `"BiometryNotAvailable"`, `"BiometryNotEnrolled"`, etc.
+- Android returns descriptive error codes like `"BiometricErrorNoHardware"`, `"BiometricErrorNoneEnrolled"`, etc.
+- The `error` property provides human-readable messages on both platforms
 
 #### `simplePrompt(reason: string)`
 
@@ -785,6 +792,8 @@ type AuthResult = {
 ```
 
 ### Key Management
+
+**Important note:** RSA keys are stored in the regular keychain (not Secure Enclave on iOS) and may have different security characteristics compared to EC256 keys. For maximum security, EC256 keys are recommended as they can leverage hardware-backed storage when available.
 
 #### `createKeys(keyAlias?: string, keyType?: 'ec256' | 'rsa2048')`
 
