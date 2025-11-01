@@ -101,36 +101,43 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
           debugLog("No biometric hardware available")
           result.putBoolean("available", false)
           result.putString("error", "No biometric hardware available")
+          result.putString("errorCode", "BiometricErrorNoHardware")
         }
         BiometricManager.BIOMETRIC_ERROR_HW_UNAVAILABLE -> {
           debugLog("Biometric hardware unavailable")
           result.putBoolean("available", false)
           result.putString("error", "Biometric hardware unavailable")
+          result.putString("errorCode", "BiometricErrorHwUnavailable")
         }
         BiometricManager.BIOMETRIC_ERROR_NONE_ENROLLED -> {
           debugLog("No biometric credentials enrolled")
           result.putBoolean("available", false)
           result.putString("error", "No biometric credentials enrolled")
+          result.putString("errorCode", "BiometricErrorNoneEnrolled")
         }
         BiometricManager.BIOMETRIC_ERROR_SECURITY_UPDATE_REQUIRED -> {
           debugLog("Security update required")
           result.putBoolean("available", false)
           result.putString("error", "Security update required")
+          result.putString("errorCode", "BiometricErrorSecurityUpdateRequired")
         }
         BiometricManager.BIOMETRIC_ERROR_UNSUPPORTED -> {
           debugLog("Biometric authentication unsupported")
           result.putBoolean("available", false)
           result.putString("error", "Biometric authentication unsupported")
+          result.putString("errorCode", "BiometricErrorUnsupported")
         }
         BiometricManager.BIOMETRIC_STATUS_UNKNOWN -> {
           debugLog("Biometric status unknown")
           result.putBoolean("available", false)
           result.putString("error", "Biometric status unknown")
+          result.putString("errorCode", "BiometricStatusUnknown")
         }
         else -> {
           debugLog("Unknown biometric status: $status")
           result.putBoolean("available", false)
           result.putString("error", "Unknown biometric status")
+          result.putString("errorCode", "BiometricStatusUnknown")
         }
       }
 
