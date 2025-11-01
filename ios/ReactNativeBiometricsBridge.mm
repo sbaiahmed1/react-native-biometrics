@@ -19,6 +19,7 @@ RCT_EXTERN_METHOD(authenticateWithOptions:
 RCT_EXTERN_METHOD(createKeys:
     (NSString *)keyAlias
     keyType:(NSString *)keyType
+    biometricStrength:(NSString *)biometricStrength
     resolver:(RCTPromiseResolveBlock)resolve
     rejecter:(RCTPromiseRejectBlock)reject)
 

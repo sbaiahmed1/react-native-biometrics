@@ -487,16 +487,31 @@ class ReactNativeBiometrics: NSObject {
     
     let keyTag = getKeyAlias(keyAlias as String?)
     
-    // Query to find the key (including Secure Enclave token for proper key lookup)
-    let query = createKeychainQuery(
+    // Try to find the key - first with Secure Enclave (for EC keys), then without (for RSA keys)
+    var result: CFTypeRef?
+    var status: OSStatus
+    
+    // First try with Secure Enclave (for EC keys)
+    let secureEnclaveQuery = createKeychainQuery(
       keyTag: keyTag,
       includeSecureEnclave: true,
       returnRef: true,
       returnAttributes: true
     )
     
-    var result: CFTypeRef?
-    let status = SecItemCopyMatching(query as CFDictionary, &result)
+    status = SecItemCopyMatching(secureEnclaveQuery as CFDictionary, &result)
+    
+    // If not found with Secure Enclave, try without (for RSA keys)
+    if status == errSecItemNotFound {
+      let regularQuery = createKeychainQuery(
+        keyTag: keyTag,
+        includeSecureEnclave: false,
+        returnRef: true,
+        returnAttributes: true
+      )
+      
+      status = SecItemCopyMatching(regularQuery as CFDictionary, &result)
+    }
     
     var integrityResult: [String: Any] = [
       "valid": false,
@@ -612,15 +627,29 @@ class ReactNativeBiometrics: NSObject {
     
     let keyTag = getKeyAlias(keyAlias as String?)
     
-    // Query to find the key (including Secure Enclave token for proper key lookup)
-    let query = createKeychainQuery(
+    // Try to find the key - first with Secure Enclave (for EC keys), then without (for RSA keys)
+    var result: CFTypeRef?
+    var status: OSStatus
+    
+    // First try with Secure Enclave (for EC keys)
+    let secureEnclaveQuery = createKeychainQuery(
       keyTag: keyTag,
       includeSecureEnclave: true,
       returnRef: true
     )
     
-    var result: CFTypeRef?
-    let status = SecItemCopyMatching(query as CFDictionary, &result)
+    status = SecItemCopyMatching(secureEnclaveQuery as CFDictionary, &result)
+    
+    // If not found with Secure Enclave, try without (for RSA keys)
+    if status == errSecItemNotFound {
+      let regularQuery = createKeychainQuery(
+        keyTag: keyTag,
+        includeSecureEnclave: false,
+        returnRef: true
+      )
+      
+      status = SecItemCopyMatching(regularQuery as CFDictionary, &result)
+    }
     
     guard status == errSecSuccess else {
       let biometricsError = ReactNativeBiometricsError.fromOSStatus(status)
@@ -692,15 +721,29 @@ class ReactNativeBiometrics: NSObject {
     
     let keyTag = getKeyAlias(keyAlias as String?)
     
-    // Query to find the key (including Secure Enclave token for proper key lookup)
-    let query = createKeychainQuery(
+    // Try to find the key - first with Secure Enclave (for EC keys), then without (for RSA keys)
+    var result: CFTypeRef?
+    var status: OSStatus
+    
+    // First try with Secure Enclave (for EC keys)
+    let secureEnclaveQuery = createKeychainQuery(
       keyTag: keyTag,
       includeSecureEnclave: true,
       returnRef: true
     )
     
-    var result: CFTypeRef?
-    let status = SecItemCopyMatching(query as CFDictionary, &result)
+    status = SecItemCopyMatching(secureEnclaveQuery as CFDictionary, &result)
+    
+    // If not found with Secure Enclave, try without (for RSA keys)
+    if status == errSecItemNotFound {
+      let regularQuery = createKeychainQuery(
+        keyTag: keyTag,
+        includeSecureEnclave: false,
+        returnRef: true
+      )
+      
+      status = SecItemCopyMatching(regularQuery as CFDictionary, &result)
+    }
     
     guard status == errSecSuccess else {
       let biometricsError = ReactNativeBiometricsError.fromOSStatus(status)
@@ -754,16 +797,31 @@ class ReactNativeBiometrics: NSObject {
     
     let keyTag = getKeyAlias(keyAlias as String?)
     
-    // Query to find the key
-    let query = createKeychainQuery(
+    // Try to find the key - first with Secure Enclave (for EC keys), then without (for RSA keys)
+    var result: CFTypeRef?
+    var status: OSStatus
+    
+    // First try with Secure Enclave (for EC keys)
+    let secureEnclaveQuery = createKeychainQuery(
       keyTag: keyTag,
-      includeSecureEnclave: false,
+      includeSecureEnclave: true,
       returnRef: true,
       returnAttributes: true
     )
     
-    var result: CFTypeRef?
-    let status = SecItemCopyMatching(query as CFDictionary, &result)
+    status = SecItemCopyMatching(secureEnclaveQuery as CFDictionary, &result)
+    
+    // If not found with Secure Enclave, try without (for RSA keys)
+    if status == errSecItemNotFound {
+      let regularQuery = createKeychainQuery(
+        keyTag: keyTag,
+        includeSecureEnclave: false,
+        returnRef: true,
+        returnAttributes: true
+      )
+      
+      status = SecItemCopyMatching(regularQuery as CFDictionary, &result)
+    }
     
     guard status == errSecSuccess else {
       if status == errSecItemNotFound {
