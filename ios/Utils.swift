@@ -149,7 +149,7 @@ public func createBiometricAccessControl(for keyType: BiometricKeyType = .ec256)
     return SecAccessControlCreateWithFlags(
       kCFAllocatorDefault,
       kSecAttrAccessibleWhenUnlockedThisDeviceOnly,
-      [.biometryAny],
+      [],
       nil
     )
   } else {
