@@ -504,6 +504,7 @@ export type BiometricSensorInfo = {
   available: boolean;
   biometryType?: 'Biometrics' | 'FaceID' | 'TouchID' | 'None' | 'Unknown';
   error?: string;
+  errorCode?: string;
   fallbackUsed?: boolean;
   biometricStrength?: BiometricStrength;
 };
