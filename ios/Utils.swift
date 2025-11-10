@@ -144,12 +144,14 @@ public func createKeychainQuery(
  * - Returns: SecAccessControl for biometric keys or nil if creation fails
  */
 public func createBiometricAccessControl(for keyType: BiometricKeyType = .ec256) -> SecAccessControl? {
-  // For RSA keys (not in Secure Enclave), we use simpler access control
+  // For RSA keys (not in Secure Enclave), we use access control matching old Objective-C implementation
   if keyType == .rsa2048 {
+    // Use kSecAttrAccessibleWhenPasscodeSetThisDeviceOnly with kSecAccessControlBiometryAny
+    // matching the old implementation default behavior (when allowDeviceCredentials == FALSE)
     return SecAccessControlCreateWithFlags(
       kCFAllocatorDefault,
-      kSecAttrAccessibleWhenUnlockedThisDeviceOnly,
-      [],
+      kSecAttrAccessibleWhenPasscodeSetThisDeviceOnly,
+      .biometryAny,
       nil
     )
   } else {
@@ -186,11 +188,14 @@ public func createKeyGenerationAttributes(
 ) -> [String: Any] {
   switch keyType {
   case .rsa2048:
+    // Match the old Objective-C implementation structure
     return [
+      kSecClass as String: kSecClassKey,
       kSecAttrKeyType as String: kSecAttrKeyTypeRSA,
       kSecAttrKeySizeInBits as String: 2048,
       kSecPrivateKeyAttrs as String: [
         kSecAttrIsPermanent as String: true,
+        kSecUseAuthenticationUI as String: kSecUseAuthenticationUIAllow,
         kSecAttrApplicationTag as String: keyTagData,
         kSecAttrAccessControl as String: accessControl
       ]
