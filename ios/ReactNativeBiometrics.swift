@@ -802,23 +802,25 @@ class ReactNativeBiometrics: NSObject {
     var status: OSStatus
     
     // First try with Secure Enclave (for EC keys)
-    let secureEnclaveQuery = createKeychainQuery(
+    var secureEnclaveQuery = createKeychainQuery(
       keyTag: keyTag,
       includeSecureEnclave: true,
       returnRef: true,
       returnAttributes: true
     )
+    secureEnclaveQuery[kSecUseAuthenticationUI as String] = kSecUseAuthenticationUIFail
     
     status = SecItemCopyMatching(secureEnclaveQuery as CFDictionary, &result)
     
     // If not found with Secure Enclave, try without (for RSA keys)
     if status == errSecItemNotFound {
-      let regularQuery = createKeychainQuery(
+      var regularQuery = createKeychainQuery(
         keyTag: keyTag,
         includeSecureEnclave: false,
         returnRef: true,
         returnAttributes: true
       )
+      regularQuery[kSecUseAuthenticationUI as String] = kSecUseAuthenticationUIFail
       
       status = SecItemCopyMatching(regularQuery as CFDictionary, &result)
     }
@@ -827,6 +829,14 @@ class ReactNativeBiometrics: NSObject {
       if status == errSecItemNotFound {
         ReactNativeBiometricDebug.debugLog("getKeyAttributes - Key not found")
         resolve(["exists": false])
+      } else if status == errSecInteractionNotAllowed {
+        ReactNativeBiometricDebug.debugLog("getKeyAttributes - Key exists but authentication required (UI disabled)")
+        resolve([
+          "exists": true,
+          "attributes": [
+            "userAuthenticationRequired": true
+          ]
+        ])
       } else {
         let biometricsError = ReactNativeBiometricsError.fromOSStatus(status)
         ReactNativeBiometricDebug.debugLog("getKeyAttributes failed - \(biometricsError.errorInfo.message)")
