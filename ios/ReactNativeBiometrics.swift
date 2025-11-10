@@ -349,7 +349,8 @@ class ReactNativeBiometrics: NSObject {
     let keyTag = getKeyAlias(keyAlias as String?)
     
     // Query to find the key
-    let query = createKeychainQuery(keyTag: keyTag, includeSecureEnclave: false)
+    var query = createKeychainQuery(keyTag: keyTag, includeSecureEnclave: false)
+    query[kSecUseAuthenticationUI as String] = kSecUseAuthenticationUIFail
     
     // Check if key exists first
     let checkStatus = SecItemCopyMatching(query as CFDictionary, nil)
