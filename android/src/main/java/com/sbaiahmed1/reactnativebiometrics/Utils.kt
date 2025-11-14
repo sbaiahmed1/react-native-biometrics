@@ -17,14 +17,14 @@ import java.security.interfaces.RSAKey
  * Utility functions for React Native Biometrics Android implementation
  */
 object BiometricUtils {
-    
+
     /**
      * Generates a key alias based on custom alias or configured alias
      */
     fun generateKeyAlias(customAlias: String?, configuredKeyAlias: String?, context: Context): String {
         return customAlias ?: configuredKeyAlias ?: generateDefaultKeyAlias(context)
     }
-    
+
     /**
      * Generates app-specific default key alias
      */
@@ -32,7 +32,7 @@ object BiometricUtils {
         val packageName = context.packageName
         return "$packageName.ReactNativeBiometricsKey"
     }
-    
+
     /**
      * Creates KeyGenParameterSpec for biometric key generation with authentication requirements
      */
@@ -44,31 +44,30 @@ object BiometricUtils {
             .setDigests(KeyProperties.DIGEST_SHA256)
             .setSignaturePaddings(KeyProperties.SIGNATURE_PADDING_RSA_PKCS1)
             .setKeySize(2048)
-            
+
         // Only require authentication if biometric strength is specified
         if (biometricStrength != null) {
             builder.setUserAuthenticationRequired(true)
                 .setUserAuthenticationValidityDurationSeconds(-1) // Require auth for every use
         }
-        
+
         return builder.build()
     }
-    
+
     /**
      * Encodes public key to Base64 string
      */
-       fun encodePublicKeyToBase64(publicKey: java.security.PublicKey): String {
-        val publicKeyBytes = publicKey.encoded
-        return Base64.encodeToString(publicKeyBytes, Base64.NO_WRAP)
+       fun encodePublicKeyToBase64(publicKey: ByteArray): String {
+        return Base64.encodeToString(publicKey, Base64.NO_WRAP)
     }
-    
+
     /**
      * Gets biometric capabilities for the device
      */
     fun getBiometricCapabilities(context: Context): WritableArray {
         val capabilities = Arguments.createArray()
         val biometricManager = BiometricManager.from(context)
-        
+
         when (biometricManager.canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_STRONG)) {
             BiometricManager.BIOMETRIC_SUCCESS -> {
                 capabilities.pushString("Fingerprint")
@@ -80,10 +79,10 @@ object BiometricUtils {
             }
             else -> capabilities.pushString("None")
         }
-        
+
         return capabilities
     }
-    
+
     /**
      * Gets security level of the device
      */
@@ -94,7 +93,7 @@ object BiometricUtils {
             "Software"
         }
     }
-    
+
     /**
      * Checks if keyguard is secure
      */
@@ -102,23 +101,23 @@ object BiometricUtils {
         val keyguardManager = context.getSystemService(Context.KEYGUARD_SERVICE) as android.app.KeyguardManager
         return keyguardManager.isKeyguardSecure
     }
-    
+
     /**
      * Gets enrolled biometrics
      */
     fun getEnrolledBiometrics(context: Context): WritableArray {
         val enrolled = Arguments.createArray()
         val biometricManager = BiometricManager.from(context)
-        
+
         when (biometricManager.canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_STRONG)) {
             BiometricManager.BIOMETRIC_SUCCESS -> {
                 enrolled.pushString("Biometric")
             }
         }
-        
+
         return enrolled
     }
-    
+
     /**
      * Checks if device has secure hardware for biometrics
      */
@@ -130,7 +129,7 @@ object BiometricUtils {
             false
         }
     }
-    
+
     /**
      * Gets key size for different key types
      */
@@ -155,7 +154,7 @@ object BiometricUtils {
             else -> 0
         }
     }
-    
+
     /**
      * Checks if key is hardware-backed
      */
@@ -171,7 +170,7 @@ object BiometricUtils {
             false
         }
     }
-    
+
     /**
      * Creates BiometricPrompt.PromptInfo for authentication
      */
@@ -188,23 +187,23 @@ object BiometricUtils {
         } else {
             BiometricManager.Authenticators.BIOMETRIC_STRONG
         }
-        
+
         val promptInfoBuilder = BiometricPrompt.PromptInfo.Builder()
             .setTitle(title)
             .setSubtitle(subtitle)
             .setAllowedAuthenticators(authenticators)
-        
+
         if (description != null) {
             promptInfoBuilder.setDescription(description)
         }
-        
+
         if (!allowDeviceCredentials || disableDeviceFallback) {
             promptInfoBuilder.setNegativeButtonText(cancelLabel)
         }
-        
+
         return promptInfoBuilder.build()
     }
-    
+
     /**
      * Creates a map of key attributes including authentication requirements
      */
@@ -212,23 +211,23 @@ object BiometricUtils {
         val attributes = Arguments.createMap()
         attributes.putString("algorithm", privateKey.algorithm)
         attributes.putInt("keySize", getKeySize(privateKey))
-        
+
         val purposes = Arguments.createArray()
         purposes.pushString("SIGN")
         purposes.pushString("VERIFY")
         attributes.putArray("purposes", purposes)
-        
+
         val digests = Arguments.createArray()
         digests.pushString("SHA256")
         attributes.putArray("digests", digests)
-        
+
         val padding = Arguments.createArray()
         padding.pushString("PKCS1")
         attributes.putArray("padding", padding)
-        
+
         attributes.putString("securityLevel", if (isHardwareBacked(privateKey)) "Hardware" else "Software")
         attributes.putBoolean("hardwareBacked", isHardwareBacked(privateKey))
-        
+
         // Check if the key actually requires user authentication
         val requiresAuth = try {
             val keyFactory = java.security.KeyFactory.getInstance(privateKey.algorithm, "AndroidKeyStore")
@@ -239,10 +238,10 @@ object BiometricUtils {
             false
         }
         attributes.putBoolean("userAuthenticationRequired", requiresAuth)
-        
+
         return attributes
     }
-    
+
     /**
      * Checks if debug mode is enabled
      */
@@ -250,7 +249,7 @@ object BiometricUtils {
         val sharedPrefs = context.getSharedPreferences("ReactNativeBiometrics", Context.MODE_PRIVATE)
         return sharedPrefs.getBoolean("debugMode", false)
     }
-    
+
     /**
      * Debug logging utility
      */
@@ -259,7 +258,7 @@ object BiometricUtils {
             android.util.Log.d("ReactNativeBiometrics Debug", message)
         }
     }
-    
+
     /**
      * Loads Android KeyStore
      */
@@ -268,7 +267,7 @@ object BiometricUtils {
         keyStore.load(null)
         return keyStore
     }
-    
+
     /**
      * Validates input data for signature operations
      */
@@ -276,14 +275,14 @@ object BiometricUtils {
         if (data.isEmpty()) {
             return "Empty data provided"
         }
-        
+
         if (signature != null && signature.isEmpty()) {
             return "Empty signature provided"
         }
-        
+
         return null
     }
-    
+
     /**
      * Gets the appropriate signature algorithm for a given key
      */
@@ -294,7 +293,7 @@ object BiometricUtils {
             else -> "SHA256withRSA" // Default fallback
         }
     }
-    
+
     /**
      * Checks if the device is rooted
      * This performs multiple checks to detect root access
@@ -302,7 +301,7 @@ object BiometricUtils {
     fun isDeviceRooted(context: Context): Boolean {
         return checkRootMethod1() || checkRootMethod2() || checkRootMethod3(context)
     }
-    
+
     /**
      * Check for common root binaries
      */
@@ -322,7 +321,7 @@ object BiometricUtils {
             "/dev/com.koushikdutta.superuser.daemon/",
             "/system/xbin/daemonsu"
         )
-        
+
         for (path in rootPaths) {
             if (java.io.File(path).exists()) {
                 return true
@@ -330,7 +329,7 @@ object BiometricUtils {
         }
         return false
     }
-    
+
     /**
      * Check for dangerous properties
      */
@@ -339,7 +338,7 @@ object BiometricUtils {
             "ro.debuggable" to "1",
             "ro.secure" to "0"
         )
-        
+
         for ((prop, value) in dangerousProps) {
             try {
                 val process = Runtime.getRuntime().exec("getprop $prop")
@@ -354,7 +353,7 @@ object BiometricUtils {
         }
         return false
     }
-    
+
     /**
      * Check for root management apps
      */
@@ -382,7 +381,7 @@ object BiometricUtils {
             "com.formyhm.hiderootPremium",
             "com.formyhm.hideroot"
         )
-        
+
         val packageManager = context.packageManager
         for (packageName in rootApps) {
             try {
@@ -394,14 +393,14 @@ object BiometricUtils {
         }
         return false
     }
-    
+
     /**
      * Checks if the device is compromised (rooted or has security issues)
      */
     fun isDeviceCompromised(context: Context): Boolean {
         return isDeviceRooted(context) || !isKeyguardSecure(context) || !isSecureHardware(context)
     }
-    
+
     /**
      * Gets device integrity status
      */
@@ -410,7 +409,7 @@ object BiometricUtils {
         val isRooted = isDeviceRooted(context)
         val isKeyguardSecure = isKeyguardSecure(context)
         val hasSecureHardware = isSecureHardware(context)
-        
+
         status.putBoolean("isRooted", isRooted)
         status.putBoolean("isKeyguardSecure", isKeyguardSecure)
         status.putBoolean("hasSecureHardware", hasSecureHardware)
@@ -421,7 +420,7 @@ object BiometricUtils {
             !hasSecureHardware -> "LOW"
             else -> "NONE"
         })
-        
+
         return status
     }
 }

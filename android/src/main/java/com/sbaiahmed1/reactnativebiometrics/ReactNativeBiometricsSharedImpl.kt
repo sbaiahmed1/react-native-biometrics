@@ -58,7 +58,7 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
     try {
       val biometricManager = BiometricManager.from(context)
       val result = Arguments.createMap()
-      
+
       // Determine authenticator based on biometric strength
       val requestedAuthenticator = when (biometricStrength?.lowercase()) {
         "weak" -> BiometricManager.Authenticators.BIOMETRIC_WEAK
@@ -68,19 +68,19 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
           BiometricManager.Authenticators.BIOMETRIC_STRONG
         }
       }
-      
+
       var authenticator = requestedAuthenticator
       var status = biometricManager.canAuthenticate(authenticator)
       debugLog("Biometric status: $status for authenticator: $authenticator")
-      
+
       // Implement fallback logic: if strong biometrics is requested but not available, try weak
-      if (requestedAuthenticator == BiometricManager.Authenticators.BIOMETRIC_STRONG && 
+      if (requestedAuthenticator == BiometricManager.Authenticators.BIOMETRIC_STRONG &&
           status != BiometricManager.BIOMETRIC_SUCCESS) {
         debugLog("Strong biometrics not available, attempting fallback to weak biometrics")
         authenticator = BiometricManager.Authenticators.BIOMETRIC_WEAK
         val fallbackStatus = biometricManager.canAuthenticate(authenticator)
         debugLog("Fallback biometric status: $fallbackStatus for weak authenticator")
-        
+
         if (fallbackStatus == BiometricManager.BIOMETRIC_SUCCESS) {
           debugLog("Fallback to weak biometrics successful")
           status = fallbackStatus
@@ -266,7 +266,7 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
     val actualKeyType = keyType?.lowercase() ?: "rsa2048"
     val requestedStrength = biometricStrength ?: "strong"
     debugLog("createKeys called with keyAlias: ${keyAlias ?: "default"}, using: $actualKeyAlias, keyType: $actualKeyType, biometricStrength: $requestedStrength")
-    
+
     try {
       // Check if key already exists
       val keyStore = KeyStore.getInstance("AndroidKeyStore")
@@ -284,9 +284,9 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
       } else {
         BiometricManager.Authenticators.BIOMETRIC_STRONG
       }
-      
+
       val canAuthenticate = biometricManager.canAuthenticate(authenticator)
-      
+
       // Determine if we should require user authentication
       // For weak biometrics, we don't require authentication because crypto-based auth is not supported
       val requireUserAuth = canAuthenticate == BiometricManager.BIOMETRIC_SUCCESS && requestedStrength != "weak"
@@ -316,7 +316,7 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
           // Get public key and encode it
           val publicKey = keyPair.public
           val publicKeyBytes = publicKey.encoded
-          val publicKeyString = Base64.encodeToString(publicKeyBytes, Base64.DEFAULT)
+          val publicKeyString = BiometricUtils.encodePublicKeyToBase64(publicKeyBytes)
 
           val result = Arguments.createMap()
           result.putString("publicKey", publicKeyString)
@@ -324,7 +324,7 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
           debugLog("RSA Keys created successfully with alias: $actualKeyAlias, requiresAuth: $requireUserAuth, strength: $requestedStrength")
           promise.resolve(result)
         }
-        
+
         "ec256" -> {
           val keyPairGenerator = KeyPairGenerator.getInstance(KeyProperties.KEY_ALGORITHM_EC, "AndroidKeyStore")
           val keyGenParameterSpecBuilder = KeyGenParameterSpec.Builder(
@@ -347,7 +347,7 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
           // Get public key and encode it
           val publicKey = keyPair.public
           val publicKeyBytes = publicKey.encoded
-          val publicKeyString = Base64.encodeToString(publicKeyBytes, Base64.DEFAULT)
+          val publicKeyString = BiometricUtils.encodePublicKeyToBase64(publicKeyBytes)
 
           val result = Arguments.createMap()
           result.putString("publicKey", publicKeyString)
@@ -355,7 +355,7 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
           debugLog("EC Keys created successfully with alias: $actualKeyAlias, requiresAuth: $requireUserAuth, strength: $requestedStrength")
           promise.resolve(result)
         }
-        
+
         else -> {
           debugLog("createKeys failed - Unsupported key type: $actualKeyType")
           promise.reject("CREATE_KEYS_ERROR", "Unsupported key type: $actualKeyType. Supported types: rsa2048, ec256", null)
@@ -578,7 +578,7 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
     val biometricManager = BiometricManager.from(context)
     var baseAuthenticator = requestedBaseAuthenticator
     var fallbackUsed = false
-    
+
     if (requestedBaseAuthenticator == BiometricManager.Authenticators.BIOMETRIC_STRONG) {
       val strongStatus = biometricManager.canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_STRONG)
       if (strongStatus != BiometricManager.BIOMETRIC_SUCCESS) {
@@ -620,14 +620,14 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
         debugLog("authenticateWithOptions authentication succeeded")
         val successResult = Arguments.createMap()
         successResult.putBoolean("success", true)
-        
+
         // Include information about fallback usage and actual strength used
         if (fallbackUsed) {
           successResult.putString("fallbackUsed", "weak")
         }
         val actualStrength = if (baseAuthenticator == BiometricManager.Authenticators.BIOMETRIC_WEAK) "weak" else "strong"
         successResult.putString("biometricStrength", actualStrength)
-        
+
         promise.resolve(successResult)
       }
 
@@ -706,7 +706,7 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
                 if (keyEntry is KeyStore.PrivateKeyEntry) {
                   val publicKey = keyEntry.certificate.publicKey
                   val publicKeyBytes = publicKey.encoded
-                  val publicKeyString = Base64.encodeToString(publicKeyBytes, Base64.DEFAULT)
+                  val publicKeyString = BiometricUtils.encodePublicKeyToBase64(publicKeyBytes)
 
                   val keyInfo = Arguments.createMap()
                   keyInfo.putString("alias", alias)
@@ -821,7 +821,7 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
           try {
             val testSignature = java.security.Signature.getInstance("SHA256withRSA")
             testSignature.initSign(privateKey)
-            
+
             val testData = "integrity_test_data".toByteArray()
             testSignature.update(testData)
             val signatureBytes = testSignature.sign()
@@ -852,7 +852,7 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
         debugLog("validateKeyIntegrity - Key requires authentication, proceeding with biometric prompt")
         val executor = ContextCompat.getMainExecutor(context)
         val biometricManager = BiometricManager.from(context)
-        
+
         // Determine authenticator based on biometric strength preference
         val requestedStrength = biometricStrength ?: "strong"
         var authenticator = if (requestedStrength == "weak") {
@@ -860,10 +860,10 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
         } else {
           BiometricManager.Authenticators.BIOMETRIC_STRONG
         }
-        
+
         var fallbackUsed = false
         var biometricStatus = biometricManager.canAuthenticate(authenticator)
-        
+
         // Fallback logic: if strong biometrics requested but not available, try weak
         if (requestedStrength == "strong" && biometricStatus != BiometricManager.BIOMETRIC_SUCCESS) {
           val weakStatus = biometricManager.canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_WEAK)
@@ -1039,7 +1039,7 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
           signature.initSign(privateKey)
           signature.update(data.toByteArray())
           val signatureBytes = signature.sign()
-          val signatureString = Base64.encodeToString(signatureBytes, Base64.DEFAULT)
+          val signatureString = BiometricUtils.encodePublicKeyToBase64(signatureBytes)
 
           val result = Arguments.createMap()
           result.putBoolean("success", true)
@@ -1070,7 +1070,7 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
       // For authentication-required keys, we need biometric authentication before signing
       val executor = ContextCompat.getMainExecutor(context)
       val biometricManager = BiometricManager.from(context)
-      
+
       // Determine authenticator based on biometric strength
       val requestedAuthenticator = when (biometricStrength?.lowercase()) {
         "weak" -> BiometricManager.Authenticators.BIOMETRIC_WEAK
@@ -1080,20 +1080,20 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
           BiometricManager.Authenticators.BIOMETRIC_STRONG
         }
       }
-      
+
       var authenticator = requestedAuthenticator
       var biometricStatus = biometricManager.canAuthenticate(authenticator)
       var fallbackUsed = false
       debugLog("verifyKeySignature - Biometric status: $biometricStatus for authenticator: $authenticator")
-      
+
       // Implement fallback logic: if strong biometrics is requested but not available, try weak
-      if (requestedAuthenticator == BiometricManager.Authenticators.BIOMETRIC_STRONG && 
+      if (requestedAuthenticator == BiometricManager.Authenticators.BIOMETRIC_STRONG &&
           biometricStatus != BiometricManager.BIOMETRIC_SUCCESS) {
         debugLog("verifyKeySignature - Strong biometrics not available, attempting fallback to weak biometrics")
         authenticator = BiometricManager.Authenticators.BIOMETRIC_WEAK
         val fallbackStatus = biometricManager.canAuthenticate(authenticator)
         debugLog("verifyKeySignature - Fallback biometric status: $fallbackStatus for weak authenticator")
-        
+
         if (fallbackStatus == BiometricManager.BIOMETRIC_SUCCESS) {
           debugLog("verifyKeySignature - Fallback to weak biometrics successful")
           biometricStatus = fallbackStatus
@@ -1112,7 +1112,7 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
         .setSubtitle(promptSubtitle ?: "Please verify your identity to generate signature")
         .setAllowedAuthenticators(authenticators)
 
-      if (authenticators == BiometricManager.Authenticators.BIOMETRIC_STRONG || 
+      if (authenticators == BiometricManager.Authenticators.BIOMETRIC_STRONG ||
           authenticators == BiometricManager.Authenticators.BIOMETRIC_WEAK) {
         promptInfoBuilder.setNegativeButtonText(cancelButtonText ?: "Cancel")
       }
@@ -1147,7 +1147,7 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
 
             authenticatedSignature.update(data.toByteArray())
             val signatureBytes = authenticatedSignature.sign()
-            val signatureString = Base64.encodeToString(signatureBytes, Base64.DEFAULT)
+            val signatureString = BiometricUtils.encodePublicKeyToBase64(signatureBytes)
 
             val result = Arguments.createMap()
             result.putBoolean("success", true)
@@ -1225,7 +1225,7 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
       signatureInstance.initVerify(publicKey)
       signatureInstance.update(data.toByteArray())
 
-      val signatureBytes = Base64.decode(signature, Base64.DEFAULT)
+      val signatureBytes = Base64.decode(signature, Base64.NO_WRAP)
       val isValid = signatureInstance.verify(signatureBytes)
 
       val result = Arguments.createMap()
@@ -1262,7 +1262,7 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
       val attributes = Arguments.createMap()
       attributes.putString("algorithm", publicKey.algorithm)
       attributes.putString("format", publicKey.format)
-      
+
       // Check if the key actually requires user authentication
       val requiresAuth = try {
         val privateKey = keyStore.getKey(actualKeyAlias, null) as java.security.PrivateKey
@@ -1274,7 +1274,7 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
         false
       }
       attributes.putBoolean("userAuthenticationRequired", requiresAuth)
-      
+
       attributes.putString("securityLevel", "Hardware")
       attributes.putBoolean("hardwareBacked", true)
 
@@ -1330,7 +1330,7 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
     } else {
       BiometricManager.Authenticators.BIOMETRIC_STRONG
     }
-    
+
     val canAuthenticateRequested = biometricManager.canAuthenticate(authenticator)
     val sensorAvailable = canAuthenticateRequested == BiometricManager.BIOMETRIC_SUCCESS
     results.putBoolean("sensorAvailable", sensorAvailable)
@@ -1417,7 +1417,7 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
    */
   fun createSignature(payload: String, keyAlias: String?, biometricStrength: String?, promise: Promise) {
     debugLog("createSignature called with keyAlias: ${keyAlias ?: "default"}, biometricStrength: ${biometricStrength ?: "strong"}")
-    
+
     // Validate payload parameter
     if (payload.isEmpty()) {
       debugLog("createSignature failed - payload is empty")
@@ -1427,7 +1427,7 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
       promise.resolve(errorResult)
       return
     }
-    
+
     // Delegate to verifyKeySignature with default prompt messages
     verifyKeySignature(keyAlias, payload, "Biometric Authentication", "Use your biometric to sign", "Cancel", biometricStrength, promise)
   }
@@ -1438,7 +1438,7 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
    */
   fun verifySignature(signature: String, payload: String, keyAlias: String?, promise: Promise) {
     debugLog("verifySignature called with keyAlias: ${keyAlias ?: "default"}")
-    
+
     // Validate signature parameter
     if (signature.isEmpty()) {
       debugLog("verifySignature failed - signature is empty")
@@ -1448,7 +1448,7 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
       promise.resolve(errorResult)
       return
     }
-    
+
     // Validate payload parameter
     if (payload.isEmpty()) {
       debugLog("verifySignature failed - payload is empty")
@@ -1458,7 +1458,7 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
       promise.resolve(errorResult)
       return
     }
-    
+
     // Delegate to validateSignature
     validateSignature(keyAlias, payload, signature, promise)
   }
