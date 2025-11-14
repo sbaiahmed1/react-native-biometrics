@@ -42,12 +42,14 @@ class ReactNativeBiometrics: NSObject {
         case .touchID:
           biometryType = "TouchID"
           ReactNativeBiometricDebug.debugLog("TouchID available")
-        case .opticID:
-          biometryType = "OpticID"
-          ReactNativeBiometricDebug.debugLog("OpticID available")
         default:
-          biometryType = "Biometrics"
-          ReactNativeBiometricDebug.debugLog("Generic biometrics available")
+          if #available(iOS 17.0, *), context.biometryType == .opticID {
+            biometryType = "OpticID"
+            ReactNativeBiometricDebug.debugLog("OpticID available")
+          } else {
+            biometryType = "Biometrics"
+            ReactNativeBiometricDebug.debugLog("Generic biometrics available")
+          }
         }
       } else {
         biometryType = "Biometrics"
@@ -350,7 +352,14 @@ class ReactNativeBiometrics: NSObject {
     
     // Query to find the key
     var query = createKeychainQuery(keyTag: keyTag, includeSecureEnclave: false)
-    query[kSecUseAuthenticationUI as String] = kSecUseAuthenticationUIFail
+    // Use LAContext with interaction disabled instead of deprecated kSecUseAuthenticationUIFail
+    if #available(iOS 16.0, *) {
+      let noUIContext = LAContext()
+      noUIContext.interactionNotAllowed = true
+      query[kSecUseAuthenticationContext as String] = noUIContext
+    } else {
+      query[kSecUseAuthenticationUI as String] = kSecUseAuthenticationUIFail
+    }
     
     // Check if key exists first
     let checkStatus = SecItemCopyMatching(query as CFDictionary, nil)
@@ -513,7 +522,6 @@ class ReactNativeBiometrics: NSObject {
       
       status = SecItemCopyMatching(regularQuery as CFDictionary, &result)
     }
-    
     var integrityResult: [String: Any] = [
       "valid": false,
       "keyExists": false,
@@ -651,7 +659,6 @@ class ReactNativeBiometrics: NSObject {
       
       status = SecItemCopyMatching(regularQuery as CFDictionary, &result)
     }
-    
     guard status == errSecSuccess else {
       let biometricsError = ReactNativeBiometricsError.fromOSStatus(status)
       ReactNativeBiometricDebug.debugLog("verifyKeySignature failed - \(biometricsError.errorInfo.message)")
@@ -745,7 +752,6 @@ class ReactNativeBiometrics: NSObject {
       
       status = SecItemCopyMatching(regularQuery as CFDictionary, &result)
     }
-    
     guard status == errSecSuccess else {
       let biometricsError = ReactNativeBiometricsError.fromOSStatus(status)
       ReactNativeBiometricDebug.debugLog("validateSignature failed - \(biometricsError.errorInfo.message)")
@@ -797,7 +803,6 @@ class ReactNativeBiometrics: NSObject {
     ReactNativeBiometricDebug.debugLog("getKeyAttributes called with keyAlias: \(keyAlias ?? "default")")
     
     let keyTag = getKeyAlias(keyAlias as String?)
-    
     // Try to find the key - first with Secure Enclave (for EC keys), then without (for RSA keys)
     var result: CFTypeRef?
     var status: OSStatus
@@ -809,7 +814,14 @@ class ReactNativeBiometrics: NSObject {
       returnRef: true,
       returnAttributes: true
     )
-    secureEnclaveQuery[kSecUseAuthenticationUI as String] = kSecUseAuthenticationUIFail
+    // Use LAContext with interaction disabled instead of deprecated kSecUseAuthenticationUIFail
+    if #available(iOS 16.0, *) {
+      let noUIContext = LAContext()
+      noUIContext.interactionNotAllowed = true
+      secureEnclaveQuery[kSecUseAuthenticationContext as String] = noUIContext
+    } else {
+      secureEnclaveQuery[kSecUseAuthenticationUI as String] = kSecUseAuthenticationUIFail
+    }
     
     status = SecItemCopyMatching(secureEnclaveQuery as CFDictionary, &result)
     
@@ -821,11 +833,16 @@ class ReactNativeBiometrics: NSObject {
         returnRef: true,
         returnAttributes: true
       )
-      regularQuery[kSecUseAuthenticationUI as String] = kSecUseAuthenticationUIFail
+      if #available(iOS 16.0, *) {
+        let noUIContext = LAContext()
+        noUIContext.interactionNotAllowed = true
+        regularQuery[kSecUseAuthenticationContext as String] = noUIContext
+      } else {
+        regularQuery[kSecUseAuthenticationUI as String] = kSecUseAuthenticationUIFail
+      }
       
       status = SecItemCopyMatching(regularQuery as CFDictionary, &result)
     }
-    
     guard status == errSecSuccess else {
       if status == errSecItemNotFound {
         ReactNativeBiometricDebug.debugLog("getKeyAttributes - Key not found")
@@ -898,3 +915,4 @@ class ReactNativeBiometrics: NSObject {
     resolver(integrityStatus)
   }
 }
+
