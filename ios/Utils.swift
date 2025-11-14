@@ -150,8 +150,8 @@ public func createBiometricAccessControl(for keyType: BiometricKeyType = .ec256)
     // matching the old implementation default behavior (when allowDeviceCredentials == FALSE)
     return SecAccessControlCreateWithFlags(
       kCFAllocatorDefault,
-      kSecAttrAccessibleWhenPasscodeSetThisDeviceOnly,
-      .biometryAny,
+kSecAttrAccessibleWhenPasscodeSetThisDeviceOnly,
+.biometryAny,
       nil
     )
   } else {
@@ -200,7 +200,7 @@ public func createKeyGenerationAttributes(
         kSecAttrAccessControl as String: accessControl
       ]
     ]
-    
+
   case .ec256:
     return [
       kSecAttrKeyType as String: kSecAttrKeyTypeECSECPrimeRandom,
@@ -280,7 +280,7 @@ private func checkJailbreakMethod1() -> Bool {
     "/usr/lib/libcycript.dylib",
     "/System/Library/LaunchDaemons/com.openssh.sshd.plist"
   ]
-  
+
   for path in jailbreakPaths {
     if FileManager.default.fileExists(atPath: path) {
       return true
@@ -298,7 +298,7 @@ private func checkJailbreakMethod2() -> Bool {
     "/private/jailbreak_test.txt",
     "/private/var/mobile/jailbreak_test.txt"
   ]
-  
+
   for path in testPaths {
     do {
       try testString.write(toFile: path, atomically: true, encoding: .utf8)
@@ -322,14 +322,14 @@ private func checkJailbreakMethod3() -> Bool {
       return true
     }
   }
-  
+
   // Check if we can open suspicious URLs (jailbroken devices may have custom URL schemes)
   let suspiciousURLs = [
     "cydia://package/com.example.package",
     "sileo://package/com.example.package",
     "zbra://package/com.example.package"
   ]
-  
+
   for urlString in suspiciousURLs {
     if let url = URL(string: urlString) {
       if UIApplication.shared.canOpenURL(url) {
@@ -337,7 +337,7 @@ private func checkJailbreakMethod3() -> Bool {
       }
     }
   }
-  
+
   return false
 }
 
@@ -353,7 +353,7 @@ public func isDeviceCompromised() -> Bool {
  */
 public func getDeviceIntegrityStatus() -> [String: Any] {
   let isJailbroken = isDeviceJailbroken()
-  
+
   return [
     "isJailbroken": isJailbroken,
     "isCompromised": isJailbroken,
