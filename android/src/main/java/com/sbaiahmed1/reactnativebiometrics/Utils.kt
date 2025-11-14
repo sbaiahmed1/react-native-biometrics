@@ -74,7 +74,8 @@ object BiometricUtils {
     data class BiometricAuthenticatorResult(
         val authenticator: Int,
         val fallbackUsed: Boolean,
-        val actualStrength: String
+        val actualStrength: String,
+        val isAvailable: Boolean
     )
 
     /**
@@ -114,9 +115,15 @@ object BiometricUtils {
             }
         }
 
-        val actualStrength = if (authenticator == BiometricManager.Authenticators.BIOMETRIC_WEAK) "weak" else "strong"
+        // Determine actual strength based on availability status
+        val isAvailable = status == BiometricManager.BIOMETRIC_SUCCESS
+        val actualStrength = when {
+            !isAvailable -> "unavailable"
+            authenticator == BiometricManager.Authenticators.BIOMETRIC_WEAK -> "weak"
+            else -> "strong"
+        }
 
-        return BiometricAuthenticatorResult(authenticator, fallbackUsed, actualStrength)
+        return BiometricAuthenticatorResult(authenticator, fallbackUsed, actualStrength, isAvailable)
     }
 
     /**
