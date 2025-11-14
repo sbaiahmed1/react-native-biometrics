@@ -57,7 +57,7 @@ object BiometricUtils {
     /**
      * Encodes public key to Base64 string
      */
-       fun encodePublicKeyToBase64(publicKey: ByteArray): String {
+       fun encodeToBase64(publicKey: ByteArray): String {
         return Base64.encodeToString(publicKey, Base64.NO_WRAP)
     }
 

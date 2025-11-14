@@ -316,7 +316,7 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
           // Get public key and encode it
           val publicKey = keyPair.public
           val publicKeyBytes = publicKey.encoded
-          val publicKeyString = BiometricUtils.encodePublicKeyToBase64(publicKeyBytes)
+          val publicKeyString = BiometricUtils.encodeToBase64(publicKeyBytes)
 
           val result = Arguments.createMap()
           result.putString("publicKey", publicKeyString)
@@ -347,7 +347,7 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
           // Get public key and encode it
           val publicKey = keyPair.public
           val publicKeyBytes = publicKey.encoded
-          val publicKeyString = BiometricUtils.encodePublicKeyToBase64(publicKeyBytes)
+          val publicKeyString = BiometricUtils.encodeToBase64(publicKeyBytes)
 
           val result = Arguments.createMap()
           result.putString("publicKey", publicKeyString)
@@ -706,7 +706,7 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
                 if (keyEntry is KeyStore.PrivateKeyEntry) {
                   val publicKey = keyEntry.certificate.publicKey
                   val publicKeyBytes = publicKey.encoded
-                  val publicKeyString = BiometricUtils.encodePublicKeyToBase64(publicKeyBytes)
+                  val publicKeyString = BiometricUtils.encodeToBase64(publicKeyBytes)
 
                   val keyInfo = Arguments.createMap()
                   keyInfo.putString("alias", alias)
@@ -1039,7 +1039,7 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
           signature.initSign(privateKey)
           signature.update(data.toByteArray())
           val signatureBytes = signature.sign()
-          val signatureString = BiometricUtils.encodePublicKeyToBase64(signatureBytes)
+          val signatureString = BiometricUtils.encodeToBase64(signatureBytes)
 
           val result = Arguments.createMap()
           result.putBoolean("success", true)
@@ -1147,7 +1147,7 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
 
             authenticatedSignature.update(data.toByteArray())
             val signatureBytes = authenticatedSignature.sign()
-            val signatureString = BiometricUtils.encodePublicKeyToBase64(signatureBytes)
+            val signatureString = BiometricUtils.encodeToBase64(signatureBytes)
 
             val result = Arguments.createMap()
             result.putBoolean("success", true)
