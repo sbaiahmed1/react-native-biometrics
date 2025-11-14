@@ -55,10 +55,68 @@ object BiometricUtils {
     }
 
     /**
-     * Encodes public key to Base64 string
+     * Encodes arbitrary byte array to Base64 string with NO_WRAP flag
      */
-       fun encodeToBase64(publicKey: ByteArray): String {
-        return Base64.encodeToString(publicKey, Base64.NO_WRAP)
+    fun encodeBase64(bytes: ByteArray): String {
+        return Base64.encodeToString(bytes, Base64.NO_WRAP)
+    }
+
+    /**
+     * Decodes Base64 string to byte array with NO_WRAP flag
+     */
+    fun decodeBase64(base64String: String): ByteArray {
+        return Base64.decode(base64String, Base64.NO_WRAP)
+    }
+
+    /**
+     * Result of biometric authenticator fallback logic
+     */
+    data class BiometricAuthenticatorResult(
+        val authenticator: Int,
+        val fallbackUsed: Boolean,
+        val actualStrength: String
+    )
+
+    /**
+     * Determines the appropriate biometric authenticator with automatic fallback from strong to weak.
+     *
+     * If BIOMETRIC_STRONG is requested but not available, automatically falls back to BIOMETRIC_WEAK.
+     *
+     * @param context The application context
+     * @param requestedStrength The requested biometric strength ("strong" or "weak")
+     * @return BiometricAuthenticatorResult containing the final authenticator, fallback status, and actual strength
+     */
+    fun determineAuthenticator(context: Context, requestedStrength: String?): BiometricAuthenticatorResult {
+        val biometricManager = BiometricManager.from(context)
+
+        val requestedAuthenticator = when (requestedStrength?.lowercase()) {
+            "weak" -> BiometricManager.Authenticators.BIOMETRIC_WEAK
+            "strong", null -> BiometricManager.Authenticators.BIOMETRIC_STRONG
+            else -> BiometricManager.Authenticators.BIOMETRIC_STRONG
+        }
+
+        var authenticator = requestedAuthenticator
+        var fallbackUsed = false
+        var status = biometricManager.canAuthenticate(authenticator)
+
+        // Implement fallback logic: if strong biometrics is requested but not available, try weak
+        if (requestedAuthenticator == BiometricManager.Authenticators.BIOMETRIC_STRONG &&
+            status != BiometricManager.BIOMETRIC_SUCCESS) {
+            authenticator = BiometricManager.Authenticators.BIOMETRIC_WEAK
+            val fallbackStatus = biometricManager.canAuthenticate(authenticator)
+
+            if (fallbackStatus == BiometricManager.BIOMETRIC_SUCCESS) {
+                status = fallbackStatus
+                fallbackUsed = true
+            } else {
+                // Fallback failed, revert to original authenticator
+                authenticator = requestedAuthenticator
+            }
+        }
+
+        val actualStrength = if (authenticator == BiometricManager.Authenticators.BIOMETRIC_WEAK) "weak" else "strong"
+
+        return BiometricAuthenticatorResult(authenticator, fallbackUsed, actualStrength)
     }
 
     /**
