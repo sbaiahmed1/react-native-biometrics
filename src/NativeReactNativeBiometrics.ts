@@ -74,6 +74,7 @@ export interface Spec extends TurboModule {
     success: boolean;
     signature?: string;
     error?: string;
+    errorCode?: string;
   }>;
   validateSignature(
     keyAlias: string,

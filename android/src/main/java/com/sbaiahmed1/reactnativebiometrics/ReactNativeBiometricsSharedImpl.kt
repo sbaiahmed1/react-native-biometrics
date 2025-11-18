@@ -13,6 +13,7 @@ import com.facebook.react.bridge.Arguments
 import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReadableMap
+import com.facebook.react.bridge.WritableMap
 import java.io.IOException
 import java.security.InvalidAlgorithmParameterException
 import java.security.KeyPairGenerator
@@ -44,6 +45,33 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
     return keyAlias ?: configuredKeyAlias ?: run {
       val sharedPrefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
       sharedPrefs.getString(KEY_ALIAS_PREF, DEFAULT_KEY_ALIAS) ?: DEFAULT_KEY_ALIAS
+    }
+  }
+
+  private fun createSignatureErrorResult(message: String, code: String): WritableMap {
+    val errorResult = Arguments.createMap()
+    errorResult.putBoolean("success", false)
+    errorResult.putString("error", message)
+    errorResult.putString("errorCode", code)
+    return errorResult
+  }
+
+  private fun mapBiometricPromptErrorCode(errorCode: Int): String {
+    return when (errorCode) {
+      BiometricPrompt.ERROR_USER_CANCELED -> "USER_CANCELED"
+      BiometricPrompt.ERROR_NEGATIVE_BUTTON -> "USER_CANCELED"
+      BiometricPrompt.ERROR_HW_UNAVAILABLE -> "BIOMETRIC_UNAVAILABLE"
+      BiometricPrompt.ERROR_UNABLE_TO_PROCESS -> "BIOMETRIC_ERROR"
+      BiometricPrompt.ERROR_TIMEOUT -> "BIOMETRIC_TIMEOUT"
+      BiometricPrompt.ERROR_NO_SPACE -> "BIOMETRIC_ERROR"
+      BiometricPrompt.ERROR_CANCELED -> "SYSTEM_CANCELED"
+      BiometricPrompt.ERROR_LOCKOUT -> "BIOMETRIC_LOCKOUT"
+      BiometricPrompt.ERROR_VENDOR -> "BIOMETRIC_ERROR"
+      BiometricPrompt.ERROR_LOCKOUT_PERMANENT -> "BIOMETRIC_LOCKOUT_PERMANENT"
+      BiometricPrompt.ERROR_NO_BIOMETRICS -> "NO_BIOMETRICS_ENROLLED"
+      BiometricPrompt.ERROR_HW_NOT_PRESENT -> "NO_BIOMETRIC_HARDWARE"
+      BiometricPrompt.ERROR_NO_DEVICE_CREDENTIAL -> "NO_DEVICE_CREDENTIAL"
+      else -> "BIOMETRIC_ERROR"
     }
   }
 
@@ -194,22 +222,7 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
       override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
         debugLog("simplePrompt authentication error: $errorCode - $errString")
 
-        val mappedErrorCode = when (errorCode) {
-          BiometricPrompt.ERROR_USER_CANCELED -> "USER_CANCELED"
-          BiometricPrompt.ERROR_NEGATIVE_BUTTON -> "USER_CANCELED"
-          BiometricPrompt.ERROR_HW_UNAVAILABLE -> "BIOMETRIC_UNAVAILABLE"
-          BiometricPrompt.ERROR_UNABLE_TO_PROCESS -> "BIOMETRIC_ERROR"
-          BiometricPrompt.ERROR_TIMEOUT -> "BIOMETRIC_TIMEOUT"
-          BiometricPrompt.ERROR_NO_SPACE -> "BIOMETRIC_ERROR"
-          BiometricPrompt.ERROR_CANCELED -> "SYSTEM_CANCELED"
-          BiometricPrompt.ERROR_LOCKOUT -> "BIOMETRIC_LOCKOUT"
-          BiometricPrompt.ERROR_VENDOR -> "BIOMETRIC_ERROR"
-          BiometricPrompt.ERROR_LOCKOUT_PERMANENT -> "BIOMETRIC_LOCKOUT_PERMANENT"
-          BiometricPrompt.ERROR_NO_BIOMETRICS -> "NO_BIOMETRICS_ENROLLED"
-          BiometricPrompt.ERROR_HW_NOT_PRESENT -> "NO_BIOMETRIC_HARDWARE"
-          BiometricPrompt.ERROR_NO_DEVICE_CREDENTIAL -> "NO_DEVICE_CREDENTIAL"
-          else -> "BIOMETRIC_ERROR"
-        }
+        val mappedErrorCode = mapBiometricPromptErrorCode(errorCode)
 
         promise.reject(mappedErrorCode, errString.toString(), null)
       }
@@ -591,22 +604,7 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
         debugLog("authenticateWithOptions authentication error: $errorCode - $errString")
 
         // Map Android BiometricPrompt error codes to consistent error codes
-        val mappedErrorCode = when (errorCode) {
-          BiometricPrompt.ERROR_USER_CANCELED -> "USER_CANCELED"
-          BiometricPrompt.ERROR_NEGATIVE_BUTTON -> "USER_CANCELED"
-          BiometricPrompt.ERROR_HW_UNAVAILABLE -> "BIOMETRIC_UNAVAILABLE"
-          BiometricPrompt.ERROR_UNABLE_TO_PROCESS -> "BIOMETRIC_ERROR"
-          BiometricPrompt.ERROR_TIMEOUT -> "BIOMETRIC_TIMEOUT"
-          BiometricPrompt.ERROR_NO_SPACE -> "BIOMETRIC_ERROR"
-          BiometricPrompt.ERROR_CANCELED -> "SYSTEM_CANCELED"
-          BiometricPrompt.ERROR_LOCKOUT -> "BIOMETRIC_LOCKOUT"
-          BiometricPrompt.ERROR_VENDOR -> "BIOMETRIC_ERROR"
-          BiometricPrompt.ERROR_LOCKOUT_PERMANENT -> "BIOMETRIC_LOCKOUT_PERMANENT"
-          BiometricPrompt.ERROR_NO_BIOMETRICS -> "NO_BIOMETRICS_ENROLLED"
-          BiometricPrompt.ERROR_HW_NOT_PRESENT -> "NO_BIOMETRIC_HARDWARE"
-          BiometricPrompt.ERROR_NO_DEVICE_CREDENTIAL -> "NO_DEVICE_CREDENTIAL"
-          else -> "BIOMETRIC_ERROR"
-        }
+        val mappedErrorCode = mapBiometricPromptErrorCode(errorCode)
 
         promise.reject(mappedErrorCode, errString.toString(), null)
       }
@@ -945,19 +943,13 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
       keyStore.load(null)
 
       if (!keyStore.containsAlias(actualKeyAlias)) {
-        val errorResult = Arguments.createMap()
-        errorResult.putBoolean("success", false)
-        errorResult.putString("error", "Key not found")
-        promise.resolve(errorResult)
+        promise.resolve(createSignatureErrorResult("Key not found", "KEY_NOT_FOUND"))
         return
       }
 
       val keyEntry = keyStore.getEntry(actualKeyAlias, null)
       if (keyEntry !is KeyStore.PrivateKeyEntry) {
-        val errorResult = Arguments.createMap()
-        errorResult.putBoolean("success", false)
-        errorResult.putString("error", "Invalid key type")
-        promise.resolve(errorResult)
+        promise.resolve(createSignatureErrorResult("Invalid key type", "INVALID_KEY_TYPE"))
         return
       }
 
@@ -990,10 +982,8 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
           return
         } catch (e: Exception) {
           debugLog("verifyKeySignature - Direct signing failed: ${e.message}")
-          val errorResult = Arguments.createMap()
-          errorResult.putBoolean("success", false)
-          errorResult.putString("error", "Signing failed: ${e.message}")
-          promise.resolve(errorResult)
+          val message = "Signing failed: ${e.message ?: "Unknown error"}"
+          promise.resolve(createSignatureErrorResult(message, "SIGNATURE_CREATION_FAILED"))
           return
         }
       }
@@ -1042,10 +1032,12 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
       val activity = context.currentActivity as? FragmentActivity
       if (activity == null || activity.isFinishing || activity.isDestroyed) {
         debugLog("verifyKeySignature failed - No valid activity available")
-        val errorResult = Arguments.createMap()
-        errorResult.putBoolean("success", false)
-        errorResult.putString("error", "No valid activity available for biometric authentication")
-        promise.resolve(errorResult)
+        promise.resolve(
+          createSignatureErrorResult(
+            "No valid activity available for biometric authentication",
+            "ACTIVITY_NOT_AVAILABLE"
+          )
+        )
         return
       }
 
@@ -1058,10 +1050,12 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
             val authenticatedSignature = authResult.cryptoObject?.signature
             if (authenticatedSignature == null) {
               debugLog("verifyKeySignature - No authenticated signature available")
-              val errorResult = Arguments.createMap()
-              errorResult.putBoolean("success", false)
-              errorResult.putString("error", "No authenticated signature available")
-              promise.resolve(errorResult)
+              promise.resolve(
+                createSignatureErrorResult(
+                  "No authenticated signature available",
+                  "NO_AUTHENTICATED_SIGNATURE"
+                )
+              )
               return
             }
 
@@ -1079,19 +1073,16 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
 
           } catch (e: Exception) {
             debugLog("verifyKeySignature - Signature generation failed: ${e.message}")
-            val errorResult = Arguments.createMap()
-            errorResult.putBoolean("success", false)
-            errorResult.putString("error", "Failed to generate signature: ${e.message}")
-            promise.resolve(errorResult)
+            val message = "Failed to generate signature: ${e.message ?: "Unknown error"}"
+            promise.resolve(createSignatureErrorResult(message, "SIGNATURE_CREATION_FAILED"))
           }
         }
 
         override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
           debugLog("verifyKeySignature - Authentication error: $errorCode - $errString")
-          val errorResult = Arguments.createMap()
-          errorResult.putBoolean("success", false)
-          errorResult.putString("error", "Authentication failed: $errString")
-          promise.resolve(errorResult)
+          val mappedErrorCode = mapBiometricPromptErrorCode(errorCode)
+          val message = "Authentication failed: $errString"
+          promise.resolve(createSignatureErrorResult(message, mappedErrorCode))
         }
 
         override fun onAuthenticationFailed() {
@@ -1107,19 +1098,15 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
           biometricPrompt.authenticate(promptInfo, cryptoObject)
         } catch (e: Exception) {
           debugLog("verifyKeySignature failed to show biometric prompt: ${e.message}")
-          val errorResult = Arguments.createMap()
-          errorResult.putBoolean("success", false)
-          errorResult.putString("error", "Failed to show biometric prompt: ${e.message}")
-          promise.resolve(errorResult)
+          val message = "Failed to show biometric prompt: ${e.message ?: "Unknown error"}"
+          promise.resolve(createSignatureErrorResult(message, "PROMPT_ERROR"))
         }
       }
 
     } catch (e: Exception) {
       debugLog("verifyKeySignature failed - ${e.message}")
-      val errorResult = Arguments.createMap()
-      errorResult.putBoolean("success", false)
-      errorResult.putString("error", "Failed to verify signature: ${e.message}")
-      promise.resolve(errorResult)
+      val message = "Failed to verify signature: ${e.message ?: "Unknown error"}"
+      promise.resolve(createSignatureErrorResult(message, "SIGNATURE_CREATION_FAILED"))
     }
   }
 
