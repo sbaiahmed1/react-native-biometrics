@@ -1156,6 +1156,7 @@ Generates a cryptographic signature for the provided data using the specified ke
 - `promptTitle` (optional): Title text displayed in the signature prompt dialog.
 - `promptSubtitle` (optional): Subtitle text providing additional context in the prompt dialog (Android only).
 - `cancelButtonText` (optional): Text for the cancel button in the prompt dialog (Android only).
+- Returns a `SignatureResult` with `success`, `signature`, `error`, and `errorCode` (when available) on both iOS and Android.
 
 #### `validateSignature(data: string, signature: string, keyAlias?: string): Promise<SignatureValidationResult>`
 Validates a signature against the original data using the public key.
