@@ -558,6 +558,7 @@ export type SignatureResult = {
   success: boolean;
   signature?: string;
   error?: string;
+  errorCode?: string;
 };
 
 export type SignatureValidationResult = {
