@@ -1,6 +1,7 @@
 #import "React/RCTBridgeModule.h"
+#import "React/RCTEventEmitter.h"
 
-@interface RCT_EXTERN_MODULE(ReactNativeBiometrics, NSObject)
+@interface RCT_EXTERN_MODULE(ReactNativeBiometrics, RCTEventEmitter)
 
 RCT_EXTERN_METHOD(isSensorAvailable:
     (RCTPromiseResolveBlock)resolve
@@ -84,5 +85,8 @@ RCT_EXTERN_METHOD(getKeyAttributes:
 RCT_EXTERN_METHOD(getDeviceIntegrityStatus:
     (RCTPromiseResolveBlock)resolve
     rejecter:(RCTPromiseRejectBlock)reject)
+
+RCT_EXTERN_METHOD(addListener:(NSString *)eventName)
+RCT_EXTERN_METHOD(removeListeners:(double)count)
 
 @end

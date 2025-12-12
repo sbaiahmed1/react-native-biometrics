@@ -39,6 +39,22 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
     const val KEY_ALIAS_PREF = "keyAlias"
   }
 
+  // Biometric change detection
+  private var biometricChangeListener: ((WritableMap) -> Unit)? = null
+  private var isDetectionActive = false
+  private var lastBiometricState: WritableMap? = null
+  private val handler = Handler(Looper.getMainLooper())
+  private val checkInterval = 2000L // Check every 2 seconds
+
+  private val biometricCheckRunnable = object : Runnable {
+    override fun run() {
+      if (isDetectionActive) {
+        checkForBiometricChanges()
+        handler.postDelayed(this, checkInterval)
+      }
+    }
+  }
+
   private var configuredKeyAlias: String? = null
 
   private fun getKeyAlias(keyAlias: String? = null): String {
@@ -1463,5 +1479,106 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
 
     // Delegate to validateSignature
     validateSignature(keyAlias, payload, signature, promise)
+  }
+
+  // Biometric change detection methods
+  fun setBiometricChangeListener(listener: (WritableMap) -> Unit) {
+    biometricChangeListener = listener
+  }
+
+  fun startBiometricChangeDetection() {
+    if (!isDetectionActive) {
+      isDetectionActive = true
+      lastBiometricState = getCurrentBiometricState()
+      handler.post(biometricCheckRunnable)
+      debugLog("Started biometric change detection")
+    }
+  }
+
+  fun stopBiometricChangeDetection() {
+    isDetectionActive = false
+    handler.removeCallbacks(biometricCheckRunnable)
+    debugLog("Stopped biometric change detection")
+  }
+
+  private fun getCurrentBiometricState(): WritableMap {
+    val biometricManager = BiometricManager.from(context)
+    val state = Arguments.createMap()
+
+    when (biometricManager.canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_WEAK)) {
+      BiometricManager.BIOMETRIC_SUCCESS -> {
+        state.putBoolean("available", true)
+        state.putString("biometryType", "Biometrics")
+        state.putBoolean("enrolled", true)
+      }
+      BiometricManager.BIOMETRIC_ERROR_NO_HARDWARE -> {
+        state.putBoolean("available", false)
+        state.putString("biometryType", "None")
+        state.putBoolean("enrolled", false)
+      }
+      BiometricManager.BIOMETRIC_ERROR_HW_UNAVAILABLE -> {
+        state.putBoolean("available", false)
+        state.putString("biometryType", "Unavailable")
+        state.putBoolean("enrolled", false)
+      }
+      BiometricManager.BIOMETRIC_ERROR_NONE_ENROLLED -> {
+        state.putBoolean("available", true)
+        state.putString("biometryType", "Biometrics")
+        state.putBoolean("enrolled", false)
+      }
+      else -> {
+        state.putBoolean("available", false)
+        state.putString("biometryType", "Unknown")
+        state.putBoolean("enrolled", false)
+      }
+    }
+
+    return state
+  }
+
+  private fun checkForBiometricChanges() {
+    try {
+      val currentState = getCurrentBiometricState()
+      val lastState = lastBiometricState
+
+      // If this is the first check, just save the state without emitting an event
+      if (lastState == null) {
+        lastBiometricState = currentState
+        debugLog("Initial biometric state recorded")
+        return
+      }
+
+      // Only emit events for actual changes
+      if (hasStateChanged(lastState, currentState)) {
+        val changeEvent = Arguments.createMap().apply {
+          putDouble("timestamp", System.currentTimeMillis().toDouble())
+          putString("biometryType", currentState.getString("biometryType"))
+          putBoolean("available", currentState.getBoolean("available"))
+          putBoolean("enrolled", currentState.getBoolean("enrolled"))
+
+          // Determine change type
+          val changeType = when {
+            !lastState.getBoolean("available") && currentState.getBoolean("available") -> "BIOMETRIC_ENABLED"
+            lastState.getBoolean("available") && !currentState.getBoolean("available") -> "BIOMETRIC_DISABLED"
+            lastState.getBoolean("enrolled") != currentState.getBoolean("enrolled") -> "ENROLLMENT_CHANGED"
+            lastState.getString("biometryType") != currentState.getString("biometryType") -> "HARDWARE_CHANGED"
+            else -> "STATE_CHANGED"
+          }
+          putString("changeType", changeType)
+        }
+
+        lastBiometricState = currentState
+        biometricChangeListener?.invoke(changeEvent)
+        debugLog("Biometric state changed: ${changeEvent.getString("changeType")}")
+      }
+    } catch (e: Exception) {
+      debugLog("Error checking biometric changes: ${e.message}")
+    }
+  }
+
+  private fun hasStateChanged(oldState: WritableMap, newState: WritableMap): Boolean {
+    return oldState.getBoolean("available") != newState.getBoolean("available") ||
+           oldState.getBoolean("enrolled") != newState.getBoolean("enrolled") ||
+           oldState.getString("biometryType") != newState.getString("biometryType")
   }
 }

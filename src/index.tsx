@@ -643,3 +643,33 @@ export function getLogs(): LogEntry[] {
 export function clearLogs(): void {
   logger.clearLogs();
 }
+
+// Biometric Change Detection API
+import { NativeEventEmitter, type EventSubscription } from 'react-native';
+import type { BiometricChangeEvent } from './NativeReactNativeBiometrics';
+
+const biometricEventEmitter = new NativeEventEmitter(
+  ReactNativeBiometrics as any
+);
+
+export type { BiometricChangeEvent };
+
+export function subscribeToBiometricChanges(
+  callback: (event: BiometricChangeEvent) => void
+): EventSubscription {
+  logger.debug(
+    'Subscribing to biometric changes',
+    'subscribeToBiometricChanges'
+  );
+  return biometricEventEmitter.addListener('onBiometricChange', callback);
+}
+
+export function unsubscribeFromBiometricChanges(
+  subscription: EventSubscription
+): void {
+  logger.debug(
+    'Unsubscribing from biometric changes',
+    'unsubscribeFromBiometricChanges'
+  );
+  subscription.remove();
+}

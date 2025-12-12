@@ -4,11 +4,19 @@ import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReactMethod
 import com.facebook.react.bridge.ReadableMap
+import com.facebook.react.modules.core.DeviceEventManagerModule
 
 class ReactNativeBiometricsModule(reactContext: ReactApplicationContext) :
   com.facebook.react.bridge.ReactContextBaseJavaModule(reactContext) {
 
   private val sharedImpl = ReactNativeBiometricsSharedImpl(reactContext)
+
+  init {
+    // Initialize biometric change detection
+    sharedImpl.setBiometricChangeListener { event ->
+      sendEvent("onBiometricChange", event)
+    }
+  }
 
   override fun getName(): String = "ReactNativeBiometrics"
 
@@ -106,5 +114,27 @@ class ReactNativeBiometricsModule(reactContext: ReactApplicationContext) :
   @ReactMethod
   fun verifySignature(signature: String, payload: String, keyAlias: String?, promise: Promise) {
     sharedImpl.verifySignature(signature, payload, keyAlias, promise)
+  }
+}
+
+  // Event emitter support
+  private fun sendEvent(eventName: String, params: com.facebook.react.bridge.WritableMap?) {
+    reactApplicationContext
+      .getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter::class.java)
+      .emit(eventName, params)
+  }
+
+  @ReactMethod
+  fun addListener(eventName: String) {
+    // Called when JS side starts listening
+    sharedImpl.startBiometricChangeDetection()
+  }
+
+  @ReactMethod
+  fun removeListeners(count: Double) {
+    // Called when JS side stops listening
+    if (count == 0.0) {
+      sharedImpl.stopBiometricChangeDetection()
+    }
   }
 }
