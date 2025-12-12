@@ -5,23 +5,72 @@ import Security
 import CryptoKit
 
 @objc(ReactNativeBiometrics)
-class ReactNativeBiometrics: NSObject {
-  
+class ReactNativeBiometrics: RCTEventEmitter {
+
   private var configuredKeyAlias: String?
-  
+  private var biometricChangeObserver: NSObjectProtocol?
+  private var lastBiometricState: BiometricState?
+
+  private struct BiometricState {
+    let available: Bool
+    let biometryType: String
+    let enrolledCount: Int
+  }
+
   override init() {
     super.init()
     // Load configured key alias from UserDefaults
     configuredKeyAlias = UserDefaults.standard.string(forKey: "ReactNativeBiometricsKeyAlias")
   }
+
+  deinit {
+    if let observer = biometricChangeObserver {
+      NotificationCenter.default.removeObserver(observer)
+    }
+  }
   
   private func getKeyAlias(_ customAlias: String? = nil) -> String {
     return generateKeyAlias(customAlias: customAlias, configuredAlias: configuredKeyAlias)
   }
-  
+
   @objc
-  static func requiresMainQueueSetup() -> Bool {
+  override static func requiresMainQueueSetup() -> Bool {
     return false
+  }
+
+  // MARK: - Event Emitter Support
+
+  override func supportedEvents() -> [String]! {
+    return ["onBiometricChange"]
+  }
+
+  override func startObserving() {
+    // Called when JS side starts listening
+    ReactNativeBiometricDebug.debugLog("Started observing biometric changes")
+    if biometricChangeObserver == nil {
+      lastBiometricState = getCurrentBiometricState()
+      setupBiometricChangeDetection()
+    }
+  }
+
+  override func stopObserving() {
+    // Called when JS side stops listening
+    ReactNativeBiometricDebug.debugLog("Stopped observing biometric changes")
+    if let observer = biometricChangeObserver {
+      NotificationCenter.default.removeObserver(observer)
+      biometricChangeObserver = nil
+      lastBiometricState = nil
+    }
+  }
+
+  @objc
+  override func addListener(_ eventName: String) {
+    super.addListener(eventName)
+  }
+
+  @objc
+  override func removeListeners(_ count: Double) {
+    super.removeListeners(count)
   }
   
   @objc
@@ -913,6 +962,90 @@ class ReactNativeBiometrics: NSObject {
     
     ReactNativeBiometricDebug.debugLog("Device integrity check completed - isCompromised: \(integrityStatus["isCompromised"] as? Bool ?? false)")
     resolver(integrityStatus)
+  }
+
+  // MARK: - Biometric Change Detection
+
+  private func setupBiometricChangeDetection() {
+    // Listen for app becoming active to check for biometric changes
+    biometricChangeObserver = NotificationCenter.default.addObserver(
+      forName: UIApplication.didBecomeActiveNotification,
+      object: nil,
+      queue: .main
+    ) { [weak self] _ in
+      self?.checkForBiometricChanges()
+    }
+  }
+
+  private func getCurrentBiometricState() -> BiometricState {
+    let context = LAContext()
+    var error: NSError?
+    let available = context.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: &error)
+
+    var biometryType: String = "None"
+    var enrolledCount = 0
+
+    if available {
+      if #available(iOS 11.0, *) {
+        switch context.biometryType {
+        case .faceID:
+          biometryType = "FaceID"
+        case .touchID:
+          biometryType = "TouchID"
+        default:
+          if #available(iOS 17.0, *), context.biometryType == .opticID {
+            biometryType = "OpticID"
+          } else {
+            biometryType = "Biometrics"
+          }
+        }
+      } else {
+        biometryType = "Biometrics"
+      }
+
+      // Estimate enrolled biometrics count (simplified approach)
+      enrolledCount = available ? 1 : 0
+    }
+
+    return BiometricState(
+      available: available,
+      biometryType: biometryType,
+      enrolledCount: enrolledCount
+    )
+  }
+
+  private func checkForBiometricChanges() {
+    let currentState = getCurrentBiometricState()
+
+    guard let lastState = lastBiometricState else {
+      lastBiometricState = currentState
+      return
+    }
+
+    var changeType: String?
+
+    // Detect changes
+    if lastState.available != currentState.available {
+      changeType = currentState.available ? "BIOMETRIC_ENABLED" : "BIOMETRIC_DISABLED"
+    } else if lastState.biometryType != currentState.biometryType {
+      changeType = "HARDWARE_UNAVAILABLE"
+    } else if lastState.enrolledCount != currentState.enrolledCount {
+      changeType = "ENROLLMENT_CHANGED"
+    }
+
+    if let changeType = changeType {
+      let event: [String: Any] = [
+        "timestamp": Date().timeIntervalSince1970 * 1000,
+        "changeType": changeType,
+        "biometryType": currentState.biometryType,
+        "available": currentState.available,
+        "enrolled": currentState.enrolledCount > 0
+      ]
+
+      sendEvent(withName: "onBiometricChange", body: event)
+      lastBiometricState = currentState
+      ReactNativeBiometricDebug.debugLog("Biometric state changed: \(changeType)")
+    }
   }
 }
 

@@ -28,4 +28,7 @@ abstract class ReactNativeBiometricsSpec(reactContext: ReactApplicationContext) 
   abstract fun setDebugMode(enabled: Boolean, promise: Promise)
   // Device security
   abstract fun getDeviceIntegrityStatus(promise: Promise)
+  // Event emitter support (required for TurboModules with events)
+  abstract fun addListener(eventName: String)
+  abstract fun removeListeners(count: Double)
 }
