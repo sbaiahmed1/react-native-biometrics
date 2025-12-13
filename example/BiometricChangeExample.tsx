@@ -19,11 +19,9 @@ const BiometricChangeExample: React.FC = () => {
     available: false,
   });
   const [isListening, setIsListening] = useState(false);
-  const [subscription, setSubscription] = useState<EventSubscription | null>(
-    null
-  );
+  const [, setSubscription] = useState<EventSubscription | null>(null);
 
-  const handleBiometricChange = (event: BiometricChangeEvent) => {
+  const handleBiometricChange = useCallback((event: BiometricChangeEvent) => {
     console.log('Biometric change detected:', event);
 
     setBiometricState({
@@ -45,37 +43,24 @@ const BiometricChangeExample: React.FC = () => {
         [{ text: 'OK' }]
       );
     }
-  };
-
-  const startListening = useCallback(() => {
-    if (!isListening) {
-      const sub = subscribeToBiometricChanges(handleBiometricChange);
-      setSubscription(sub);
-      console.log(sub);
-
-      setIsListening(true);
-      console.log('Started listening for biometric changes');
-    }
-  }, [isListening]);
-
-  const stopListening = useCallback(() => {
-    if (isListening && subscription) {
-      unsubscribeFromBiometricChanges(subscription);
-      setSubscription(null);
-      setIsListening(false);
-      console.log('Stopped listening for biometric changes');
-    }
-  }, [isListening, subscription]);
+  }, []);
 
   useEffect(() => {
     // Auto-start listening when component mounts
-    startListening();
+    const sub = subscribeToBiometricChanges(handleBiometricChange);
+    setSubscription(sub);
+    setIsListening(true);
+    console.log('Started listening for biometric changes');
 
     // Cleanup on unmount
     return () => {
-      stopListening();
+      if (sub) {
+        unsubscribeFromBiometricChanges(sub);
+        console.log('Stopped listening for biometric changes');
+      }
+      setIsListening(false);
     };
-  }, [startListening, stopListening]);
+  }, [handleBiometricChange]);
 
   return (
     <View style={styles.container}>

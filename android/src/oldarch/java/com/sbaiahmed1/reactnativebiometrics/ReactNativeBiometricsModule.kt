@@ -137,4 +137,10 @@ class ReactNativeBiometricsModule(reactContext: ReactApplicationContext) :
       sharedImpl.stopBiometricChangeDetection()
     }
   }
+
+  override fun invalidate() {
+    // Cleanup when the React Native instance is destroyed
+    sharedImpl.stopBiometricChangeDetection()
+    super.invalidate()
+  }
 }
