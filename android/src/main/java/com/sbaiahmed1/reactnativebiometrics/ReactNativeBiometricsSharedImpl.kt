@@ -1,8 +1,6 @@
 package com.sbaiahmed1.reactnativebiometrics
 
 import android.content.Context
-import android.os.Handler
-import android.os.Looper
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import androidx.biometric.BiometricManager
@@ -14,6 +12,7 @@ import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReadableMap
 import com.facebook.react.bridge.WritableMap
+import com.facebook.react.bridge.LifecycleEventListener
 import java.io.IOException
 import java.security.InvalidAlgorithmParameterException
 import java.security.KeyPairGenerator
@@ -43,15 +42,24 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
   private var biometricChangeListener: ((WritableMap) -> Unit)? = null
   private var isDetectionActive = false
   private var lastBiometricState: WritableMap? = null
-  private val handler = Handler(Looper.getMainLooper())
-  private val checkInterval = 2000L // Check every 2 seconds
 
-  private val biometricCheckRunnable = object : Runnable {
-    override fun run() {
+  // Lifecycle listener for detecting when app resumes (similar to iOS approach)
+  private val lifecycleListener = object : LifecycleEventListener {
+    override fun onHostResume() {
+      // Check for biometric changes when app comes to foreground
       if (isDetectionActive) {
+        debugLog("App resumed - checking for biometric changes")
         checkForBiometricChanges()
-        handler.postDelayed(this, checkInterval)
       }
+    }
+
+    override fun onHostPause() {
+      // No action needed on pause
+    }
+
+    override fun onHostDestroy() {
+      // Cleanup on destroy
+      stopBiometricChangeDetection()
     }
   }
 
@@ -1490,15 +1498,18 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
     if (!isDetectionActive) {
       isDetectionActive = true
       lastBiometricState = getCurrentBiometricState()
-      handler.post(biometricCheckRunnable)
-      debugLog("Started biometric change detection")
+      context.addLifecycleEventListener(lifecycleListener)
+      debugLog("Started biometric change detection with lifecycle listener")
     }
   }
 
   fun stopBiometricChangeDetection() {
-    isDetectionActive = false
-    handler.removeCallbacks(biometricCheckRunnable)
-    debugLog("Stopped biometric change detection")
+    if (isDetectionActive) {
+      isDetectionActive = false
+      context.removeLifecycleEventListener(lifecycleListener)
+      lastBiometricState = null
+      debugLog("Stopped biometric change detection")
+    }
   }
 
   private fun getCurrentBiometricState(): WritableMap {
@@ -1561,7 +1572,7 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
             !lastState.getBoolean("available") && currentState.getBoolean("available") -> "BIOMETRIC_ENABLED"
             lastState.getBoolean("available") && !currentState.getBoolean("available") -> "BIOMETRIC_DISABLED"
             lastState.getBoolean("enrolled") != currentState.getBoolean("enrolled") -> "ENROLLMENT_CHANGED"
-            lastState.getString("biometryType") != currentState.getString("biometryType") -> "HARDWARE_CHANGED"
+            lastState.getString("biometryType") != currentState.getString("biometryType") -> "HARDWARE_UNAVAILABLE"
             else -> "STATE_CHANGED"
           }
           putString("changeType", changeType)

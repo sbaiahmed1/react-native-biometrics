@@ -15,6 +15,7 @@ class ReactNativeBiometrics: RCTEventEmitter {
     let available: Bool
     let biometryType: String
     let enrolledCount: Int
+    let domainState: Data?
   }
 
   override init() {
@@ -984,6 +985,7 @@ class ReactNativeBiometrics: RCTEventEmitter {
 
     var biometryType: String = "None"
     var enrolledCount = 0
+    var domainState: Data? = nil
 
     if available {
       if #available(iOS 11.0, *) {
@@ -1003,14 +1005,19 @@ class ReactNativeBiometrics: RCTEventEmitter {
         biometryType = "Biometrics"
       }
 
-      // Estimate enrolled biometrics count (simplified approach)
-      enrolledCount = available ? 1 : 0
+      // Capture domain state for enrollment change detection
+      // This changes whenever biometric enrollments are added/removed
+      domainState = context.evaluatedPolicyDomainState
+
+      // Set enrolledCount to 1 if available (actual count not exposed by iOS)
+      enrolledCount = 1
     }
 
     return BiometricState(
       available: available,
       biometryType: biometryType,
-      enrolledCount: enrolledCount
+      enrolledCount: enrolledCount,
+      domainState: domainState
     )
   }
 
@@ -1019,18 +1026,24 @@ class ReactNativeBiometrics: RCTEventEmitter {
 
     guard let lastState = lastBiometricState else {
       lastBiometricState = currentState
+      ReactNativeBiometricDebug.debugLog("Initial biometric state recorded")
       return
     }
 
     var changeType: String?
 
-    // Detect changes
+    // Detect changes with priority order
     if lastState.available != currentState.available {
+      // Availability changed (biometrics enabled/disabled)
       changeType = currentState.available ? "BIOMETRIC_ENABLED" : "BIOMETRIC_DISABLED"
     } else if lastState.biometryType != currentState.biometryType {
+      // Hardware type changed (e.g., device replacement)
       changeType = "HARDWARE_UNAVAILABLE"
-    } else if lastState.enrolledCount != currentState.enrolledCount {
+    } else if lastState.domainState != currentState.domainState {
+      // Domain state changed - this detects enrollment changes
+      // (fingerprints/faces added or removed)
       changeType = "ENROLLMENT_CHANGED"
+      ReactNativeBiometricDebug.debugLog("Domain state changed - enrollment modification detected")
     }
 
     if let changeType = changeType {
