@@ -1,8 +1,9 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { View, Text, StyleSheet, Alert } from 'react-native';
+import { View, Text, StyleSheet, Alert, TouchableOpacity } from 'react-native';
 import {
   subscribeToBiometricChanges,
   unsubscribeFromBiometricChanges,
+  testBiometricChangeDetection,
 } from '../src/index';
 import type { BiometricChangeEvent } from '../src/index';
 import type { EventSubscription } from 'react-native';
@@ -45,7 +46,21 @@ const BiometricChangeExample: React.FC = () => {
     }
   }, []);
 
+  const handleTestDetection = async () => {
+    try {
+      console.log('Calling testBiometricChangeDetection...');
+      await testBiometricChangeDetection();
+      console.log('testBiometricChangeDetection completed');
+      Alert.alert('Test Triggered', 'Check native alerts for debug info');
+    } catch (error) {
+      console.error('Test failed:', error);
+      Alert.alert('Test Failed', String(error));
+    }
+  };
+
   useEffect(() => {
+    console.log('BiometricChangeExample mounting...');
+
     // Auto-start listening when component mounts
     const sub = subscribeToBiometricChanges(handleBiometricChange);
     setSubscription(sub);
@@ -54,6 +69,7 @@ const BiometricChangeExample: React.FC = () => {
 
     // Cleanup on unmount
     return () => {
+      console.log('BiometricChangeExample unmounting...');
       if (sub) {
         unsubscribeFromBiometricChanges(sub);
         console.log('Stopped listening for biometric changes');
@@ -92,6 +108,10 @@ const BiometricChangeExample: React.FC = () => {
           Listener Status: {isListening ? 'Active' : 'Inactive'}
         </Text>
       </View>
+
+      <TouchableOpacity style={styles.testButton} onPress={handleTestDetection}>
+        <Text style={styles.testButtonText}>🧪 Test Detection (Debug)</Text>
+      </TouchableOpacity>
 
       <View style={styles.instructionsContainer}>
         <Text style={styles.instructionsTitle}>Instructions:</Text>
@@ -155,6 +175,18 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     textAlign: 'center',
     color: '#2d5a2d',
+  },
+  testButton: {
+    backgroundColor: '#007bff',
+    padding: 15,
+    borderRadius: 8,
+    marginBottom: 20,
+    alignItems: 'center',
+  },
+  testButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
   instructionsContainer: {
     backgroundColor: '#fff3cd',

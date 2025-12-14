@@ -648,12 +648,19 @@ export function clearLogs(): void {
 import { NativeEventEmitter, type EventSubscription } from 'react-native';
 import type { BiometricChangeEvent } from './NativeReactNativeBiometrics';
 
+export type { BiometricChangeEvent };
+
+// Create event emitter - using the old approach for compatibility
 const biometricEventEmitter = new NativeEventEmitter(
   ReactNativeBiometrics as any
 );
 
-export type { BiometricChangeEvent };
-
+/**
+ * Subscribes to biometric change events.
+ *
+ * @param callback - Function to be called when biometric changes are detected
+ * @returns EventSubscription that can be used to unsubscribe
+ */
 export function subscribeToBiometricChanges(
   callback: (event: BiometricChangeEvent) => void
 ): EventSubscription {
@@ -661,9 +668,16 @@ export function subscribeToBiometricChanges(
     'Subscribing to biometric changes',
     'subscribeToBiometricChanges'
   );
+
+  // Subscribe using NativeEventEmitter for cross-architecture compatibility
   return biometricEventEmitter.addListener('onBiometricChange', callback);
 }
 
+/**
+ * Unsubscribes from biometric change events.
+ *
+ * @param subscription - The EventSubscription returned from subscribeToBiometricChanges
+ */
 export function unsubscribeFromBiometricChanges(
   subscription: EventSubscription
 ): void {
@@ -672,4 +686,18 @@ export function unsubscribeFromBiometricChanges(
     'unsubscribeFromBiometricChanges'
   );
   subscription.remove();
+}
+
+/**
+ * Test method to manually trigger biometric change detection.
+ * This will start the detection and show debug alerts.
+ *
+ * @returns Promise that resolves to true when detection is started
+ */
+export function testBiometricChangeDetection(): Promise<boolean> {
+  logger.debug(
+    'Testing biometric change detection',
+    'testBiometricChangeDetection'
+  );
+  return ReactNativeBiometrics.testBiometricChangeDetection();
 }
