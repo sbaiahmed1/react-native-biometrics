@@ -4,7 +4,7 @@ import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReactMethod
 import com.facebook.react.bridge.ReadableMap
-import com.facebook.react.modules.core.DeviceEventManagerModule
+import com.facebook.react.bridge.WritableMap
 
 /**
  * New Architecture (TurboModule) implementation of ReactNativeBiometricsModule
@@ -20,9 +20,19 @@ class ReactNativeBiometricsModule(reactContext: ReactApplicationContext) :
   private val sharedImpl = ReactNativeBiometricsSharedImpl(reactContext)
 
   init {
-    // Initialize biometric change detection
+    // Initialize biometric change detection with the new architecture event emitter
     sharedImpl.setBiometricChangeListener { event ->
+      // Use the codegen-generated emitOnBiometricChange method
       emitOnBiometricChange(event)
+    }
+
+    // Show debug alert on module initialization
+    android.os.Handler(android.os.Looper.getMainLooper()).post {
+      android.widget.Toast.makeText(
+        reactContext,
+        "ReactNativeBiometrics Module Initialized (New Arch)",
+        android.widget.Toast.LENGTH_LONG
+      ).show()
     }
   }
 
@@ -110,24 +120,55 @@ class ReactNativeBiometricsModule(reactContext: ReactApplicationContext) :
   }
 
   // Event emitter support for biometric changes
-  protected fun emitOnBiometricChange(event: com.facebook.react.bridge.WritableMap) {
-    val eventEmitter = reactApplicationContext
-      .getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter::class.java)
-    eventEmitter?.emit("onBiometricChange", event)
-  }
+  // Note: emitOnBiometricChange is now provided by the generated NativeReactNativeBiometricsSpec
 
   @ReactMethod
   fun addListener(eventName: String) {
+    // Show alert to confirm this method is being called
+    android.os.Handler(android.os.Looper.getMainLooper()).post {
+      android.app.AlertDialog.Builder(reactApplicationContext.currentActivity)
+        .setTitle("addListener Called!")
+        .setMessage("Event: $eventName\nStarting biometric detection...")
+        .setPositiveButton("OK", null)
+        .show()
+    }
+
     // Start detection when first listener is added
     sharedImpl.startBiometricChangeDetection()
   }
 
   @ReactMethod
   fun removeListeners(count: Double) {
+    // Show toast to confirm this method is being called
+    android.os.Handler(android.os.Looper.getMainLooper()).post {
+      android.widget.Toast.makeText(
+        reactApplicationContext,
+        "removeListeners called - count: $count",
+        android.widget.Toast.LENGTH_SHORT
+      ).show()
+    }
+
     // Stop detection when all listeners are removed
     if (count == 0.0) {
       sharedImpl.stopBiometricChangeDetection()
     }
+  }
+
+  // Add a test method to manually trigger a check
+  @ReactMethod
+  override fun testBiometricChangeDetection(promise: Promise) {
+    android.os.Handler(android.os.Looper.getMainLooper()).post {
+      android.app.AlertDialog.Builder(reactApplicationContext.currentActivity)
+        .setTitle("Test Method Called")
+        .setMessage("Manually triggering biometric check...")
+        .setPositiveButton("OK", null)
+        .show()
+    }
+
+    // Manually start detection and trigger a check
+    sharedImpl.startBiometricChangeDetection()
+
+    promise.resolve(true)
   }
 
   override fun invalidate() {

@@ -1,6 +1,8 @@
 package com.sbaiahmed1.reactnativebiometrics
 
 import android.content.Context
+import android.os.Handler
+import android.os.Looper
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import androidx.biometric.BiometricManager
@@ -47,6 +49,15 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
   private val lifecycleListener = object : LifecycleEventListener {
     override fun onHostResume() {
       // Check for biometric changes when app comes to foreground
+      debugLog("onHostResume called - isDetectionActive: $isDetectionActive")
+
+      // Show toast for debugging
+      android.widget.Toast.makeText(
+        context,
+        "App Resumed - Detection Active: $isDetectionActive",
+        android.widget.Toast.LENGTH_SHORT
+      ).show()
+
       if (isDetectionActive) {
         debugLog("App resumed - checking for biometric changes")
         checkForBiometricChanges()
@@ -55,10 +66,22 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
 
     override fun onHostPause() {
       // No action needed on pause
+      debugLog("onHostPause called")
+      android.widget.Toast.makeText(
+        context,
+        "App Paused",
+        android.widget.Toast.LENGTH_SHORT
+      ).show()
     }
 
     override fun onHostDestroy() {
       // Cleanup on destroy
+      debugLog("onHostDestroy called")
+      android.widget.Toast.makeText(
+        context,
+        "App Destroyed",
+        android.widget.Toast.LENGTH_SHORT
+      ).show()
       stopBiometricChangeDetection()
     }
   }
@@ -1500,6 +1523,12 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
       lastBiometricState = getCurrentBiometricState()
       context.addLifecycleEventListener(lifecycleListener)
       debugLog("Started biometric change detection with lifecycle listener")
+
+      // Show alert for debugging
+      showDebugAlert("Detection Started",
+        "Biometric change detection is now active.\n" +
+        "Listener count: ${biometricChangeListener != null}\n" +
+        "Current state will be monitored on app resume.")
     }
   }
 
@@ -1509,6 +1538,13 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
       context.removeLifecycleEventListener(lifecycleListener)
       lastBiometricState = null
       debugLog("Stopped biometric change detection")
+
+      // Show toast for debugging
+      android.widget.Toast.makeText(
+        context,
+        "Biometric detection stopped",
+        android.widget.Toast.LENGTH_SHORT
+      ).show()
     }
   }
 
@@ -1516,7 +1552,10 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
     val biometricManager = BiometricManager.from(context)
     val state = Arguments.createMap()
 
-    when (biometricManager.canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_WEAK)) {
+    // Get biometric authentication status
+    val canAuthenticateResult = biometricManager.canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_WEAK)
+
+    when (canAuthenticateResult) {
       BiometricManager.BIOMETRIC_SUCCESS -> {
         state.putBoolean("available", true)
         state.putString("biometryType", "Biometrics")
@@ -1544,6 +1583,35 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
       }
     }
 
+    // Add a state hash to detect subtle changes
+    // This helps detect when biometrics are re-enrolled (which invalidates crypto keys)
+    try {
+      val keyStore = KeyStore.getInstance("AndroidKeyStore")
+      keyStore.load(null)
+
+      // Count biometric-protected keys as a proxy for biometric state
+      var biometricKeyCount = 0
+      val aliases = keyStore.aliases()
+      while (aliases.hasMoreElements()) {
+        val alias = aliases.nextElement()
+        try {
+          val entry = keyStore.getEntry(alias, null)
+          if (entry is KeyStore.PrivateKeyEntry) {
+            biometricKeyCount++
+          }
+        } catch (e: Exception) {
+          // Key might be inaccessible, which could indicate biometric change
+        }
+      }
+
+      state.putInt("keyCount", biometricKeyCount)
+      state.putInt("statusCode", canAuthenticateResult)
+    } catch (e: Exception) {
+      debugLog("Error getting keystore info: ${e.message}")
+      state.putInt("keyCount", -1)
+      state.putInt("statusCode", canAuthenticateResult)
+    }
+
     return state
   }
 
@@ -1552,44 +1620,126 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
       val currentState = getCurrentBiometricState()
       val lastState = lastBiometricState
 
+      // Extract values immediately before they're consumed
+      val currentAvailable = currentState.getBoolean("available")
+      val currentEnrolled = currentState.getBoolean("enrolled")
+      val currentType = currentState.getString("biometryType")
+      val currentKeyCount = currentState.getInt("keyCount")
+      val currentStatusCode = currentState.getInt("statusCode")
+
       // If this is the first check, just save the state without emitting an event
       if (lastState == null) {
-        lastBiometricState = currentState
+        lastBiometricState = copyMap(currentState)
         debugLog("Initial biometric state recorded")
+
+        // Show alert for debugging
+        showDebugAlert("Initial State", "Biometric state initialized:\n" +
+          "Available: $currentAvailable\n" +
+          "Enrolled: $currentEnrolled\n" +
+          "Type: $currentType\n" +
+          "Key Count: $currentKeyCount\n" +
+          "Status Code: $currentStatusCode")
         return
       }
 
-      // Only emit events for actual changes
+      // Extract last state values
+      val lastAvailable = lastState.getBoolean("available")
+      val lastEnrolled = lastState.getBoolean("enrolled")
+      val lastType = lastState.getString("biometryType")
+      val lastKeyCount = lastState.getInt("keyCount")
+      val lastStatusCode = lastState.getInt("statusCode")
+
+      // Check for changes
       if (hasStateChanged(lastState, currentState)) {
+        val changeType = when {
+          !lastAvailable && currentAvailable -> "BIOMETRIC_ENABLED"
+          lastAvailable && !currentAvailable -> "BIOMETRIC_DISABLED"
+          lastEnrolled != currentEnrolled -> "ENROLLMENT_CHANGED"
+          lastType != currentType -> "HARDWARE_CHANGED"
+          lastKeyCount != currentKeyCount -> "ENROLLMENT_CHANGED"
+          else -> "STATE_CHANGED"
+        }
+
         val changeEvent = Arguments.createMap().apply {
           putDouble("timestamp", System.currentTimeMillis().toDouble())
-          putString("biometryType", currentState.getString("biometryType"))
-          putBoolean("available", currentState.getBoolean("available"))
-          putBoolean("enrolled", currentState.getBoolean("enrolled"))
-
-          // Determine change type
-          val changeType = when {
-            !lastState.getBoolean("available") && currentState.getBoolean("available") -> "BIOMETRIC_ENABLED"
-            lastState.getBoolean("available") && !currentState.getBoolean("available") -> "BIOMETRIC_DISABLED"
-            lastState.getBoolean("enrolled") != currentState.getBoolean("enrolled") -> "ENROLLMENT_CHANGED"
-            lastState.getString("biometryType") != currentState.getString("biometryType") -> "HARDWARE_UNAVAILABLE"
-            else -> "STATE_CHANGED"
-          }
+          putString("biometryType", currentType)
+          putBoolean("available", currentAvailable)
+          putBoolean("enrolled", currentEnrolled)
           putString("changeType", changeType)
         }
 
-        lastBiometricState = currentState
+        lastBiometricState = copyMap(currentState)
         biometricChangeListener?.invoke(changeEvent)
-        debugLog("Biometric state changed: ${changeEvent.getString("changeType")}")
+        debugLog("Biometric state changed: $changeType")
+
+        // Show alert for debugging with detailed comparison
+        showDebugAlert("Biometric Change Detected!",
+          "Change Type: $changeType\n\n" +
+          "OLD STATE:\n" +
+          "Available: $lastAvailable\n" +
+          "Enrolled: $lastEnrolled\n" +
+          "Keys: $lastKeyCount\n" +
+          "Status: $lastStatusCode\n\n" +
+          "NEW STATE:\n" +
+          "Available: $currentAvailable\n" +
+          "Enrolled: $currentEnrolled\n" +
+          "Keys: $currentKeyCount\n" +
+          "Status: $currentStatusCode")
+      } else {
+        // Show detailed debug info about why no change was detected
+        val debugInfo = "No change detected:\n" +
+          "Available: $currentAvailable\n" +
+          "Enrolled: $currentEnrolled\n" +
+          "Keys: $currentKeyCount\n" +
+          "Status: $currentStatusCode"
+
+        debugLog(debugInfo)
+        showDebugAlert("No Change Detected", debugInfo)
       }
     } catch (e: Exception) {
       debugLog("Error checking biometric changes: ${e.message}")
+      showDebugAlert("Error", "Error checking biometric changes: ${e.message}")
+    }
+  }
+
+  // Helper function to copy a WritableMap to prevent "map already consumed" errors
+  private fun copyMap(original: WritableMap): WritableMap {
+    val copy = Arguments.createMap()
+    copy.merge(original)
+    return copy
+  }
+
+  private fun showDebugAlert(title: String, message: String) {
+    Handler(Looper.getMainLooper()).post {
+      try {
+        val activity = context.currentActivity
+        if (activity != null && !activity.isFinishing) {
+          android.app.AlertDialog.Builder(activity)
+            .setTitle(title)
+            .setMessage(message)
+            .setPositiveButton("OK", null)
+            .show()
+        } else {
+          // Fallback to toast if no activity
+          android.widget.Toast.makeText(
+            context,
+            "$title: $message",
+            android.widget.Toast.LENGTH_LONG
+          ).show()
+        }
+      } catch (e: Exception) {
+        debugLog("Error showing debug alert: ${e.message}")
+      }
     }
   }
 
   private fun hasStateChanged(oldState: WritableMap, newState: WritableMap): Boolean {
-    return oldState.getBoolean("available") != newState.getBoolean("available") ||
-           oldState.getBoolean("enrolled") != newState.getBoolean("enrolled") ||
-           oldState.getString("biometryType") != newState.getString("biometryType")
+    val availableChanged = oldState.getBoolean("available") != newState.getBoolean("available")
+    val enrolledChanged = oldState.getBoolean("enrolled") != newState.getBoolean("enrolled")
+    val typeChanged = oldState.getString("biometryType") != newState.getString("biometryType")
+    val keyCountChanged = oldState.getInt("keyCount") != newState.getInt("keyCount")
+    val statusCodeChanged = oldState.getInt("statusCode") != newState.getInt("statusCode")
+
+    return availableChanged || enrolledChanged || typeChanged || keyCountChanged || statusCodeChanged
   }
 }

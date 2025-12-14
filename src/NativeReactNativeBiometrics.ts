@@ -147,6 +147,8 @@ export interface Spec extends TurboModule {
     riskLevel: 'NONE' | 'LOW' | 'MEDIUM' | 'HIGH' | 'UNKNOWN';
     error?: string;
   }>;
+  // Test method to manually trigger biometric detection
+  testBiometricChangeDetection(): Promise<boolean>;
   // Event emitter for biometric changes
   readonly onBiometricChange: EventEmitter<BiometricChangeEvent>;
 }
