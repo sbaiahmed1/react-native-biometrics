@@ -173,23 +173,6 @@ class ReactNativeBiometricsModule(reactContext: ReactApplicationContext) :
     }
   }
 
-  // Add a test method to manually trigger a check
-  @ReactMethod
-  override fun testBiometricChangeDetection(promise: Promise) {
-    android.os.Handler(android.os.Looper.getMainLooper()).post {
-      android.app.AlertDialog.Builder(reactApplicationContext.currentActivity)
-        .setTitle("Test Method Called")
-        .setMessage("Manually triggering biometric check...")
-        .setPositiveButton("OK", null)
-        .show()
-    }
-
-    // Manually start detection and trigger a check
-    sharedImpl.startBiometricChangeDetection()
-
-    promise.resolve(true)
-  }
-
   @ReactMethod
   override fun startBiometricChangeDetection(promise: Promise) {
     sharedImpl.startBiometricChangeDetection()

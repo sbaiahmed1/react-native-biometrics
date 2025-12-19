@@ -1,14 +1,11 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { View, Text, StyleSheet, Alert, TouchableOpacity } from 'react-native';
+import React, { useCallback, useState } from 'react';
+import { Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import type { BiometricChangeEvent } from '../src/index';
 import {
-  subscribeToBiometricChanges,
-  unsubscribeFromBiometricChanges,
-  testBiometricChangeDetection,
   startBiometricChangeDetection,
   stopBiometricChangeDetection,
+  subscribeToBiometricChanges,
 } from '../src/index';
-import type { BiometricChangeEvent } from '../src/index';
-import type { EventSubscription } from 'react-native';
 
 interface BiometricState {
   available: boolean;
@@ -22,7 +19,6 @@ const BiometricChangeExample: React.FC = () => {
     available: false,
   });
   const [isListening, setIsListening] = useState(false);
-  const [, setSubscription] = useState<EventSubscription | null>(null);
 
   const handleBiometricChange = useCallback((event: BiometricChangeEvent) => {
     console.log('Biometric change detected:', event);
@@ -48,22 +44,12 @@ const BiometricChangeExample: React.FC = () => {
     }
   }, []);
 
-  const handleTestDetection = async () => {
-    try {
-      console.log('Calling testBiometricChangeDetection...');
-      await testBiometricChangeDetection();
-      console.log('testBiometricChangeDetection completed');
-      Alert.alert('Test Triggered', 'Check native alerts for debug info');
-    } catch (error) {
-      console.error('Test failed:', error);
-      Alert.alert('Test Failed', String(error));
-    }
-  };
-
   const handleStartDetection = async () => {
     try {
       console.log('Starting biometric change detection...');
       await startBiometricChangeDetection();
+      setIsListening(true);
+      subscribeToBiometricChanges(handleBiometricChange);
       console.log('Detection started');
       Alert.alert('Detection Started', 'Now monitoring for biometric changes');
     } catch (error) {
@@ -81,33 +67,12 @@ const BiometricChangeExample: React.FC = () => {
         'Detection Stopped',
         'No longer monitoring for biometric changes'
       );
+      setIsListening(false);
     } catch (error) {
       console.error('Stop failed:', error);
       Alert.alert('Stop Failed', String(error));
     }
   };
-
-  useEffect(() => {
-    console.log('BiometricChangeExample mounting...');
-
-    // Set up event subscription (does not auto-start detection)
-    const sub = subscribeToBiometricChanges(handleBiometricChange);
-    setSubscription(sub);
-    setIsListening(true);
-    console.log(
-      'Event listener subscribed (detection must be started manually)'
-    );
-
-    // Cleanup on unmount
-    return () => {
-      console.log('BiometricChangeExample unmounting...');
-      if (sub) {
-        unsubscribeFromBiometricChanges(sub);
-        console.log('Event listener unsubscribed');
-      }
-      setIsListening(false);
-    };
-  }, [handleBiometricChange]);
 
   return (
     <View style={styles.container}>
@@ -155,10 +120,6 @@ const BiometricChangeExample: React.FC = () => {
           <Text style={styles.controlButtonText}>⏹️ Stop Detection</Text>
         </TouchableOpacity>
       </View>
-
-      <TouchableOpacity style={styles.testButton} onPress={handleTestDetection}>
-        <Text style={styles.testButtonText}>🧪 Test Detection (Debug)</Text>
-      </TouchableOpacity>
 
       <View style={styles.instructionsContainer}>
         <Text style={styles.instructionsTitle}>Instructions:</Text>
@@ -242,18 +203,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#dc3545',
   },
   controlButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  testButton: {
-    backgroundColor: '#007bff',
-    padding: 15,
-    borderRadius: 8,
-    marginBottom: 20,
-    alignItems: 'center',
-  },
-  testButtonText: {
     color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',
