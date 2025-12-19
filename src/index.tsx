@@ -703,3 +703,31 @@ export function testBiometricChangeDetection(): Promise<boolean> {
   );
   return ReactNativeBiometrics.testBiometricChangeDetection();
 }
+
+/**
+ * Starts biometric change detection.
+ * This will begin monitoring for changes in biometric enrollment.
+ *
+ * @returns Promise that resolves when detection is started
+ */
+export function startBiometricChangeDetection(): Promise<void> {
+  logger.debug(
+    'Starting biometric change detection',
+    'startBiometricChangeDetection'
+  );
+  return ReactNativeBiometrics.startBiometricChangeDetection();
+}
+
+/**
+ * Stops biometric change detection.
+ * This will stop monitoring for changes in biometric enrollment.
+ *
+ * @returns Promise that resolves when detection is stopped
+ */
+export function stopBiometricChangeDetection(): Promise<void> {
+  logger.debug(
+    'Stopping biometric change detection',
+    'stopBiometricChangeDetection'
+  );
+  return ReactNativeBiometrics.stopBiometricChangeDetection();
+}
