@@ -73,7 +73,41 @@ class ReactNativeBiometrics: RCTEventEmitter {
   override func removeListeners(_ count: Double) {
     super.removeListeners(count)
   }
-  
+
+  // MARK: - Biometric Change Detection Control
+
+  @objc
+  func startBiometricChangeDetection(_ resolve: @escaping RCTPromiseResolveBlock,
+                                     rejecter reject: @escaping RCTPromiseRejectBlock) {
+    // On iOS, detection auto-starts when listeners are added via startObserving()
+    // This method is provided for API consistency with Android
+    // Manually trigger setup if not already started
+    if biometricChangeObserver == nil {
+      lastBiometricState = getCurrentBiometricState()
+      setupBiometricChangeDetection()
+      ReactNativeBiometricDebug.debugLog("Manual start: biometric change detection started")
+    } else {
+      ReactNativeBiometricDebug.debugLog("Manual start: detection already running")
+    }
+    resolve(nil)
+  }
+
+  @objc
+  func stopBiometricChangeDetection(_ resolve: @escaping RCTPromiseResolveBlock,
+                                    rejecter reject: @escaping RCTPromiseRejectBlock) {
+    // On iOS, detection auto-stops when listeners are removed via stopObserving()
+    // This method is provided for API consistency with Android
+    if let observer = biometricChangeObserver {
+      NotificationCenter.default.removeObserver(observer)
+      biometricChangeObserver = nil
+      lastBiometricState = nil
+      ReactNativeBiometricDebug.debugLog("Manual stop: biometric change detection stopped")
+    } else {
+      ReactNativeBiometricDebug.debugLog("Manual stop: detection not running")
+    }
+    resolve(nil)
+  }
+
   @objc
   func isSensorAvailable(_ resolve: @escaping RCTPromiseResolveBlock,
                          rejecter reject: @escaping RCTPromiseRejectBlock) {

@@ -33,6 +33,7 @@
 - 🛠️ **Advanced Options** - Customizable prompts, fallback options, and device credentials
 - 🔑 **Key Management** - Create and manage cryptographic keys (EC256/RSA2048) for secure operations
 - 🛡️ **Device Integrity** - Detect compromised devices (rooted/jailbroken) for enhanced security
+- 🔔 **Biometric Change Detection** - Real-time monitoring of biometric enrollment changes with event-driven updates ([docs](./BIOMETRIC_CHANGE_DETECTION.md))
 - 🐛 **Debug Tools** - Comprehensive diagnostic and testing utilities
 - 📝 **Centralized Logging** - Advanced logging system for debugging and monitoring
 - 🔐 **Key Integrity Validation** - Comprehensive cryptographic key validation and signature verification
