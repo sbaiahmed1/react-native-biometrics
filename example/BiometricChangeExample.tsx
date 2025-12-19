@@ -4,6 +4,8 @@ import {
   subscribeToBiometricChanges,
   unsubscribeFromBiometricChanges,
   testBiometricChangeDetection,
+  startBiometricChangeDetection,
+  stopBiometricChangeDetection,
 } from '../src/index';
 import type { BiometricChangeEvent } from '../src/index';
 import type { EventSubscription } from 'react-native';
@@ -58,21 +60,50 @@ const BiometricChangeExample: React.FC = () => {
     }
   };
 
+  const handleStartDetection = async () => {
+    try {
+      console.log('Starting biometric change detection...');
+      await startBiometricChangeDetection();
+      console.log('Detection started');
+      Alert.alert('Detection Started', 'Now monitoring for biometric changes');
+    } catch (error) {
+      console.error('Start failed:', error);
+      Alert.alert('Start Failed', String(error));
+    }
+  };
+
+  const handleStopDetection = async () => {
+    try {
+      console.log('Stopping biometric change detection...');
+      await stopBiometricChangeDetection();
+      console.log('Detection stopped');
+      Alert.alert(
+        'Detection Stopped',
+        'No longer monitoring for biometric changes'
+      );
+    } catch (error) {
+      console.error('Stop failed:', error);
+      Alert.alert('Stop Failed', String(error));
+    }
+  };
+
   useEffect(() => {
     console.log('BiometricChangeExample mounting...');
 
-    // Auto-start listening when component mounts
+    // Set up event subscription (does not auto-start detection)
     const sub = subscribeToBiometricChanges(handleBiometricChange);
     setSubscription(sub);
     setIsListening(true);
-    console.log('Started listening for biometric changes');
+    console.log(
+      'Event listener subscribed (detection must be started manually)'
+    );
 
     // Cleanup on unmount
     return () => {
       console.log('BiometricChangeExample unmounting...');
       if (sub) {
         unsubscribeFromBiometricChanges(sub);
-        console.log('Stopped listening for biometric changes');
+        console.log('Event listener unsubscribed');
       }
       setIsListening(false);
     };
@@ -107,6 +138,22 @@ const BiometricChangeExample: React.FC = () => {
         <Text style={styles.listenerText}>
           Listener Status: {isListening ? 'Active' : 'Inactive'}
         </Text>
+      </View>
+
+      <View style={styles.controlsContainer}>
+        <TouchableOpacity
+          style={[styles.controlButton, styles.startButton]}
+          onPress={handleStartDetection}
+        >
+          <Text style={styles.controlButtonText}>▶️ Start Detection</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.controlButton, styles.stopButton]}
+          onPress={handleStopDetection}
+        >
+          <Text style={styles.controlButtonText}>⏹️ Stop Detection</Text>
+        </TouchableOpacity>
       </View>
 
       <TouchableOpacity style={styles.testButton} onPress={handleTestDetection}>
@@ -175,6 +222,29 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     textAlign: 'center',
     color: '#2d5a2d',
+  },
+  controlsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 20,
+    gap: 10,
+  },
+  controlButton: {
+    flex: 1,
+    padding: 15,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  startButton: {
+    backgroundColor: '#28a745',
+  },
+  stopButton: {
+    backgroundColor: '#dc3545',
+  },
+  controlButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
   testButton: {
     backgroundColor: '#007bff',

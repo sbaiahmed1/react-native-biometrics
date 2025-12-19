@@ -42,16 +42,14 @@ class ReactNativeBiometricsModule(reactContext: ReactApplicationContext) :
       }
     }
 
-    // Auto-start biometric change detection
-    // NativeEventEmitter in TurboModules doesn't automatically call addListener,
-    // so we start detection immediately when module initializes
-    sharedImpl.startBiometricChangeDetection()
+    // Note: Detection is now manually controlled via start/stopBiometricChangeDetection
+    // Auto-start was removed to give users explicit control
 
     // Show debug alert on module initialization
     android.os.Handler(android.os.Looper.getMainLooper()).post {
       android.widget.Toast.makeText(
         reactContext,
-        "ReactNativeBiometrics Module Initialized (New Arch) - Auto-started detection",
+        "ReactNativeBiometrics Module Initialized (New Arch)",
         android.widget.Toast.LENGTH_LONG
       ).show()
     }
@@ -190,6 +188,18 @@ class ReactNativeBiometricsModule(reactContext: ReactApplicationContext) :
     sharedImpl.startBiometricChangeDetection()
 
     promise.resolve(true)
+  }
+
+  @ReactMethod
+  override fun startBiometricChangeDetection(promise: Promise) {
+    sharedImpl.startBiometricChangeDetection()
+    promise.resolve(null)
+  }
+
+  @ReactMethod
+  override fun stopBiometricChangeDetection(promise: Promise) {
+    sharedImpl.stopBiometricChangeDetection()
+    promise.resolve(null)
   }
 
   override fun invalidate() {

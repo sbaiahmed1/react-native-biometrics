@@ -149,6 +149,10 @@ export interface Spec extends TurboModule {
   }>;
   // Test method to manually trigger biometric detection
   testBiometricChangeDetection(): Promise<boolean>;
+  // Start biometric change detection
+  startBiometricChangeDetection(): Promise<void>;
+  // Stop biometric change detection
+  stopBiometricChangeDetection(): Promise<void>;
   // Event emitter for biometric changes
   readonly onBiometricChange: EventEmitter<BiometricChangeEvent>;
 }
