@@ -5,6 +5,7 @@ import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReactMethod
 import com.facebook.react.bridge.ReadableMap
 import com.facebook.react.bridge.WritableMap
+import com.facebook.react.modules.core.DeviceEventManagerModule
 
 /**
  * New Architecture (TurboModule) implementation of ReactNativeBiometricsModule
@@ -20,17 +21,37 @@ class ReactNativeBiometricsModule(reactContext: ReactApplicationContext) :
   private val sharedImpl = ReactNativeBiometricsSharedImpl(reactContext)
 
   init {
-    // Initialize biometric change detection with the new architecture event emitter
+    // Initialize biometric change detection with BOTH new and old event emission for compatibility
     sharedImpl.setBiometricChangeListener { event ->
-      // Use the codegen-generated emitOnBiometricChange method
-      emitOnBiometricChange(event)
+      // Method 1: New architecture - use codegen-generated emitOnBiometricChange
+      try {
+        emitOnBiometricChange(event)
+        android.util.Log.d("ReactNativeBiometrics", "Emitted via new arch method")
+      } catch (e: Exception) {
+        android.util.Log.e("ReactNativeBiometrics", "Failed to emit via new arch: ${e.message}")
+      }
+
+      // Method 2: Old architecture - use DeviceEventManagerModule for NativeEventEmitter compatibility
+      try {
+        reactApplicationContext
+          .getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter::class.java)
+          ?.emit("onBiometricChange", event)
+        android.util.Log.d("ReactNativeBiometrics", "Emitted via DeviceEventManagerModule")
+      } catch (e: Exception) {
+        android.util.Log.e("ReactNativeBiometrics", "Failed to emit via DeviceEventManagerModule: ${e.message}")
+      }
     }
+
+    // Auto-start biometric change detection
+    // NativeEventEmitter in TurboModules doesn't automatically call addListener,
+    // so we start detection immediately when module initializes
+    sharedImpl.startBiometricChangeDetection()
 
     // Show debug alert on module initialization
     android.os.Handler(android.os.Looper.getMainLooper()).post {
       android.widget.Toast.makeText(
         reactContext,
-        "ReactNativeBiometrics Module Initialized (New Arch)",
+        "ReactNativeBiometrics Module Initialized (New Arch) - Auto-started detection",
         android.widget.Toast.LENGTH_LONG
       ).show()
     }
