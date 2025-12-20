@@ -196,7 +196,14 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
       }
     } else {
       debugLog("simplePrompt - Using DEVICE_CREDENTIAL fallback")
-      BiometricManager.Authenticators.DEVICE_CREDENTIAL
+      // Check API level for device credential support
+      if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+        BiometricManager.Authenticators.DEVICE_CREDENTIAL
+      } else {
+         // On API < 30, we use BIOMETRIC_WEAK | DEVICE_CREDENTIAL to allow credential fallback
+         // since pure DEVICE_CREDENTIAL might not be fully supported in all contexts
+         BiometricManager.Authenticators.BIOMETRIC_WEAK or BiometricManager.Authenticators.DEVICE_CREDENTIAL
+      }
     }
 
     val promptInfoBuilder = BiometricPrompt.PromptInfo.Builder()
@@ -303,18 +310,57 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
 
           val keyGenParameterSpec = keyGenParameterSpecBuilder.build()
           keyPairGenerator.initialize(keyGenParameterSpec)
-          val keyPair = keyPairGenerator.generateKeyPair()
+          
+          try {
+            val keyPair = keyPairGenerator.generateKeyPair()
+            
+            // Get public key and encode it
+            val publicKey = keyPair.public
+            val publicKeyBytes = publicKey.encoded
+            val publicKeyString = BiometricUtils.encodeBase64(publicKeyBytes)
 
-          // Get public key and encode it
-          val publicKey = keyPair.public
-          val publicKeyBytes = publicKey.encoded
-          val publicKeyString = BiometricUtils.encodeBase64(publicKeyBytes)
+            val result = Arguments.createMap()
+            result.putString("publicKey", publicKeyString)
 
-          val result = Arguments.createMap()
-          result.putString("publicKey", publicKeyString)
+            debugLog("RSA Keys created successfully with alias: $actualKeyAlias, requiresAuth: $requireUserAuth, strength: $requestedStrength")
+            promise.resolve(result)
+          } catch (e: java.security.InvalidAlgorithmParameterException) {
+            // Check for enrollment error in both exception message and cause
+            val message = e.message ?: ""
+            val causeMessage = e.cause?.message ?: ""
+            val isEnrollmentError = (e.cause is IllegalStateException && causeMessage.contains("At least one biometric must be enrolled")) ||
+                                    message.contains("At least one biometric must be enrolled")
 
-          debugLog("RSA Keys created successfully with alias: $actualKeyAlias, requiresAuth: $requireUserAuth, strength: $requestedStrength")
-          promise.resolve(result)
+            // Handle case where enrollment is missing despite checks
+            if (requireUserAuth && isEnrollmentError) {
+              debugLog("Failed to create auth-bound key: ${e.message}. Retrying without user authentication requirement.")
+              
+              // Retry without user authentication
+              val fallbackSpecBuilder = KeyGenParameterSpec.Builder(
+                actualKeyAlias,
+                KeyProperties.PURPOSE_SIGN or KeyProperties.PURPOSE_VERIFY
+              )
+                .setDigests(KeyProperties.DIGEST_SHA256)
+                .setSignaturePaddings(KeyProperties.SIGNATURE_PADDING_RSA_PKCS1)
+                .setKeySize(2048)
+                
+              val fallbackSpec = fallbackSpecBuilder.build()
+              keyPairGenerator.initialize(fallbackSpec)
+              val keyPair = keyPairGenerator.generateKeyPair()
+              
+              val publicKey = keyPair.public
+              val publicKeyBytes = publicKey.encoded
+              val publicKeyString = BiometricUtils.encodeBase64(publicKeyBytes)
+
+              val result = Arguments.createMap()
+              result.putString("publicKey", publicKeyString)
+              
+              debugLog("RSA Keys created successfully (fallback) with alias: $actualKeyAlias, requiresAuth: false")
+              promise.resolve(result)
+            } else {
+              throw e
+            }
+          }
         }
 
         "ec256" -> {
@@ -334,18 +380,56 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
 
           val keyGenParameterSpec = keyGenParameterSpecBuilder.build()
           keyPairGenerator.initialize(keyGenParameterSpec)
-          val keyPair = keyPairGenerator.generateKeyPair()
+          
+          try {
+            val keyPair = keyPairGenerator.generateKeyPair()
 
-          // Get public key and encode it
-          val publicKey = keyPair.public
-          val publicKeyBytes = publicKey.encoded
-          val publicKeyString = BiometricUtils.encodeBase64(publicKeyBytes)
+            // Get public key and encode it
+            val publicKey = keyPair.public
+            val publicKeyBytes = publicKey.encoded
+            val publicKeyString = BiometricUtils.encodeBase64(publicKeyBytes)
 
-          val result = Arguments.createMap()
-          result.putString("publicKey", publicKeyString)
+            val result = Arguments.createMap()
+            result.putString("publicKey", publicKeyString)
 
-          debugLog("EC Keys created successfully with alias: $actualKeyAlias, requiresAuth: $requireUserAuth, strength: $requestedStrength")
-          promise.resolve(result)
+            debugLog("EC Keys created successfully with alias: $actualKeyAlias, requiresAuth: $requireUserAuth, strength: $requestedStrength")
+            promise.resolve(result)
+          } catch (e: java.security.InvalidAlgorithmParameterException) {
+            // Check for enrollment error in both exception message and cause
+            val message = e.message ?: ""
+            val causeMessage = e.cause?.message ?: ""
+            val isEnrollmentError = (e.cause is IllegalStateException && causeMessage.contains("At least one biometric must be enrolled")) ||
+                                    message.contains("At least one biometric must be enrolled")
+
+            // Handle case where enrollment is missing despite checks
+            if (requireUserAuth && isEnrollmentError) {
+              debugLog("Failed to create auth-bound key: ${e.message}. Retrying without user authentication requirement.")
+              
+              // Retry without user authentication
+              val fallbackSpecBuilder = KeyGenParameterSpec.Builder(
+                actualKeyAlias,
+                KeyProperties.PURPOSE_SIGN or KeyProperties.PURPOSE_VERIFY
+              )
+                .setDigests(KeyProperties.DIGEST_SHA256)
+                .setKeySize(256)
+                
+              val fallbackSpec = fallbackSpecBuilder.build()
+              keyPairGenerator.initialize(fallbackSpec)
+              val keyPair = keyPairGenerator.generateKeyPair()
+              
+              val publicKey = keyPair.public
+              val publicKeyBytes = publicKey.encoded
+              val publicKeyString = BiometricUtils.encodeBase64(publicKeyBytes)
+
+              val result = Arguments.createMap()
+              result.putString("publicKey", publicKeyString)
+              
+              debugLog("EC Keys created successfully (fallback) with alias: $actualKeyAlias, requiresAuth: false")
+              promise.resolve(result)
+            } else {
+              throw e
+            }
+          }
         }
 
         else -> {
@@ -563,7 +647,13 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
     val actualStrength = authenticatorResult.actualStrength
 
     val authenticators = if (allowDeviceCredentials && !disableDeviceFallback) {
-      baseAuthenticator or BiometricManager.Authenticators.DEVICE_CREDENTIAL
+      if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+        baseAuthenticator or BiometricManager.Authenticators.DEVICE_CREDENTIAL
+      } else {
+        // For API 28-29, we can't combine BIOMETRIC_STRONG with DEVICE_CREDENTIAL in the same way
+        // But BIOMETRIC_WEAK | DEVICE_CREDENTIAL is supported
+        BiometricManager.Authenticators.BIOMETRIC_WEAK or BiometricManager.Authenticators.DEVICE_CREDENTIAL
+      }
     } else {
       baseAuthenticator
     }
@@ -817,7 +907,13 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
         val authenticators = if (biometricStatus == BiometricManager.BIOMETRIC_SUCCESS) {
           authenticator
         } else {
-          BiometricManager.Authenticators.DEVICE_CREDENTIAL
+          // Check API level for device credential support
+          if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+            BiometricManager.Authenticators.DEVICE_CREDENTIAL
+          } else {
+             // On API < 30, we use BIOMETRIC_WEAK | DEVICE_CREDENTIAL
+             BiometricManager.Authenticators.BIOMETRIC_WEAK or BiometricManager.Authenticators.DEVICE_CREDENTIAL
+          }
         }
 
         val promptInfoBuilder = BiometricPrompt.PromptInfo.Builder()

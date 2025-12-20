@@ -48,10 +48,56 @@ class ReactNativeBiometricsModule(reactContext: ReactApplicationContext) :
   }
 
   @ReactMethod
-  fun validateKeyIntegrity(keyAlias: String?, biometricStrength: String?, promise: Promise) {
-    sharedImpl.validateKeyIntegrity(keyAlias, biometricStrength, promise)
+  fun validateKeyIntegrity(keyAlias: String?, promise: Promise) {
+    sharedImpl.validateKeyIntegrity(keyAlias, promise)
   }
 
+  @ReactMethod
+  fun verifyKeySignature(keyAlias: String?, data: String, promptTitle: String?, promptSubtitle: String?, cancelButtonText: String?, promise: Promise) {
+    sharedImpl.verifyKeySignature(keyAlias, data, promptTitle, promptSubtitle, cancelButtonText, promise)
+  }
+
+  @ReactMethod
+  fun validateSignature(keyAlias: String?, data: String, signature: String, promise: Promise) {
+    sharedImpl.validateSignature(keyAlias, data, signature, promise)
+  }
+
+  @ReactMethod
+  fun getKeyAttributes(keyAlias: String?, promise: Promise) {
+    sharedImpl.getKeyAttributes(keyAlias, promise)
+  }
+
+  @ReactMethod
+  fun configureKeyAlias(keyAlias: String, promise: Promise) {
+    sharedImpl.configureKeyAlias(keyAlias, promise)
+  }
+
+  @ReactMethod
+  fun getDefaultKeyAlias(promise: Promise) {
+    sharedImpl.getDefaultKeyAlias(promise)
+  }
+
+  @ReactMethod
+  fun getDiagnosticInfo(promise: Promise) {
+    sharedImpl.getDiagnosticInfo(promise)
+  }
+
+  @ReactMethod
+  fun runBiometricTest(promise: Promise) {
+    sharedImpl.runBiometricTest(promise)
+  }
+
+  @ReactMethod
+  fun setDebugMode(enabled: Boolean, promise: Promise) {
+    sharedImpl.setDebugMode(enabled, promise)
+  }
+
+  @ReactMethod
+  fun getDeviceIntegrityStatus(promise: Promise) {
+    sharedImpl.getDeviceIntegrityStatus(promise)
+  }
+
+  // Legacy methods kept for backward compatibility
   @ReactMethod
   fun createSignature(payload: String, keyAlias: String?, biometricStrength: String?, promise: Promise) {
     sharedImpl.createSignature(payload, keyAlias, biometricStrength, promise)
@@ -60,10 +106,5 @@ class ReactNativeBiometricsModule(reactContext: ReactApplicationContext) :
   @ReactMethod
   fun verifySignature(signature: String, payload: String, keyAlias: String?, promise: Promise) {
     sharedImpl.verifySignature(signature, payload, keyAlias, promise)
-  }
-
-  @ReactMethod
-  fun getDefaultKeyAlias(promise: Promise) {
-    sharedImpl.getDefaultKeyAlias(promise)
   }
 }
