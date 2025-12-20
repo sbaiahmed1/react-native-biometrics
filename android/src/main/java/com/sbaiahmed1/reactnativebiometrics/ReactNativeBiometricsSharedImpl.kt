@@ -51,13 +51,6 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
       // Check for biometric changes when app comes to foreground
       debugLog("onHostResume called - isDetectionActive: $isDetectionActive")
 
-      // Show toast for debugging
-      android.widget.Toast.makeText(
-        context,
-        "App Resumed - Detection Active: $isDetectionActive",
-        android.widget.Toast.LENGTH_SHORT
-      ).show()
-
       if (isDetectionActive) {
         debugLog("App resumed - checking for biometric changes")
         checkForBiometricChanges()
@@ -67,21 +60,11 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
     override fun onHostPause() {
       // No action needed on pause
       debugLog("onHostPause called")
-      android.widget.Toast.makeText(
-        context,
-        "App Paused",
-        android.widget.Toast.LENGTH_SHORT
-      ).show()
     }
 
     override fun onHostDestroy() {
       // Cleanup on destroy
       debugLog("onHostDestroy called")
-      android.widget.Toast.makeText(
-        context,
-        "App Destroyed",
-        android.widget.Toast.LENGTH_SHORT
-      ).show()
       stopBiometricChangeDetection()
     }
   }
@@ -1523,12 +1506,6 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
       lastBiometricState = getCurrentBiometricState()
       context.addLifecycleEventListener(lifecycleListener)
       debugLog("Started biometric change detection with lifecycle listener")
-
-      // Show alert for debugging
-      showDebugAlert("Detection Started",
-        "Biometric change detection is now active.\n" +
-        "Listener count: ${biometricChangeListener != null}\n" +
-        "Current state will be monitored on app resume.")
     }
   }
 
@@ -1538,13 +1515,6 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
       context.removeLifecycleEventListener(lifecycleListener)
       lastBiometricState = null
       debugLog("Stopped biometric change detection")
-
-      // Show toast for debugging
-      android.widget.Toast.makeText(
-        context,
-        "Biometric detection stopped",
-        android.widget.Toast.LENGTH_SHORT
-      ).show()
     }
   }
 
@@ -1631,14 +1601,6 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
       if (lastState == null) {
         lastBiometricState = copyMap(currentState)
         debugLog("Initial biometric state recorded")
-
-        // Show alert for debugging
-        showDebugAlert("Initial State", "Biometric state initialized:\n" +
-          "Available: $currentAvailable\n" +
-          "Enrolled: $currentEnrolled\n" +
-          "Type: $currentType\n" +
-          "Key Count: $currentKeyCount\n" +
-          "Status Code: $currentStatusCode")
         return
       }
 
@@ -1671,34 +1633,11 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
         lastBiometricState = copyMap(currentState)
         biometricChangeListener?.invoke(changeEvent)
         debugLog("Biometric state changed: $changeType")
-
-        // Show alert for debugging with detailed comparison
-        showDebugAlert("Biometric Change Detected!",
-          "Change Type: $changeType\n\n" +
-          "OLD STATE:\n" +
-          "Available: $lastAvailable\n" +
-          "Enrolled: $lastEnrolled\n" +
-          "Keys: $lastKeyCount\n" +
-          "Status: $lastStatusCode\n\n" +
-          "NEW STATE:\n" +
-          "Available: $currentAvailable\n" +
-          "Enrolled: $currentEnrolled\n" +
-          "Keys: $currentKeyCount\n" +
-          "Status: $currentStatusCode")
       } else {
-        // Show detailed debug info about why no change was detected
-        val debugInfo = "No change detected:\n" +
-          "Available: $currentAvailable\n" +
-          "Enrolled: $currentEnrolled\n" +
-          "Keys: $currentKeyCount\n" +
-          "Status: $currentStatusCode"
-
-        debugLog(debugInfo)
-        showDebugAlert("No Change Detected", debugInfo)
+        debugLog("No change detected")
       }
     } catch (e: Exception) {
       debugLog("Error checking biometric changes: ${e.message}")
-      showDebugAlert("Error", "Error checking biometric changes: ${e.message}")
     }
   }
 
@@ -1707,30 +1646,6 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
     val copy = Arguments.createMap()
     copy.merge(original)
     return copy
-  }
-
-  private fun showDebugAlert(title: String, message: String) {
-    Handler(Looper.getMainLooper()).post {
-      try {
-        val activity = context.currentActivity
-        if (activity != null && !activity.isFinishing) {
-          android.app.AlertDialog.Builder(activity)
-            .setTitle(title)
-            .setMessage(message)
-            .setPositiveButton("OK", null)
-            .show()
-        } else {
-          // Fallback to toast if no activity
-          android.widget.Toast.makeText(
-            context,
-            "$title: $message",
-            android.widget.Toast.LENGTH_LONG
-          ).show()
-        }
-      } catch (e: Exception) {
-        debugLog("Error showing debug alert: ${e.message}")
-      }
-    }
   }
 
   private fun hasStateChanged(oldState: WritableMap, newState: WritableMap): Boolean {
