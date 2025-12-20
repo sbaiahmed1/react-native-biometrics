@@ -9,6 +9,7 @@ import {
 
 interface BiometricState {
   available: boolean;
+  enrolled?: boolean;
   biometryType?: string;
   lastChangeType?: string;
   lastChangeTime?: string;
@@ -25,6 +26,7 @@ const BiometricChangeExample: React.FC = () => {
 
     setBiometricState({
       available: event.available,
+      enrolled: event.enrolled,
       biometryType: event.biometryType,
       lastChangeType: event.changeType,
       lastChangeTime: new Date(event.timestamp).toLocaleTimeString(),
@@ -82,6 +84,9 @@ const BiometricChangeExample: React.FC = () => {
         <Text style={styles.statusTitle}>Current Status:</Text>
         <Text style={styles.statusText}>
           Available: {biometricState.available ? 'Yes' : 'No'}
+        </Text>
+        <Text style={styles.statusText}>
+          Enrolled: {biometricState.enrolled ? 'Yes' : 'No'}
         </Text>
         <Text style={styles.statusText}>
           Type: {biometricState.biometryType || 'Unknown'}

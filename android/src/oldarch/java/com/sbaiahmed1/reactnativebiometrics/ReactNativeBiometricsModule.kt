@@ -125,6 +125,18 @@ class ReactNativeBiometricsModule(reactContext: ReactApplicationContext) :
   }
 
   @ReactMethod
+  fun startBiometricChangeDetection(promise: Promise) {
+    sharedImpl.startBiometricChangeDetection()
+    promise.resolve(null)
+  }
+
+  @ReactMethod
+  fun stopBiometricChangeDetection(promise: Promise) {
+    sharedImpl.stopBiometricChangeDetection()
+    promise.resolve(null)
+  }
+
+  @ReactMethod
   fun addListener(eventName: String) {
     // Called when JS side starts listening
     sharedImpl.startBiometricChangeDetection()
