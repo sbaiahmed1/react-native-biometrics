@@ -238,7 +238,7 @@ The iOS implementation tracks multiple state indicators:
 
 **Advantages over Android:**
 - **Better enrollment detection**: iOS's `evaluatedPolicyDomainState` is a cryptographic hash that changes whenever ANY enrollment is added/removed, making it much more reliable than Android's BiometricManager
-- **Event-driven**: Uses system notifications instead of polling, more battery efficient
+- **Event-driven**: Both platforms now use lifecycle-based event detection for battery efficiency
 - **Auto-lifecycle**: Automatically starts when listeners subscribe and stops when they unsubscribe
 
 **How It Works:**
@@ -254,7 +254,8 @@ Our Android implementation uses advanced state tracking to detect biometric chan
 
 **Core Technologies:**
 - Uses `BiometricManager` API to monitor biometric state
-- Polls biometric status every 2 seconds when detection is active
+- Monitors `LifecycleEventListener` to detect when app returns to foreground (similar to iOS)
+- Checks biometric state when app resumes via `onHostResume()` callback
 - Tracks biometric-protected keys in Android KeyStore as a proxy for enrollment changes
 - Monitors hardware availability, enrollment status, and status codes
 
@@ -301,7 +302,7 @@ To work around these limitations, we track additional state like KeyStore key co
 
 6. **Error handling**: Wrap your event handler in try-catch blocks to handle any unexpected errors gracefully.
 
-7. **Battery conservation**: On Android, call `stopBiometricChangeDetection()` when detection is not needed to save battery (iOS handles this automatically)
+7. **Battery conservation**: Both platforms use lifecycle-based detection (event-driven, not polling) for efficient battery usage
 
 ## Example Use Cases
 
@@ -363,13 +364,13 @@ const handleBiometricChange = (event: BiometricChangeEvent) => {
 
 ### Performance
 
-1. On Android, the polling interval is 2 seconds - this balances responsiveness with battery usage
+1. Both platforms use lifecycle-based detection (checking on app resume) - no continuous polling needed
 2. Unsubscribe when not needed to save resources
 3. Avoid heavy processing in the event handler
 
 ## Migration from Manual Polling
 
-If you were previously manually checking biometric status, you can replace that with event-driven updates:
+If you were previously manually checking biometric status, you can replace that with lifecycle-based event detection:
 
 ```typescript
 // Old approach - manual polling
@@ -378,13 +379,15 @@ setInterval(async () => {
   // Update UI based on result
 }, 5000);
 
-// New approach - event-driven
+// New approach - lifecycle-based detection
 subscribeToBiometricChanges((event) => {
   // Update UI based on event
+  // Automatically checked when app resumes
 });
+startBiometricChangeDetection();
 ```
 
-This provides better performance, battery life, and user experience.
+This provides better performance, battery life, and user experience by checking only when the app comes to the foreground.
 
 ## Technical Implementation
 
@@ -540,7 +543,7 @@ Detection is **not auto-started** to give developers explicit control:
 
 **Why Manual Control?**
 1. **Battery Conservation**: Apps can stop detection when not needed
-2. **Resource Management**: Avoid unnecessary polling when app is backgrounded
+2. **Resource Management**: Avoid unnecessary lifecycle monitoring when app is backgrounded
 3. **User Privacy**: Only monitor when user expects it
 4. **Flexibility**: Developers choose when to start/stop
 
@@ -588,10 +591,10 @@ override fun invalidate() {
 │  Shared Implementation                                          │
 ├─────────────────────────────────────────────────────────────────┤
 │  ReactNativeBiometricsSharedImpl.kt                             │
-│  - Handler polling (every 2 seconds)                            │
+│  - Lifecycle event listener (onHostResume/onHostPause)          │
 │  - State comparison (available, enrolled, keyCount, statusCode) │
 │  - Change type determination                                     │
-│  - Lifecycle management (onResume/onPause)                      │
+│  - Checks biometric state when app resumes                      │
 └──────────────────────────┬──────────────────────────────────────┘
                            │
                            ▼
@@ -636,20 +639,21 @@ These can be removed or disabled in production builds.
 
 ### Performance Considerations
 
-**Polling Interval: 2 seconds**
-- Chosen to balance responsiveness with battery impact
-- Configurable in `ReactNativeBiometricsSharedImpl.kt`
+**Lifecycle-Based Detection:**
+- Checks biometric state only when app resumes (not continuously)
+- Event-driven approach is battery efficient
+- No background processing while app is inactive
 - Only active when detection is started
 
 **Memory Management:**
 - Proper cleanup in `invalidate()` and component unmount
-- Handler removed when detection stopped
+- Lifecycle listeners removed when detection stopped
 - Lifecycle listeners removed on destroy
 
 **CPU Usage:**
-- Minimal: Just checking BiometricManager status
+- Minimal: Only checking BiometricManager status on app resume
 - KeyStore enumeration lightweight
-- Runs on background handler, not UI thread
+- No continuous background processing
 
 ### Testing Recommendations
 
@@ -657,8 +661,8 @@ These can be removed or disabled in production builds.
 1. Start detection
 2. Go to device Settings → Biometrics
 3. Add/remove fingerprints or face data
-4. Return to app
-5. Verify events are received within ~2 seconds
+4. Return to app (bring to foreground)
+5. Verify events are received when app resumes
 
 **Automated Testing:**
 - Mock BiometricManager responses
@@ -671,11 +675,10 @@ These can be removed or disabled in production builds.
 Potential enhancements for future versions:
 
 1. **Unified Start/Stop API**: Add explicit `startBiometricChangeDetection()` and `stopBiometricChangeDetection()` methods to iOS for API consistency with Android (currently iOS auto-starts/stops)
-2. **Configurable Polling Interval** (Android): Let developers choose detection frequency
-3. **Broadcast Receiver** (Android): Use Android system broadcasts instead of polling (if available)
-4. **Event Batching**: Deduplicate rapid consecutive events on both platforms
-5. **Detailed Change Info**: Include which specific biometric type changed (e.g., "fingerprint 2 added")
-6. **Background Detection** (iOS): Optionally detect changes even when app is in background
+2. **Broadcast Receiver** (Android): Use Android system broadcasts for even more immediate detection (if available)
+3. **Event Batching**: Deduplicate rapid consecutive events on both platforms
+4. **Detailed Change Info**: Include which specific biometric type changed (e.g., "fingerprint 2 added")
+5. **Background Detection** (iOS): Optionally detect changes even when app is in background
 
 ### Contributing
 
