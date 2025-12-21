@@ -1,10 +1,12 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
+import type { EventSubscription } from 'react-native';
 import { Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import type { BiometricChangeEvent } from '../src/index';
 import {
   startBiometricChangeDetection,
   stopBiometricChangeDetection,
   subscribeToBiometricChanges,
+  unsubscribeFromBiometricChanges,
 } from '../src/index';
 
 interface BiometricState {
@@ -20,6 +22,7 @@ const BiometricChangeExample: React.FC = () => {
     available: false,
   });
   const [isListening, setIsListening] = useState(false);
+  const subscriptionRef = useRef<EventSubscription | null>(null);
 
   const handleBiometricChange = useCallback((event: BiometricChangeEvent) => {
     console.log('Biometric change detected:', event);
@@ -49,27 +52,49 @@ const BiometricChangeExample: React.FC = () => {
   const handleStartDetection = async () => {
     try {
       console.log('Starting biometric change detection...');
+
+      // Subscribe to events first
+      subscriptionRef.current = subscribeToBiometricChanges(
+        handleBiometricChange
+      );
+
+      // Then start detection
       await startBiometricChangeDetection();
       setIsListening(true);
-      subscribeToBiometricChanges(handleBiometricChange);
+
       console.log('Detection started');
       Alert.alert('Detection Started', 'Now monitoring for biometric changes');
     } catch (error) {
       console.error('Start failed:', error);
       Alert.alert('Start Failed', String(error));
+
+      // Clean up subscription if start failed
+      if (subscriptionRef.current) {
+        unsubscribeFromBiometricChanges(subscriptionRef.current);
+        subscriptionRef.current = null;
+      }
     }
   };
 
   const handleStopDetection = async () => {
     try {
       console.log('Stopping biometric change detection...');
+
+      // Stop detection
       await stopBiometricChangeDetection();
+
+      // Unsubscribe from events
+      if (subscriptionRef.current) {
+        unsubscribeFromBiometricChanges(subscriptionRef.current);
+        subscriptionRef.current = null;
+      }
+
+      setIsListening(false);
       console.log('Detection stopped');
       Alert.alert(
         'Detection Stopped',
         'No longer monitoring for biometric changes'
       );
-      setIsListening(false);
     } catch (error) {
       console.error('Stop failed:', error);
       Alert.alert('Stop Failed', String(error));

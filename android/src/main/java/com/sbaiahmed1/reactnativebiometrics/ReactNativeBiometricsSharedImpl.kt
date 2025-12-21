@@ -40,10 +40,31 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
     const val KEY_ALIAS_PREF = "keyAlias"
   }
 
+  // Data class for biometric state tracking
+  private data class BiometricState(
+    val available: Boolean,
+    val enrolled: Boolean,
+    val biometryType: String,
+    val keyCount: Int,
+    val statusCode: Int,
+    val timestamp: Long
+  ) {
+    fun toWritableMap(): WritableMap {
+      val map = Arguments.createMap()
+      map.putBoolean("available", available)
+      map.putBoolean("enrolled", enrolled)
+      map.putString("biometryType", biometryType)
+      map.putInt("keyCount", keyCount)
+      map.putInt("statusCode", statusCode)
+      map.putLong("timestamp", timestamp)
+      return map
+    }
+  }
+
   // Biometric change detection
   private var biometricChangeListener: ((WritableMap) -> Unit)? = null
   private var isDetectionActive = false
-  private var lastBiometricState: WritableMap? = null
+  private var lastBiometricState: BiometricState? = null
 
   // Lifecycle listener for detecting when app resumes (similar to iOS approach)
   private val lifecycleListener = object : LifecycleEventListener {
@@ -1518,48 +1539,26 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
     }
   }
 
-  private fun getCurrentBiometricState(): WritableMap {
+  private fun getCurrentBiometricState(): BiometricState {
     val biometricManager = BiometricManager.from(context)
-    val state = Arguments.createMap()
 
     // Get biometric authentication status
     val canAuthenticateResult = biometricManager.canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_WEAK)
 
-    when (canAuthenticateResult) {
-      BiometricManager.BIOMETRIC_SUCCESS -> {
-        state.putBoolean("available", true)
-        state.putString("biometryType", "Biometrics")
-        state.putBoolean("enrolled", true)
-      }
-      BiometricManager.BIOMETRIC_ERROR_NO_HARDWARE -> {
-        state.putBoolean("available", false)
-        state.putString("biometryType", "None")
-        state.putBoolean("enrolled", false)
-      }
-      BiometricManager.BIOMETRIC_ERROR_HW_UNAVAILABLE -> {
-        state.putBoolean("available", false)
-        state.putString("biometryType", "Unavailable")
-        state.putBoolean("enrolled", false)
-      }
-      BiometricManager.BIOMETRIC_ERROR_NONE_ENROLLED -> {
-        state.putBoolean("available", true)
-        state.putString("biometryType", "Biometrics")
-        state.putBoolean("enrolled", false)
-      }
-      else -> {
-        state.putBoolean("available", false)
-        state.putString("biometryType", "Unknown")
-        state.putBoolean("enrolled", false)
-      }
+    val (available, biometryType, enrolled) = when (canAuthenticateResult) {
+      BiometricManager.BIOMETRIC_SUCCESS -> Triple(true, "Biometrics", true)
+      BiometricManager.BIOMETRIC_ERROR_NO_HARDWARE -> Triple(false, "None", false)
+      BiometricManager.BIOMETRIC_ERROR_HW_UNAVAILABLE -> Triple(false, "Unavailable", false)
+      BiometricManager.BIOMETRIC_ERROR_NONE_ENROLLED -> Triple(true, "Biometrics", false)
+      else -> Triple(false, "Unknown", false)
     }
 
-    // Add a state hash to detect subtle changes
+    // Count biometric-protected keys as a proxy for biometric state
     // This helps detect when biometrics are re-enrolled (which invalidates crypto keys)
-    try {
+    val keyCount = try {
       val keyStore = KeyStore.getInstance("AndroidKeyStore")
       keyStore.load(null)
 
-      // Count biometric-protected keys as a proxy for biometric state
       var biometricKeyCount = 0
       val aliases = keyStore.aliases()
       while (aliases.hasMoreElements()) {
@@ -1573,16 +1572,20 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
           // Key might be inaccessible, which could indicate biometric change
         }
       }
-
-      state.putInt("keyCount", biometricKeyCount)
-      state.putInt("statusCode", canAuthenticateResult)
+      biometricKeyCount
     } catch (e: Exception) {
       debugLog("Error getting keystore info: ${e.message}")
-      state.putInt("keyCount", -1)
-      state.putInt("statusCode", canAuthenticateResult)
+      -1
     }
 
-    return state
+    return BiometricState(
+      available = available,
+      enrolled = enrolled,
+      biometryType = biometryType,
+      keyCount = keyCount,
+      statusCode = canAuthenticateResult,
+      timestamp = System.currentTimeMillis()
+    )
   }
 
   private fun checkForBiometricChanges() {
@@ -1590,47 +1593,34 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
       val currentState = getCurrentBiometricState()
       val lastState = lastBiometricState
 
-      // Extract values immediately before they're consumed
-      val currentAvailable = currentState.getBoolean("available")
-      val currentEnrolled = currentState.getBoolean("enrolled")
-      val currentType = currentState.getString("biometryType")
-      val currentKeyCount = currentState.getInt("keyCount")
-      val currentStatusCode = currentState.getInt("statusCode")
-
       // If this is the first check, just save the state without emitting an event
       if (lastState == null) {
-        lastBiometricState = copyMap(currentState)
+        lastBiometricState = currentState
         debugLog("Initial biometric state recorded")
         return
       }
 
-      // Extract last state values
-      val lastAvailable = lastState.getBoolean("available")
-      val lastEnrolled = lastState.getBoolean("enrolled")
-      val lastType = lastState.getString("biometryType")
-      val lastKeyCount = lastState.getInt("keyCount")
-      val lastStatusCode = lastState.getInt("statusCode")
-
-      // Check for changes
-      if (hasStateChanged(lastState, currentState)) {
+      // Check for changes using data class equality
+      if (currentState != lastState) {
         val changeType = when {
-          !lastAvailable && currentAvailable -> "BIOMETRIC_ENABLED"
-          lastAvailable && !currentAvailable -> "BIOMETRIC_DISABLED"
-          lastType != currentType -> "HARDWARE_UNAVAILABLE"
-          lastEnrolled != currentEnrolled -> "ENROLLMENT_CHANGED"
-          lastKeyCount != currentKeyCount -> "ENROLLMENT_CHANGED"
+          !lastState.available && currentState.available -> "BIOMETRIC_ENABLED"
+          lastState.available && !currentState.available -> "BIOMETRIC_DISABLED"
+          lastState.biometryType != currentState.biometryType -> "HARDWARE_UNAVAILABLE"
+          lastState.enrolled != currentState.enrolled -> "ENROLLMENT_CHANGED"
+          lastState.keyCount != currentState.keyCount -> "ENROLLMENT_CHANGED"
           else -> "STATE_CHANGED"
         }
 
+        // Create event map with timestamp and change info
         val changeEvent = Arguments.createMap().apply {
-          putDouble("timestamp", System.currentTimeMillis().toDouble())
-          putString("biometryType", currentType)
-          putBoolean("available", currentAvailable)
-          putBoolean("enrolled", currentEnrolled)
+          putDouble("timestamp", currentState.timestamp.toDouble())
+          putString("biometryType", currentState.biometryType)
+          putBoolean("available", currentState.available)
+          putBoolean("enrolled", currentState.enrolled)
           putString("changeType", changeType)
         }
 
-        lastBiometricState = copyMap(currentState)
+        lastBiometricState = currentState
         biometricChangeListener?.invoke(changeEvent)
         debugLog("Biometric state changed: $changeType")
       } else {
@@ -1639,22 +1629,5 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
     } catch (e: Exception) {
       debugLog("Error checking biometric changes: ${e.message}")
     }
-  }
-
-  // Helper function to copy a WritableMap to prevent "map already consumed" errors
-  private fun copyMap(original: WritableMap): WritableMap {
-    val copy = Arguments.createMap()
-    copy.merge(original)
-    return copy
-  }
-
-  private fun hasStateChanged(oldState: WritableMap, newState: WritableMap): Boolean {
-    val availableChanged = oldState.getBoolean("available") != newState.getBoolean("available")
-    val enrolledChanged = oldState.getBoolean("enrolled") != newState.getBoolean("enrolled")
-    val typeChanged = oldState.getString("biometryType") != newState.getString("biometryType")
-    val keyCountChanged = oldState.getInt("keyCount") != newState.getInt("keyCount")
-    val statusCodeChanged = oldState.getInt("statusCode") != newState.getInt("statusCode")
-
-    return availableChanged || enrolledChanged || typeChanged || keyCountChanged || statusCodeChanged
   }
 }
