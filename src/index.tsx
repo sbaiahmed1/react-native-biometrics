@@ -645,16 +645,10 @@ export function clearLogs(): void {
 }
 
 // Biometric Change Detection API
-import { type EventSubscription, NativeEventEmitter } from 'react-native';
+import { type EventSubscription, DeviceEventEmitter } from 'react-native';
 import type { BiometricChangeEvent } from './NativeReactNativeBiometrics';
 
 export type { BiometricChangeEvent };
-
-// Create NativeEventEmitter for cross-architecture compatibility
-// Works with both old architecture (iOS RCTEventEmitter) and new architecture (Android TurboModules)
-const biometricEventEmitter = new NativeEventEmitter(
-  ReactNativeBiometrics as any
-);
 
 /**
  * Subscribes to biometric change events.
@@ -670,8 +664,9 @@ export function subscribeToBiometricChanges(
     'subscribeToBiometricChanges'
   );
 
-  // Subscribe using NativeEventEmitter for cross-architecture compatibility
-  return biometricEventEmitter.addListener('onBiometricChange', callback);
+  // Subscribe using DeviceEventEmitter for cross-architecture compatibility
+  // The native modules emit events via DeviceEventManagerModule
+  return DeviceEventEmitter.addListener('onBiometricChange', callback);
 }
 
 /**
