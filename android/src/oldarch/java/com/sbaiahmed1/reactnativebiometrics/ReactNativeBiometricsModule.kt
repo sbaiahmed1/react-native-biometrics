@@ -116,7 +116,6 @@ class ReactNativeBiometricsModule(reactContext: ReactApplicationContext) :
   fun verifySignature(signature: String, payload: String, keyAlias: String?, promise: Promise) {
     sharedImpl.verifySignature(signature, payload, keyAlias, promise)
   }
-}
 
   // Event emitter support
   private fun sendEvent(eventName: String, params: com.facebook.react.bridge.WritableMap?) {
