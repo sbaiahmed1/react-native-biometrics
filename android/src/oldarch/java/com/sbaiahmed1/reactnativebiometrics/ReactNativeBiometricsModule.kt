@@ -10,6 +10,7 @@ class ReactNativeBiometricsModule(reactContext: ReactApplicationContext) :
   com.facebook.react.bridge.ReactContextBaseJavaModule(reactContext) {
 
   private val sharedImpl = ReactNativeBiometricsSharedImpl(reactContext)
+  private var listenerCount = 0
 
   init {
     // Initialize biometric change detection
@@ -138,14 +139,18 @@ class ReactNativeBiometricsModule(reactContext: ReactApplicationContext) :
 
   @ReactMethod
   fun addListener(eventName: String) {
-    // Called when JS side starts listening
-    sharedImpl.startBiometricChangeDetection()
+    // Increment listener count and start detection when first listener is added
+    listenerCount++
+    if (listenerCount == 1) {
+      sharedImpl.startBiometricChangeDetection()
+    }
   }
 
   @ReactMethod
   fun removeListeners(count: Double) {
-    // Called when JS side stops listening
-    if (count == 0.0) {
+    // Decrement listener count and stop detection when all listeners are removed
+    listenerCount = maxOf(0, listenerCount - count.toInt())
+    if (listenerCount == 0) {
       sharedImpl.stopBiometricChangeDetection()
     }
   }

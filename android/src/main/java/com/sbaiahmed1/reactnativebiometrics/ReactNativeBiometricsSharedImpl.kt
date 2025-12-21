@@ -1616,8 +1616,8 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
         val changeType = when {
           !lastAvailable && currentAvailable -> "BIOMETRIC_ENABLED"
           lastAvailable && !currentAvailable -> "BIOMETRIC_DISABLED"
+          lastType != currentType -> "HARDWARE_UNAVAILABLE"
           lastEnrolled != currentEnrolled -> "ENROLLMENT_CHANGED"
-          lastType != currentType -> "HARDWARE_CHANGED"
           lastKeyCount != currentKeyCount -> "ENROLLMENT_CHANGED"
           else -> "STATE_CHANGED"
         }
