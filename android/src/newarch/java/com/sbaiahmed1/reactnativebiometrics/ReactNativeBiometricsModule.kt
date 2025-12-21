@@ -137,15 +137,6 @@ class ReactNativeBiometricsModule(reactContext: ReactApplicationContext) :
 
   @ReactMethod
   fun addListener(eventName: String) {
-    // Show alert to confirm this method is being called
-    android.os.Handler(android.os.Looper.getMainLooper()).post {
-      android.app.AlertDialog.Builder(reactApplicationContext.currentActivity)
-        .setTitle("addListener Called!")
-        .setMessage("Event: $eventName\nStarting biometric detection...")
-        .setPositiveButton("OK", null)
-        .show()
-    }
-
     // Increment listener count and start detection when first listener is added
     listenerCount++
     if (listenerCount == 1) {
@@ -155,15 +146,6 @@ class ReactNativeBiometricsModule(reactContext: ReactApplicationContext) :
 
   @ReactMethod
   fun removeListeners(count: Double) {
-    // Show toast to confirm this method is being called
-    android.os.Handler(android.os.Looper.getMainLooper()).post {
-      android.widget.Toast.makeText(
-        reactApplicationContext,
-        "removeListeners called - count: $count",
-        android.widget.Toast.LENGTH_SHORT
-      ).show()
-    }
-
     // Decrement listener count and stop detection when all listeners are removed
     listenerCount = maxOf(0, listenerCount - count.toInt())
     if (listenerCount == 0) {
