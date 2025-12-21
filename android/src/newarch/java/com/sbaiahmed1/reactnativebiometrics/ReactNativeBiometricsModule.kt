@@ -46,14 +46,7 @@ class ReactNativeBiometricsModule(reactContext: ReactApplicationContext) :
     // Note: Detection is now manually controlled via start/stopBiometricChangeDetection
     // Auto-start was removed to give users explicit control
 
-    // Show debug alert on module initialization
-    android.os.Handler(android.os.Looper.getMainLooper()).post {
-      android.widget.Toast.makeText(
-        reactContext,
-        "ReactNativeBiometrics Module Initialized (New Arch)",
-        android.widget.Toast.LENGTH_LONG
-      ).show()
-    }
+
   }
 
   override fun getName() = NAME
