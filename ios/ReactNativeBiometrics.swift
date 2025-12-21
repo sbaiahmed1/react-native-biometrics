@@ -1019,7 +1019,7 @@ class ReactNativeBiometrics: RCTEventEmitter {
 
     var biometryType: String = "None"
     var enrolledCount = 0
-    var domainState: Data? = nil
+    var domainState: Data?
 
     if available {
       if #available(iOS 11.0, *) {
