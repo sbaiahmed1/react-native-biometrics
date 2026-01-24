@@ -17,6 +17,7 @@ abstract class ReactNativeBiometricsSpec(reactContext: ReactApplicationContext) 
   // Key integrity validation
   abstract fun validateKeyIntegrity(keyAlias: String?, promise: Promise)
   abstract fun verifyKeySignature(keyAlias: String?, data: String, promptTitle: String?, promptSubtitle: String?, cancelButtonText: String?, promise: Promise)
+  abstract fun verifyKeySignatureWithOptions(keyAlias: String?, data: String, promptTitle: String?, promptSubtitle: String?, cancelButtonText: String?, biometricStrength: String?, disableDeviceFallback: Boolean, inputEncoding: String?, promise: Promise)
   abstract fun validateSignature(keyAlias: String?, data: String, signature: String, promise: Promise)
   abstract fun getKeyAttributes(keyAlias: String?, promise: Promise)
   // Configuration

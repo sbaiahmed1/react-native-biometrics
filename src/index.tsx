@@ -317,7 +317,6 @@ export function signWithOptions(
 
   // On Android, use the new method with options
   if (Platform.OS === 'android') {
-    // @ts-expect-error - verifyKeySignatureWithOptions is a new Android-only method
     return ReactNativeBiometrics.verifyKeySignatureWithOptions(
       keyAlias,
       data,
@@ -345,7 +344,6 @@ export function signWithOptions(
   }
 
   // On iOS, use the standard method with inputEncoding
-  // @ts-expect-error - verifyKeySignatureWithEncoding is a new iOS method
   return ReactNativeBiometrics.verifyKeySignatureWithEncoding(
     keyAlias,
     data,
