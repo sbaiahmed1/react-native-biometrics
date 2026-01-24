@@ -90,6 +90,34 @@ export interface Spec extends TurboModule {
     error?: string;
     errorCode?: string;
   }>;
+  verifyKeySignatureWithOptions(
+    keyAlias: string | null,
+    data: string,
+    promptTitle?: string | null,
+    promptSubtitle?: string | null,
+    cancelButtonText?: string | null,
+    biometricStrength?: 'weak' | 'strong' | null,
+    disableDeviceFallback?: boolean,
+    inputEncoding?: 'utf8' | 'base64' | null
+  ): Promise<{
+    success: boolean;
+    signature?: string;
+    error?: string;
+    errorCode?: string;
+  }>;
+  verifyKeySignatureWithEncoding(
+    keyAlias: string | null,
+    data: string,
+    promptTitle?: string | null,
+    promptSubtitle?: string | null,
+    cancelButtonText?: string | null,
+    inputEncoding?: 'utf8' | 'base64' | null
+  ): Promise<{
+    success: boolean;
+    signature?: string;
+    error?: string;
+    errorCode?: string;
+  }>;
   validateSignature(
     keyAlias: string,
     data: string,

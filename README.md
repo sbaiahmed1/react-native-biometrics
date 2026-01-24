@@ -1178,20 +1178,27 @@ Generates a cryptographic signature for the provided data using the specified ke
 Signs data with advanced security controls, including the ability to disable device credential fallback.
 
 ```typescript
+import { InputEncoding, BiometricStrength } from '@sbaiahmed1/react-native-biometrics';
+
 type SignatureOptions = {
   keyAlias?: string;                      // Key alias to use for signing
   data: string;                           // Data to sign
+  inputEncoding?: InputEncoding;          // Input encoding: InputEncoding.UTF8 (default) or InputEncoding.Base64
   promptTitle?: string;                   // Prompt title
   promptSubtitle?: string;                // Prompt subtitle (Android only)
   cancelButtonText?: string;              // Cancel button text
-  biometricStrength?: 'weak' | 'strong';  // Biometric strength (Android only)
+  biometricStrength?: BiometricStrength;  // Biometric strength (Android only)
   disableDeviceFallback?: boolean;        // Prevent PIN/pattern fallback (Android only)
 };
+
+// InputEncoding enum values:
+// - InputEncoding.UTF8: Data is treated as a UTF-8 string (default)
+// - InputEncoding.Base64: Data is decoded from base64 before signing (for WebAuthn/binary data)
 ```
 
 **Example - Requiring biometrics only (no PIN fallback):**
 ```javascript
-import { signWithOptions, BiometricStrength } from '@sbaiahmed1/react-native-biometrics';
+import { signWithOptions, BiometricStrength, InputEncoding } from '@sbaiahmed1/react-native-biometrics';
 
 // High-security signing - biometrics only, no PIN fallback
 const result = await signWithOptions({
