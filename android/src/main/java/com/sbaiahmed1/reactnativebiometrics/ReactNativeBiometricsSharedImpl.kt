@@ -1078,12 +1078,47 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
   }
 
   fun verifyKeySignature(keyAlias: String?, data: String, promptTitle: String?, promptSubtitle: String?, cancelButtonText: String?, promise: Promise) {
-    verifyKeySignature(keyAlias, data, promptTitle, promptSubtitle, cancelButtonText, null, promise)
+    verifyKeySignature(keyAlias, data, promptTitle, promptSubtitle, cancelButtonText, null, false, "utf8", promise)
   }
 
   fun verifyKeySignature(keyAlias: String?, data: String, promptTitle: String?, promptSubtitle: String?, cancelButtonText: String?, biometricStrength: String?, promise: Promise) {
+    verifyKeySignature(keyAlias, data, promptTitle, promptSubtitle, cancelButtonText, biometricStrength, false, "utf8", promise)
+  }
+
+  fun verifyKeySignature(keyAlias: String?, data: String, promptTitle: String?, promptSubtitle: String?, cancelButtonText: String?, biometricStrength: String?, disableDeviceFallback: Boolean, promise: Promise) {
+    verifyKeySignature(keyAlias, data, promptTitle, promptSubtitle, cancelButtonText, biometricStrength, disableDeviceFallback, "utf8", promise)
+  }
+
+  /**
+   * Converts input data to bytes based on the specified encoding.
+   * @param data The input data string
+   * @param inputEncoding Either "utf8" or "base64"
+   * @return ByteArray of the data, or null if decoding fails
+   */
+  private fun decodeInputData(data: String, inputEncoding: String): ByteArray? {
+    return when (inputEncoding.lowercase()) {
+      "base64" -> {
+        try {
+          BiometricUtils.decodeBase64(data)
+        } catch (e: Exception) {
+          debugLog("Failed to decode base64 data: ${e.message}")
+          null
+        }
+      }
+      else -> data.toByteArray(Charsets.UTF_8)
+    }
+  }
+
+  fun verifyKeySignature(keyAlias: String?, data: String, promptTitle: String?, promptSubtitle: String?, cancelButtonText: String?, biometricStrength: String?, disableDeviceFallback: Boolean, inputEncoding: String, promise: Promise) {
     val actualKeyAlias = getKeyAlias(keyAlias)
-    debugLog("verifyKeySignature called with keyAlias: ${keyAlias ?: "default"}, using: $actualKeyAlias, biometricStrength: ${biometricStrength ?: "strong"}")
+    debugLog("verifyKeySignature called with keyAlias: ${keyAlias ?: "default"}, using: $actualKeyAlias, biometricStrength: ${biometricStrength ?: "strong"}, disableDeviceFallback: $disableDeviceFallback, inputEncoding: $inputEncoding")
+
+    // Decode input data based on encoding
+    val dataBytes = decodeInputData(data, inputEncoding)
+    if (dataBytes == null) {
+      promise.resolve(createSignatureErrorResult("Invalid base64 data", "INVALID_INPUT_ENCODING"))
+      return
+    }
 
     try {
       val keyStore = KeyStore.getInstance("AndroidKeyStore")
@@ -1117,7 +1152,7 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
         try {
           val signature = Signature.getInstance(BiometricUtils.getSignatureAlgorithm(privateKey))
           signature.initSign(privateKey)
-          signature.update(data.toByteArray())
+          signature.update(dataBytes)
           val signatureBytes = signature.sign()
           val signatureString = BiometricUtils.encodeBase64(signatureBytes)
 
@@ -1158,10 +1193,29 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
 
       debugLog("verifyKeySignature - Biometric status: $biometricStatus for authenticator: $authenticator")
 
-      val authenticators = if (biometricStatus == BiometricManager.BIOMETRIC_SUCCESS) {
-        authenticator
-      } else {
-        BiometricManager.Authenticators.DEVICE_CREDENTIAL
+      // For crypto operations with CryptoObject, we should use the biometric authenticator
+      // that matches the key's authentication requirements. The CryptoObject will enforce
+      // the correct biometric level. We only fall back to DEVICE_CREDENTIAL if:
+      // 1. Biometrics are not available AND
+      // 2. disableDeviceFallback is false
+      val authenticators = when {
+        biometricStatus == BiometricManager.BIOMETRIC_SUCCESS -> authenticator
+        disableDeviceFallback -> {
+          // User wants biometrics only - reject if not available
+          debugLog("verifyKeySignature - Biometrics not available and fallback disabled")
+          promise.resolve(
+            createSignatureErrorResult(
+              "Biometric authentication required but not available",
+              "BIOMETRIC_NOT_AVAILABLE"
+            )
+          )
+          return
+        }
+        else -> {
+          // Fall back to device credential only if allowed
+          debugLog("verifyKeySignature - Falling back to DEVICE_CREDENTIAL")
+          BiometricManager.Authenticators.DEVICE_CREDENTIAL
+        }
       }
 
       val promptInfoBuilder = BiometricPrompt.PromptInfo.Builder()
@@ -1206,7 +1260,7 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
               return
             }
 
-            authenticatedSignature.update(data.toByteArray())
+            authenticatedSignature.update(dataBytes)
             val signatureBytes = authenticatedSignature.sign()
             val signatureString = BiometricUtils.encodeBase64(signatureBytes)
 
@@ -1469,7 +1523,11 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
    * This method is used by the old architecture module.
    */
   fun createSignature(payload: String, keyAlias: String?, biometricStrength: String?, promise: Promise) {
-    debugLog("createSignature called with keyAlias: ${keyAlias ?: "default"}, biometricStrength: ${biometricStrength ?: "strong"}")
+    createSignature(payload, keyAlias, biometricStrength, false, promise)
+  }
+
+  fun createSignature(payload: String, keyAlias: String?, biometricStrength: String?, disableDeviceFallback: Boolean, promise: Promise) {
+    debugLog("createSignature called with keyAlias: ${keyAlias ?: "default"}, biometricStrength: ${biometricStrength ?: "strong"}, disableDeviceFallback: $disableDeviceFallback")
 
     // Validate payload parameter
     if (payload.isEmpty()) {
@@ -1482,7 +1540,7 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
     }
 
     // Delegate to verifyKeySignature with default prompt messages
-    verifyKeySignature(keyAlias, payload, "Biometric Authentication", "Use your biometric to sign", "Cancel", biometricStrength, promise)
+    verifyKeySignature(keyAlias, payload, "Biometric Authentication", "Use your biometric to sign", "Cancel", biometricStrength, disableDeviceFallback, promise)
   }
 
   /**

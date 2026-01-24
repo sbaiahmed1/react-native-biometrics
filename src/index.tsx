@@ -1,6 +1,12 @@
+import type { BiometricChangeEvent } from './NativeReactNativeBiometrics';
 import ReactNativeBiometrics from './NativeReactNativeBiometrics';
-import { logger, LogLevel, type LogEntry } from './logger';
-import { Platform } from 'react-native';
+import { type LogEntry, logger, LogLevel } from './logger';
+// Biometric Change Detection API
+import {
+  DeviceEventEmitter,
+  type EventSubscription,
+  Platform,
+} from 'react-native';
 import { BiometricStrength } from './types';
 
 export function isSensorAvailable(options?: {
@@ -265,6 +271,101 @@ export function verifyKeySignature(
         error,
         { keyAlias }
       );
+      throw error;
+    });
+}
+
+/**
+ * Signs data with biometric authentication using advanced options.
+ * This method provides more control over the authentication process,
+ * including the ability to disable device credential fallback.
+ *
+ * @param options - Signature options including keyAlias, data, prompt settings, and security options
+ * @returns Promise with signature result
+ *
+ * @example
+ * // Require biometrics only (no PIN/pattern fallback)
+ * const result = await signWithOptions({
+ *   keyAlias: 'my_key',
+ *   data: 'data to sign',
+ *   promptTitle: 'Sign Transaction',
+ *   disableDeviceFallback: true,
+ *   biometricStrength: 'strong'
+ * });
+ */
+export function signWithOptions(
+  options: SignatureOptions
+): Promise<SignatureResult> {
+  const {
+    keyAlias = '',
+    data,
+    inputEncoding = 'utf8',
+    promptTitle,
+    promptSubtitle,
+    cancelButtonText,
+    biometricStrength,
+    disableDeviceFallback = false,
+  } = options;
+
+  logger.debug('Signing with options', 'signWithOptions', {
+    keyAlias,
+    dataLength: data.length,
+    inputEncoding,
+    biometricStrength,
+    disableDeviceFallback,
+  });
+
+  // On Android, use the new method with options
+  if (Platform.OS === 'android') {
+    // @ts-expect-error - verifyKeySignatureWithOptions is a new Android-only method
+    return ReactNativeBiometrics.verifyKeySignatureWithOptions(
+      keyAlias,
+      data,
+      promptTitle,
+      promptSubtitle,
+      cancelButtonText,
+      biometricStrength,
+      disableDeviceFallback,
+      inputEncoding
+    )
+      .then((result: SignatureResult) => {
+        logger.info('Sign with options completed', 'signWithOptions', {
+          keyAlias,
+          success: result.success,
+          hasSignature: !!result.signature,
+        });
+        return result;
+      })
+      .catch((error: Error) => {
+        logger.error('Sign with options failed', 'signWithOptions', error, {
+          keyAlias,
+        });
+        throw error;
+      });
+  }
+
+  // On iOS, use the standard method with inputEncoding
+  // @ts-expect-error - verifyKeySignatureWithEncoding is a new iOS method
+  return ReactNativeBiometrics.verifyKeySignatureWithEncoding(
+    keyAlias,
+    data,
+    promptTitle,
+    promptSubtitle,
+    cancelButtonText,
+    inputEncoding
+  )
+    .then((result: SignatureResult) => {
+      logger.info('Sign with options completed', 'signWithOptions', {
+        keyAlias,
+        success: result.success,
+        hasSignature: !!result.signature,
+      });
+      return result;
+    })
+    .catch((error: Error) => {
+      logger.error('Sign with options failed', 'signWithOptions', error, {
+        keyAlias,
+      });
       throw error;
     });
 }
@@ -561,6 +662,62 @@ export type SignatureResult = {
   errorCode?: string;
 };
 
+/**
+ * Input encoding for signature data.
+ * Use this enum to specify how the input data should be interpreted.
+ */
+export enum InputEncoding {
+  /** Data is a UTF-8 string (default) */
+  UTF8 = 'utf8',
+  /** Data is base64-encoded binary - use for WebAuthn challenges or other binary data */
+  Base64 = 'base64',
+}
+
+/**
+ * Options for signing data with advanced security controls.
+ */
+export type SignatureOptions = {
+  /** The key alias to use for signing. Defaults to the configured alias. */
+  keyAlias?: string;
+  /** The data to sign */
+  data: string;
+  /**
+   * Encoding of the input data. Use InputEncoding enum.
+   * - InputEncoding.UTF8 (default): Data is treated as a UTF-8 string
+   * - InputEncoding.Base64: Data is decoded from base64 before signing
+   *
+   * Use InputEncoding.Base64 for WebAuthn challenges or other binary data.
+   * This avoids double-encoding when your challenge is already bytes.
+   *
+   * @example
+   * // For WebAuthn with binary challenge
+   * signWithOptions({
+   *   data: base64Challenge,
+   *   inputEncoding: InputEncoding.Base64
+   * })
+   */
+  inputEncoding?: InputEncoding;
+  /** Title for the biometric prompt */
+  promptTitle?: string;
+  /** Subtitle for the biometric prompt */
+  promptSubtitle?: string;
+  /** Text for the cancel button */
+  cancelButtonText?: string;
+  /**
+   * Biometric strength requirement (Android only).
+   * - 'strong': Requires Class 3 biometrics (fingerprint, iris)
+   * - 'weak': Allows Class 2 biometrics (face unlock on some devices)
+   */
+  biometricStrength?: BiometricStrength;
+  /**
+   * When true, prevents fallback to device credentials (PIN/pattern/password).
+   * If biometrics are not available and this is true, the operation will fail.
+   * This is useful for high-security operations that require biometric-only authentication.
+   * (Android only - iOS Secure Enclave keys already enforce biometrics by default)
+   */
+  disableDeviceFallback?: boolean;
+};
+
 export type SignatureValidationResult = {
   valid: boolean;
   error?: string;
@@ -643,10 +800,6 @@ export function getLogs(): LogEntry[] {
 export function clearLogs(): void {
   logger.clearLogs();
 }
-
-// Biometric Change Detection API
-import { type EventSubscription, DeviceEventEmitter } from 'react-native';
-import type { BiometricChangeEvent } from './NativeReactNativeBiometrics';
 
 export type { BiometricChangeEvent };
 

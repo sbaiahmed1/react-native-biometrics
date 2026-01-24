@@ -716,8 +716,21 @@ class ReactNativeBiometrics: RCTEventEmitter {
                           cancelButtonText: NSString?,
                           resolver resolve: @escaping RCTPromiseResolveBlock,
                           rejecter reject: @escaping RCTPromiseRejectBlock) {
-    ReactNativeBiometricDebug.debugLog("verifyKeySignature called with keyAlias: \(keyAlias ?? "default")")
-    
+    verifyKeySignatureWithEncoding(keyAlias, data: data, promptTitle: promptTitle, promptSubtitle: promptSubtitle, cancelButtonText: cancelButtonText, inputEncoding: "utf8", resolver: resolve, rejecter: reject)
+  }
+
+  @objc
+  func verifyKeySignatureWithEncoding(_ keyAlias: NSString?,
+                          data: NSString,
+                          promptTitle: NSString?,
+                          promptSubtitle: NSString?,
+                          cancelButtonText: NSString?,
+                          inputEncoding: NSString?,
+                          resolver resolve: @escaping RCTPromiseResolveBlock,
+                          rejecter reject: @escaping RCTPromiseRejectBlock) {
+    let encoding = (inputEncoding as String?) ?? "utf8"
+    ReactNativeBiometricDebug.debugLog("verifyKeySignature called with keyAlias: \(keyAlias ?? "default"), inputEncoding: \(encoding)")
+
     let keyTag = getKeyAlias(keyAlias as String?)
     
     // Try to find the key - first with Secure Enclave (for EC keys), then without (for RSA keys)
@@ -753,9 +766,22 @@ class ReactNativeBiometrics: RCTEventEmitter {
     // Force cast SecKey since conditional downcast to CoreFoundation types always succeeds
     let keyRef = result as! SecKey
     let algorithm = getSignatureAlgorithm(for: keyRef)
-    guard let dataToSign = (data as String).data(using: .utf8) else {
-      handleError(.dataEncodingFailed, reject: reject)
-      return
+
+    // Decode data based on input encoding
+    let dataToSign: Data
+    if encoding.lowercased() == "base64" {
+      guard let decodedData = Data(base64Encoded: data as String) else {
+        ReactNativeBiometricDebug.debugLog("verifyKeySignature failed - Invalid base64 data")
+        resolve(["success": false, "error": "Invalid base64 data", "errorCode": "INVALID_INPUT_ENCODING"])
+        return
+      }
+      dataToSign = decodedData
+    } else {
+      guard let utf8Data = (data as String).data(using: .utf8) else {
+        handleError(.dataEncodingFailed, reject: reject)
+        return
+      }
+      dataToSign = utf8Data
     }
     
     // SecKeyCreateSignature will automatically handle biometric authentication for Secure Enclave keys

@@ -67,6 +67,16 @@ class ReactNativeBiometricsModule(reactContext: ReactApplicationContext) :
   }
 
   @ReactMethod
+  fun verifyKeySignatureWithOptions(keyAlias: String?, data: String, promptTitle: String?, promptSubtitle: String?, cancelButtonText: String?, biometricStrength: String?, disableDeviceFallback: Boolean, promise: Promise) {
+    sharedImpl.verifyKeySignature(keyAlias, data, promptTitle, promptSubtitle, cancelButtonText, biometricStrength, disableDeviceFallback, "utf8", promise)
+  }
+
+  @ReactMethod
+  fun verifyKeySignatureWithOptions(keyAlias: String?, data: String, promptTitle: String?, promptSubtitle: String?, cancelButtonText: String?, biometricStrength: String?, disableDeviceFallback: Boolean, inputEncoding: String?, promise: Promise) {
+    sharedImpl.verifyKeySignature(keyAlias, data, promptTitle, promptSubtitle, cancelButtonText, biometricStrength, disableDeviceFallback, inputEncoding ?: "utf8", promise)
+  }
+
+  @ReactMethod
   fun validateSignature(keyAlias: String?, data: String, signature: String, promise: Promise) {
     sharedImpl.validateSignature(keyAlias, data, signature, promise)
   }
@@ -110,6 +120,11 @@ class ReactNativeBiometricsModule(reactContext: ReactApplicationContext) :
   @ReactMethod
   fun createSignature(payload: String, keyAlias: String?, biometricStrength: String?, promise: Promise) {
     sharedImpl.createSignature(payload, keyAlias, biometricStrength, promise)
+  }
+
+  @ReactMethod
+  fun createSignatureWithOptions(payload: String, keyAlias: String?, biometricStrength: String?, disableDeviceFallback: Boolean, promise: Promise) {
+    sharedImpl.createSignature(payload, keyAlias, biometricStrength, disableDeviceFallback, promise)
   }
 
   @ReactMethod
