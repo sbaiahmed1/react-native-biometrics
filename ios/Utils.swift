@@ -216,7 +216,34 @@ public func createKeyGenerationAttributes(
 }
 
 /**
- * Exports a public key to base64 string
+ * SPKI (Subject Public Key Info) header for EC P-256 (secp256r1) keys.
+ * This ASN.1 header is required for standard X.509 SubjectPublicKeyInfo format
+ * and compatibility with the old react-native-biometrics library.
+ *
+ * Structure:
+ *   SEQUENCE {
+ *     SEQUENCE {
+ *       OID 1.2.840.10045.2.1 (ecPublicKey)
+ *       OID 1.2.840.10045.3.1.7 (secp256r1/P-256)
+ *     }
+ *     BIT STRING (containing the raw EC public key)
+ *   }
+ */
+private let ecP256SPKIHeader: [UInt8] = [
+  0x30, 0x59,       // SEQUENCE, length 89
+  0x30, 0x13,       // SEQUENCE, length 19
+  0x06, 0x07,       // OID, length 7
+  0x2A, 0x86, 0x48, 0xCE, 0x3D, 0x02, 0x01,  // 1.2.840.10045.2.1 (ecPublicKey)
+  0x06, 0x08,       // OID, length 8
+  0x2A, 0x86, 0x48, 0xCE, 0x3D, 0x03, 0x01, 0x07,  // 1.2.840.10045.3.1.7 (secp256r1)
+  0x03, 0x42,       // BIT STRING, length 66
+  0x00              // unused bits = 0
+]
+
+/**
+ * Exports a public key to base64 string with proper SPKI header for EC keys.
+ * For EC P-256 keys, prepends the ASN.1 SPKI header for X.509 SubjectPublicKeyInfo format.
+ * For RSA keys, returns the raw key data (already in proper format).
  * - Parameter publicKey: The SecKey public key to export
  * - Returns: Base64 encoded public key string or nil if export fails
  */
@@ -228,7 +255,23 @@ public func exportPublicKeyToBase64(_ publicKey: SecKey) -> String? {
     }
     return nil
   }
-  return (publicKeyData as Data).base64EncodedString()
+
+  let rawKeyData = publicKeyData as Data
+
+  // Check if this is an EC key (65 bytes for uncompressed P-256: 0x04 + 32 bytes X + 32 bytes Y)
+  // RSA keys are much larger (256+ bytes for 2048-bit keys)
+  if rawKeyData.count == 65 && rawKeyData[0] == 0x04 {
+    // EC P-256 key - prepend SPKI header for X.509 SubjectPublicKeyInfo format
+    var spkiData = Data(ecP256SPKIHeader)
+    spkiData.append(rawKeyData)
+    ReactNativeBiometricDebug.debugLog("Exported EC P-256 public key with SPKI header (\(spkiData.count) bytes)")
+    return spkiData.base64EncodedString()
+  } else {
+    // RSA or other key types - return as-is (RSA keys from SecKeyCopyExternalRepresentation
+    // are already in PKCS#1 format which is commonly used)
+    ReactNativeBiometricDebug.debugLog("Exported public key (\(rawKeyData.count) bytes)")
+    return rawKeyData.base64EncodedString()
+  }
 }
 
 /**

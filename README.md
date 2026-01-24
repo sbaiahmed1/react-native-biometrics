@@ -815,6 +815,20 @@ type KeyResult = {
 
 > 📖 **For detailed key type information, security considerations, and advanced usage patterns, see the [Cryptographic Keys Guide](./docs/CRYPTOGRAPHIC_KEYS.md)**
 
+**⚠️ Platform Behavior Differences:**
+
+| Behavior | iOS | Android |
+|----------|-----|---------|
+| **Biometric prompt during `createKeys()`** | Silent - no prompt shown | Shows biometric prompt (required by Android Keystore when `setUserAuthenticationRequired` is true) |
+| **Key storage** | EC256 uses Secure Enclave; RSA uses regular Keychain | Android Keystore (hardware-backed when available) |
+| **Authentication requirement** | Enforced during signing only | Enforced during key creation AND signing |
+
+This difference exists because:
+- **iOS**: Keys are created silently in the Secure Enclave. Biometric authentication is only required when using the key (e.g., during `verifyKeySignature()`).
+- **Android**: The Android Keystore requires biometric authentication during key creation when `setUserAuthenticationRequired(true)` is set, which is necessary for crypto-bound keys.
+
+To maintain consistent UX across platforms, consider showing a custom "setup" screen on iOS before calling `createKeys()` to match Android's behavior.
+
 **Example:**
 ```javascript
 import { createKeys } from '@sbaiahmed1/react-native-biometrics';
@@ -1158,6 +1172,66 @@ Generates a cryptographic signature for the provided data using the specified ke
 - `promptSubtitle` (optional): Subtitle text providing additional context in the prompt dialog (Android only).
 - `cancelButtonText` (optional): Text for the cancel button in the prompt dialog (Android only).
 - Returns a `SignatureResult` with `success`, `signature`, `error`, and `errorCode` (when available) on both iOS and Android.
+
+#### `signWithOptions(options: SignatureOptions): Promise<SignatureResult>` 🆕
+
+Signs data with advanced security controls, including the ability to disable device credential fallback.
+
+```typescript
+type SignatureOptions = {
+  keyAlias?: string;                      // Key alias to use for signing
+  data: string;                           // Data to sign
+  promptTitle?: string;                   // Prompt title
+  promptSubtitle?: string;                // Prompt subtitle (Android only)
+  cancelButtonText?: string;              // Cancel button text
+  biometricStrength?: 'weak' | 'strong';  // Biometric strength (Android only)
+  disableDeviceFallback?: boolean;        // Prevent PIN/pattern fallback (Android only)
+};
+```
+
+**Example - Requiring biometrics only (no PIN fallback):**
+```javascript
+import { signWithOptions, BiometricStrength } from '@sbaiahmed1/react-native-biometrics';
+
+// High-security signing - biometrics only, no PIN fallback
+const result = await signWithOptions({
+  keyAlias: 'transaction_key',
+  data: JSON.stringify({ amount: 1000, recipient: 'user123' }),
+  promptTitle: 'Authorize Transaction',
+  promptSubtitle: 'Use biometrics to sign this transaction',
+  biometricStrength: BiometricStrength.Strong,
+  disableDeviceFallback: true,  // Fail if biometrics unavailable
+});
+
+if (result.success) {
+  console.log('Signature:', result.signature);
+} else if (result.errorCode === 'BIOMETRIC_NOT_AVAILABLE') {
+  console.log('Biometrics required but not available');
+}
+```
+
+**When to use `disableDeviceFallback: true`:**
+- High-value financial transactions
+- Multi-factor authentication where biometric is the second factor
+- Operations requiring proof of physical presence
+- Security-critical actions that must not fall back to knowledge-based authentication
+
+**Using base64 input for WebAuthn/binary data:**
+```javascript
+import { signWithOptions, InputEncoding } from '@sbaiahmed1/react-native-biometrics';
+
+// When your challenge is binary data (e.g., from WebAuthn)
+const binaryChallenge = 'SGVsbG8gV29ybGQh'; // base64-encoded bytes
+
+const result = await signWithOptions({
+  keyAlias: 'webauthn_key',
+  data: binaryChallenge,
+  inputEncoding: InputEncoding.Base64,  // Decode as binary, not UTF-8
+  promptTitle: 'Authenticate',
+});
+```
+
+This avoids double-encoding issues when working with WebAuthn challenges or other binary data that's already base64-encoded.
 
 #### `validateSignature(data: string, signature: string, keyAlias?: string): Promise<SignatureValidationResult>`
 Validates a signature against the original data using the public key.
