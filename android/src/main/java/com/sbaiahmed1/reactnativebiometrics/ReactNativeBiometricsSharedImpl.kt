@@ -327,19 +327,16 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
         keyStore.deleteEntry(actualKeyAlias)
       }
 
-      // Check biometric availability based on requested strength
-      val biometricManager = BiometricManager.from(context)
-      val authenticator = if (requestedStrength == "weak") {
-        BiometricManager.Authenticators.BIOMETRIC_WEAK or BiometricManager.Authenticators.DEVICE_CREDENTIAL
-      } else {
-        BiometricManager.Authenticators.BIOMETRIC_STRONG
-      }
-
-      val canAuthenticate = biometricManager.canAuthenticate(authenticator)
+      // Use shared helper to determine authenticator with fallback logic
+      val authenticatorResult = BiometricUtils.determineAuthenticator(context, biometricStrength)
+      val authenticator = authenticatorResult.authenticator
+      val fallbackUsed = authenticatorResult.fallbackUsed
+      val actualStrength = authenticatorResult.actualStrength
+      val isAvailable = authenticatorResult.isAvailable
 
       // Determine if we should require user authentication
-      // For weak biometrics, we don't require authentication because crypto-based auth is not supported
-      val requireUserAuth = canAuthenticate == BiometricManager.BIOMETRIC_SUCCESS && requestedStrength != "weak"
+      // Always require authentication when biometrics are available, regardless of strength
+      val requireUserAuth = isAvailable
 
       // Generate new key pair based on key type
       when (actualKeyType) {
@@ -373,7 +370,7 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
             val result = Arguments.createMap()
             result.putString("publicKey", publicKeyString)
 
-            debugLog("RSA Keys created successfully with alias: $actualKeyAlias, requiresAuth: $requireUserAuth, strength: $requestedStrength")
+            debugLog("RSA Keys created successfully with alias: $actualKeyAlias, requiresAuth: $requireUserAuth, strength: $requestedStrength, fallbackUsed: $fallbackUsed, actualStrength: $actualStrength")
             promise.resolve(result)
           } catch (e: java.security.InvalidAlgorithmParameterException) {
             // Check for enrollment error in both exception message and cause
@@ -406,7 +403,7 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
               val result = Arguments.createMap()
               result.putString("publicKey", publicKeyString)
               
-              debugLog("RSA Keys created successfully (fallback) with alias: $actualKeyAlias, requiresAuth: false")
+              debugLog("RSA Keys created successfully (fallback) with alias: $actualKeyAlias, requiresAuth: false, fallbackUsed: $fallbackUsed, actualStrength: $actualStrength")
               promise.resolve(result)
             } else {
               throw e
@@ -443,7 +440,7 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
             val result = Arguments.createMap()
             result.putString("publicKey", publicKeyString)
 
-            debugLog("EC Keys created successfully with alias: $actualKeyAlias, requiresAuth: $requireUserAuth, strength: $requestedStrength")
+            debugLog("EC Keys created successfully with alias: $actualKeyAlias, requiresAuth: $requireUserAuth, strength: $requestedStrength, fallbackUsed: $fallbackUsed, actualStrength: $actualStrength")
             promise.resolve(result)
           } catch (e: java.security.InvalidAlgorithmParameterException) {
             // Check for enrollment error in both exception message and cause
@@ -475,7 +472,7 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
               val result = Arguments.createMap()
               result.putString("publicKey", publicKeyString)
               
-              debugLog("EC Keys created successfully (fallback) with alias: $actualKeyAlias, requiresAuth: false")
+              debugLog("EC Keys created successfully (fallback) with alias: $actualKeyAlias, requiresAuth: false, fallbackUsed: $fallbackUsed, actualStrength: $actualStrength")
               promise.resolve(result)
             } else {
               throw e
