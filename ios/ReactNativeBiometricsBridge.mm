@@ -70,6 +70,28 @@ RCT_EXTERN_METHOD(verifyKeySignature:
     resolver:(RCTPromiseResolveBlock)resolve
     rejecter:(RCTPromiseRejectBlock)reject)
 
+RCT_EXTERN_METHOD(verifyKeySignatureWithOptions:
+    (NSString *)keyAlias
+    data:(NSString *)data
+    promptTitle:(NSString *)promptTitle
+    promptSubtitle:(NSString *)promptSubtitle
+    cancelButtonText:(NSString *)cancelButtonText
+    biometricStrength:(NSString *)biometricStrength
+    disableDeviceFallback:(BOOL)disableDeviceFallback
+    inputEncoding:(NSString *)inputEncoding
+    resolver:(RCTPromiseResolveBlock)resolve
+    rejecter:(RCTPromiseRejectBlock)reject)
+
+RCT_EXTERN_METHOD(verifyKeySignatureWithEncoding:
+    (NSString *)keyAlias
+    data:(NSString *)data
+    promptTitle:(NSString *)promptTitle
+    promptSubtitle:(NSString *)promptSubtitle
+    cancelButtonText:(NSString *)cancelButtonText
+    inputEncoding:(NSString *)inputEncoding
+    resolver:(RCTPromiseResolveBlock)resolve
+    rejecter:(RCTPromiseRejectBlock)reject)
+
 RCT_EXTERN_METHOD(validateSignature:
     (NSString *)keyAlias
     data:(NSString *)data

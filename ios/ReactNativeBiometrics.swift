@@ -720,6 +720,22 @@ class ReactNativeBiometrics: RCTEventEmitter {
   }
 
   @objc
+  func verifyKeySignatureWithOptions(_ keyAlias: NSString?,
+                          data: NSString,
+                          promptTitle: NSString?,
+                          promptSubtitle: NSString?,
+                          cancelButtonText: NSString?,
+                          biometricStrength: NSString?,
+                          disableDeviceFallback: NSNumber,
+                          inputEncoding: NSString?,
+                          resolver resolve: @escaping RCTPromiseResolveBlock,
+                          rejecter reject: @escaping RCTPromiseRejectBlock) {
+    // For now, delegate to verifyKeySignatureWithEncoding as iOS doesn't have the same strength/fallback concepts as Android
+    // The biometric prompt will be shown automatically by the Secure Enclave when required
+    verifyKeySignatureWithEncoding(keyAlias, data: data, promptTitle: promptTitle, promptSubtitle: promptSubtitle, cancelButtonText: cancelButtonText, inputEncoding: inputEncoding, resolver: resolve, rejecter: reject)
+  }
+
+  @objc
   func verifyKeySignatureWithEncoding(_ keyAlias: NSString?,
                           data: NSString,
                           promptTitle: NSString?,
