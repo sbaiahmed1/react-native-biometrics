@@ -72,6 +72,11 @@ class ReactNativeBiometricsModule(reactContext: ReactApplicationContext) :
   }
 
   @ReactMethod
+  fun verifyKeySignatureWithEncoding(keyAlias: String?, data: String, promptTitle: String?, promptSubtitle: String?, cancelButtonText: String?, inputEncoding: String?, promise: Promise) {
+    sharedImpl.verifyKeySignature(keyAlias, data, promptTitle, promptSubtitle, cancelButtonText, null, false, inputEncoding ?: "utf8", promise)
+  }
+
+  @ReactMethod
   fun validateSignature(keyAlias: String?, data: String, signature: String, promise: Promise) {
     sharedImpl.validateSignature(keyAlias, data, signature, promise)
   }
