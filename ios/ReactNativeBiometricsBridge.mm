@@ -77,7 +77,7 @@ RCT_EXTERN_METHOD(verifyKeySignatureWithOptions:
     promptSubtitle:(NSString *)promptSubtitle
     cancelButtonText:(NSString *)cancelButtonText
     biometricStrength:(NSString *)biometricStrength
-    disableDeviceFallback:(BOOL)disableDeviceFallback
+    disableDeviceFallback:(NSNumber *)disableDeviceFallback
     inputEncoding:(NSString *)inputEncoding
     resolver:(RCTPromiseResolveBlock)resolve
     rejecter:(RCTPromiseRejectBlock)reject)
