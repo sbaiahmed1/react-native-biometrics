@@ -111,6 +111,7 @@ public func generateKeyAlias(customAlias: String? = nil, configuredAlias: String
 public func createKeychainQuery(
   keyTag: String,
   includeSecureEnclave: Bool = true,
+  promptTitle: NSString? = nil,
   returnRef: Bool = false,
   returnAttributes: Bool = false
 ) -> [String: Any] {
@@ -125,6 +126,12 @@ public func createKeychainQuery(
 
   if includeSecureEnclave {
     query[kSecAttrTokenID as String] = kSecAttrTokenIDSecureEnclave
+  }
+
+  if let promptTitle = promptTitle as? String {
+    let context = LAContext()
+    context.localizedReason = promptTitle
+    query[kSecUseAuthenticationContext as String] = context
   }
 
   if returnRef {

@@ -755,6 +755,7 @@ class ReactNativeBiometrics: RCTEventEmitter {
     let secureEnclaveQuery = createKeychainQuery(
       keyTag: keyTag,
       includeSecureEnclave: true,
+      promptTitle: promptTitle,
       returnRef: true
     )
     
@@ -765,6 +766,7 @@ class ReactNativeBiometrics: RCTEventEmitter {
       let regularQuery = createKeychainQuery(
         keyTag: keyTag,
         includeSecureEnclave: false,
+        promptTitle: promptTitle,
         returnRef: true
       )
       
