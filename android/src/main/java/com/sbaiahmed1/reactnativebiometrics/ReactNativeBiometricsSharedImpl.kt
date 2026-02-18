@@ -1140,46 +1140,47 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
       val biometricManager = BiometricManager.from(context)
 
       // Use shared helper to determine authenticator with fallback logic
-      val authenticatorResult = BiometricUtils.determineAuthenticator(context, biometricStrength)
-      val authenticator = authenticatorResult.authenticator
-      val fallbackUsed = authenticatorResult.fallbackUsed
-      val actualStrength = authenticatorResult.actualStrength
-      val biometricStatus = biometricManager.canAuthenticate(authenticator)
+      val authenticatorResult = BiometricUtils.getKeyAuthenticator(context, privateKey)
+      // Start from what the key actually requires (may be BIOMETRIC_STRONG, DEVICE_CREDENTIAL, or both).
+      var authenticators = authenticatorResult.authenticator
 
-      debugLog("verifyKeySignature - Biometric status: $biometricStatus for authenticator: $authenticator")
-
-      // For crypto operations with CryptoObject, we should use the biometric authenticator
-      // that matches the key's authentication requirements. The CryptoObject will enforce
-      // the correct biometric level. We only fall back to DEVICE_CREDENTIAL if:
-      // 1. Biometrics are not available AND
-      // 2. disableDeviceFallback is false
-      val authenticators = when {
-        biometricStatus == BiometricManager.BIOMETRIC_SUCCESS -> authenticator
-        disableDeviceFallback -> {
-          // User wants biometrics only - reject if not available
-          debugLog("verifyKeySignature - Biometrics not available and fallback disabled")
+      // If the caller wants biometric-only, strip DEVICE_CREDENTIAL from the mask.
+      // This lets the user enforce biometric without changing the key's base requirements.
+      if (disableDeviceFallback) {
+        authenticators = authenticators and BiometricManager.Authenticators.DEVICE_CREDENTIAL.inv()
+        if (authenticators == 0) {
+          // Key only supports DEVICE_CREDENTIAL but caller requires biometric-only — impossible to satisfy.
+          debugLog("verifyKeySignature - Key only supports device credential but biometric-only is required")
           promise.resolve(
             createSignatureErrorResult(
-              "Biometric authentication required but not available",
+              "Key only supports device credential but biometric-only is required",
               "BIOMETRIC_NOT_AVAILABLE"
             )
           )
           return
         }
-        else -> {
-          // Fall back to device credential only if allowed
-          debugLog("verifyKeySignature - Falling back to DEVICE_CREDENTIAL")
-          BiometricManager.Authenticators.DEVICE_CREDENTIAL
-        }
       }
+
+      val biometricStatus = biometricManager.canAuthenticate(authenticators)
+      if (biometricStatus != BiometricManager.BIOMETRIC_SUCCESS) {
+        debugLog("verifyKeySignature - Authentication not available: $biometricStatus for authenticator: $authenticators")
+        promise.resolve(
+          createSignatureErrorResult(
+            "Authentication not available for this key",
+            "BIOMETRIC_NOT_AVAILABLE"
+          )
+        )
+        return
+      }
+
+      debugLog("verifyKeySignature - Using authenticator: $authenticators")
 
       val promptInfoBuilder = BiometricPrompt.PromptInfo.Builder()
         .setTitle(promptTitle ?: "Authenticate to sign data")
         .setSubtitle(promptSubtitle ?: "Please verify your identity to generate signature")
         .setAllowedAuthenticators(authenticators)
 
-      if (authenticators == BiometricManager.Authenticators.BIOMETRIC_STRONG ||
-          authenticators == BiometricManager.Authenticators.BIOMETRIC_WEAK) {
+      if ((authenticators and BiometricManager.Authenticators.DEVICE_CREDENTIAL) == 0) {
         promptInfoBuilder.setNegativeButtonText(cancelButtonText ?: "Cancel")
       }
 
@@ -1202,17 +1203,16 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
           debugLog("verifyKeySignature - Authentication succeeded, generating signature")
 
           try {
-            // Use the authenticated signature from the CryptoObject
-            val authenticatedSignature = authResult.cryptoObject?.signature
-            if (authenticatedSignature == null) {
-              debugLog("verifyKeySignature - No authenticated signature available")
-              promise.resolve(
-                createSignatureErrorResult(
-                  "No authenticated signature available",
-                  "NO_AUTHENTICATED_SIGNATURE"
-                )
-              )
-              return
+            // If cryptoObject carries the signature, the user authenticated via biometrics
+            // (hardware-atomic binding — highest security).
+            // If null, the user chose device credential: Android does not bind CryptoObject
+            // to device credential auth, but the Keystore key is still unlocked
+            // via the fresh auth token, so we can call sign() on the pre-initialized signature.
+            val usedDeviceCredential = authResult.cryptoObject?.signature == null
+            val authenticatedSignature = authResult.cryptoObject?.signature ?: signature
+
+            if (usedDeviceCredential) {
+              debugLog("verifyKeySignature - Device credential used, signing with pre-initialized signature")
             }
 
             authenticatedSignature.update(dataBytes)
@@ -1222,9 +1222,9 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
             val result = Arguments.createMap()
             result.putBoolean("success", true)
             result.putString("signature", signatureString)
-            result.putBoolean("fallbackUsed", fallbackUsed)
-            result.putString("biometricStrength", actualStrength)
-            debugLog("verifyKeySignature completed successfully")
+            result.putBoolean("fallbackUsed", usedDeviceCredential)
+            result.putString("biometricStrength", if (usedDeviceCredential) "device_credential" else authenticatorResult.actualStrength)
+            debugLog("verifyKeySignature completed successfully (deviceCredential=$usedDeviceCredential)")
             promise.resolve(result)
 
           } catch (e: Exception) {
