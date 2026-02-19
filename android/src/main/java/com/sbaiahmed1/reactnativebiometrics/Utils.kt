@@ -6,7 +6,6 @@ import android.security.keystore.KeyInfo
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import android.util.Base64
-import androidx.annotation.RequiresApi
 import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricPrompt
 import com.facebook.react.bridge.Arguments
@@ -82,7 +81,6 @@ object BiometricUtils {
         val isAvailable: Boolean
     )
 
-    @RequiresApi(Build.VERSION_CODES.R)
     fun getKeyAuthenticator(context: Context, privateKey: java.security.Key): BiometricAuthenticatorResult {
         val biometricManager = BiometricManager.from(context)
         
@@ -90,34 +88,34 @@ object BiometricUtils {
         var requiredAuthenticator = BiometricManager.Authenticators.BIOMETRIC_STRONG
 
         try {
-            val factory = KeyFactory.getInstance(privateKey.algorithm, "AndroidKeyStore")
-            val keyInfo = factory.getKeySpec(privateKey, KeyInfo::class.java)
-            val authTypes = keyInfo.userAuthenticationType
-            
-            // Reset the default; build strictly from flags
-            var authenticatorMask = 0
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+                val factory = KeyFactory.getInstance(privateKey.algorithm, "AndroidKeyStore")
+                val keyInfo = factory.getKeySpec(privateKey, KeyInfo::class.java)
+                val authTypes = keyInfo.userAuthenticationType
+                
+                // Reset the default; build strictly from flags
+                var authenticatorMask = 0
 
-            if ((authTypes and KeyProperties.AUTH_BIOMETRIC_STRONG) != 0) {
-                authenticatorMask = authenticatorMask or BiometricManager.Authenticators.BIOMETRIC_STRONG
-            }
-            
-            if ((authTypes and KeyProperties.AUTH_DEVICE_CREDENTIAL) != 0) {
-                authenticatorMask = authenticatorMask or BiometricManager.Authenticators.DEVICE_CREDENTIAL
-            }
+                if ((authTypes and KeyProperties.AUTH_BIOMETRIC_STRONG) != 0) {
+                    authenticatorMask = authenticatorMask or BiometricManager.Authenticators.BIOMETRIC_STRONG
+                }
+                
+                if ((authTypes and KeyProperties.AUTH_DEVICE_CREDENTIAL) != 0) {
+                    authenticatorMask = authenticatorMask or BiometricManager.Authenticators.DEVICE_CREDENTIAL
+                }
 
-            // If mask is 0 (no auth required), we use the default
-            if (authenticatorMask != 0) {
-                requiredAuthenticator = authenticatorMask
+                // If mask is 0 (no auth required), use the default
+                if (authenticatorMask != 0) {
+                    requiredAuthenticator = authenticatorMask
+                }
             }
         } catch (e: Exception) {
-            // We stick to the default BIOMETRIC_STRONG to fail safely if key is unreadable
+            debugLog(context, "getKeyAuthenticator failed - default to BIOMETRIC_STRONG: ${e.message}")
         }
 
-        // CHECK AVAILABILITY
         val status = biometricManager.canAuthenticate(requiredAuthenticator)
         val isAvailable = status == BiometricManager.BIOMETRIC_SUCCESS
 
-        // DETERMINE ACTUAL STRENGTH LABEL
         val actualStrength = when {
             !isAvailable -> "unavailable"
             (requiredAuthenticator and BiometricManager.Authenticators.DEVICE_CREDENTIAL) == 0 -> "strong"

@@ -1141,6 +1141,7 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
 
       // Use shared helper to determine authenticator with fallback logic
       val authenticatorResult = BiometricUtils.getKeyAuthenticator(context, privateKey)
+
       // Start from what the key actually requires (may be BIOMETRIC_STRONG, DEVICE_CREDENTIAL, or both).
       var authenticators = authenticatorResult.authenticator
 
