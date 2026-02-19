@@ -1,6 +1,8 @@
 package com.sbaiahmed1.reactnativebiometrics
 
 import android.content.Context
+import android.os.Build
+import android.security.keystore.KeyInfo
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import android.util.Base64
@@ -10,6 +12,7 @@ import androidx.biometric.BiometricPrompt
 import com.facebook.react.bridge.Arguments
 import com.facebook.react.bridge.WritableArray
 import com.facebook.react.bridge.WritableMap
+import java.security.KeyFactory
 import java.security.KeyStore
 import java.security.interfaces.ECKey
 import java.security.interfaces.RSAKey
@@ -80,7 +83,7 @@ object BiometricUtils {
     )
 
     @RequiresApi(Build.VERSION_CODES.R)
-    fun getKeyAuthenticator(context: Context, privateKey: KeyStore.PrivateKey): BiometricAuthenticatorResult {
+    fun getKeyAuthenticator(context: Context, privateKey: java.security.Key): BiometricAuthenticatorResult {
         val biometricManager = BiometricManager.from(context)
         
         // Default: Strong Biometrics
