@@ -112,6 +112,7 @@ public func createKeychainQuery(
   keyTag: String,
   includeSecureEnclave: Bool = true,
   promptTitle: NSString? = nil,
+  cancelButtonText: NSString? = nil,
   returnRef: Bool = false,
   returnAttributes: Bool = false
 ) -> [String: Any] {
@@ -131,6 +132,9 @@ public func createKeychainQuery(
   if let promptTitle = promptTitle as? String {
     let context = LAContext()
     context.localizedReason = promptTitle
+    if let cancelTitle = cancelButtonText as? String {
+      context.localizedCancelTitle = cancelTitle
+    }
     query[kSecUseAuthenticationContext as String] = context
   }
 
