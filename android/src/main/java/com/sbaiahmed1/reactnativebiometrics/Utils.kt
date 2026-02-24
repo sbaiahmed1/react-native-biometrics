@@ -118,7 +118,7 @@ object BiometricUtils {
 
         val actualStrength = when {
             !isAvailable -> "unavailable"
-            (requiredAuthenticator and BiometricManager.Authenticators.DEVICE_CREDENTIAL) == 0 -> "strong"
+            (requiredAuthenticator and BiometricManager.Authenticators.DEVICE_CREDENTIAL) == 0 -> "strong_and_device_credentials"
             else -> "strong_or_device_credential"
         }
 
