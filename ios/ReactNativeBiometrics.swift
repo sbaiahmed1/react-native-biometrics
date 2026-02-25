@@ -383,8 +383,8 @@ class ReactNativeBiometrics: RCTEventEmitter {
         handleError(.keyAlreadyExists, reject: reject)
         return
       }
-      // Also check without Secure Enclave for RSA keys
-      if biometricKeyType == .rsa2048 {
+      // Also check without Secure Enclave for existing RSA keys under the same keyTag
+      if biometricKeyType == .ec256 {
         let fallbackCheckQuery = createKeychainQuery(keyTag: keyTag, includeSecureEnclave: false)
         let fallbackCheckStatus = SecItemCopyMatching(fallbackCheckQuery as CFDictionary, nil)
         if fallbackCheckStatus == errSecSuccess || fallbackCheckStatus == errSecInteractionNotAllowed {
@@ -401,8 +401,8 @@ class ReactNativeBiometrics: RCTEventEmitter {
     let deleteQuery = createKeychainQuery(keyTag: keyTag, includeSecureEnclave: biometricKeyType == .ec256)
     SecItemDelete(deleteQuery as CFDictionary)
 
-    // Also try deleting without Secure Enclave attributes for RSA keys to ensure cleanup
-    if biometricKeyType == .rsa2048 {
+    // Also try deleting without Secure Enclave attributes for RSA keys under the same keyTag to ensure cleanup
+    if biometricKeyType == .ec256 {
       let fallbackDeleteQuery = createKeychainQuery(keyTag: keyTag, includeSecureEnclave: false)
       SecItemDelete(fallbackDeleteQuery as CFDictionary)
     }
