@@ -25,6 +25,7 @@ public enum ReactNativeBiometricsError: Error {
 
   case keyNotFound
   case keyCreationFailed
+  case keyAlreadyExists
   case keyDeletionFailed
   case keyAccessFailed
   case invalidKeyAlias
@@ -102,6 +103,8 @@ public enum ReactNativeBiometricsError: Error {
       return ("KEY_NOT_FOUND", "Cryptographic key not found")
     case .keyCreationFailed:
       return ("KEY_CREATION_FAILED", "Failed to create cryptographic key")
+    case .keyAlreadyExists:
+      return ("KEY_ALREADY_EXISTS", "A key with this alias already exists")
     case .keyDeletionFailed:
       return ("KEY_DELETION_FAILED", "Failed to delete cryptographic key")
     case .keyAccessFailed:

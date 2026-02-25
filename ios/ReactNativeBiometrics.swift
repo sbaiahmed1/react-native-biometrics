@@ -351,12 +351,14 @@ class ReactNativeBiometrics: RCTEventEmitter {
                   keyType: NSString?,
                   biometricStrength: NSString?,
                   allowDeviceCredentials: NSNumber?,
+                  failIfExists: NSNumber?,
                   resolver resolve: @escaping RCTPromiseResolveBlock,
                   rejecter reject: @escaping RCTPromiseRejectBlock) {
 
     let deviceCredentialsFallback = allowDeviceCredentials?.boolValue ?? false
+    let failIfKeyExists = failIfExists?.boolValue ?? false
 
-    ReactNativeBiometricDebug.debugLog("createKeys called with keyAlias: \(keyAlias ?? "default"), keyType: \(keyType ?? "ec256"), biometricStrength: \(biometricStrength ?? "strong"), allowDeviceCredentials: \(deviceCredentialsFallback)")
+    ReactNativeBiometricDebug.debugLog("createKeys called with keyAlias: \(keyAlias ?? "default"), keyType: \(keyType ?? "ec256"), biometricStrength: \(biometricStrength ?? "strong"), allowDeviceCredentials: \(deviceCredentialsFallback), failIfExists: \(failIfKeyExists)")
 
     let keyTag = getKeyAlias(keyAlias as String?)
     guard let keyTagData = keyTag.data(using: .utf8) else {
@@ -372,18 +374,39 @@ class ReactNativeBiometrics: RCTEventEmitter {
       biometricKeyType = .ec256
     }
     
+    // Check if key already exists when failIfExists is true
+    if failIfKeyExists {
+      let checkQuery = createKeychainQuery(keyTag: keyTag, includeSecureEnclave: biometricKeyType == .ec256)
+      let checkStatus = SecItemCopyMatching(checkQuery as CFDictionary, nil)
+      if checkStatus == errSecSuccess || checkStatus == errSecInteractionNotAllowed {
+        ReactNativeBiometricDebug.debugLog("createKeys failed - Key with tag '\(keyTag)' already exists")
+        handleError(.keyAlreadyExists, reject: reject)
+        return
+      }
+      // Also check without Secure Enclave for RSA keys
+      if biometricKeyType == .rsa2048 {
+        let fallbackCheckQuery = createKeychainQuery(keyTag: keyTag, includeSecureEnclave: false)
+        let fallbackCheckStatus = SecItemCopyMatching(fallbackCheckQuery as CFDictionary, nil)
+        if fallbackCheckStatus == errSecSuccess || fallbackCheckStatus == errSecInteractionNotAllowed {
+          ReactNativeBiometricDebug.debugLog("createKeys failed - Key with tag '\(keyTag)' already exists")
+          handleError(.keyAlreadyExists, reject: reject)
+          return
+        }
+      }
+    }
+
     // Delete existing key if it exists
     // For RSA keys, we need to delete without Secure Enclave attributes
     // For EC keys, we include Secure Enclave attributes
     let deleteQuery = createKeychainQuery(keyTag: keyTag, includeSecureEnclave: biometricKeyType == .ec256)
     SecItemDelete(deleteQuery as CFDictionary)
-    
+
     // Also try deleting without Secure Enclave attributes for RSA keys to ensure cleanup
     if biometricKeyType == .rsa2048 {
       let fallbackDeleteQuery = createKeychainQuery(keyTag: keyTag, includeSecureEnclave: false)
       SecItemDelete(fallbackDeleteQuery as CFDictionary)
     }
-    
+
     ReactNativeBiometricDebug.debugLog("Deleted existing key (if any)")
     
     // Create access control for biometric authentication
