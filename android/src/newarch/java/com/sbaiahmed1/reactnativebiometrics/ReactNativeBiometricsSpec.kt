@@ -11,7 +11,7 @@ abstract class ReactNativeBiometricsSpec(reactContext: ReactApplicationContext) 
   abstract fun simplePrompt(reason: String, biometricStrength: String?, promise: Promise)
   abstract fun authenticateWithOptions(options: com.facebook.react.bridge.ReadableMap, promise: Promise)
   // Key management
-  abstract fun createKeys(keyAlias: String?, keyType: String?, biometricStrength: String?, allowDeviceCredentials: Boolean?, promise: Promise)
+  abstract fun createKeys(keyAlias: String?, keyType: String?, biometricStrength: String?, allowDeviceCredentials: Boolean?, failIfExists: Boolean?, promise: Promise)
   abstract fun deleteKeys(keyAlias: String?, promise: Promise)
   abstract fun getAllKeys(customAlias: String?, promise: Promise)
   // Key integrity validation

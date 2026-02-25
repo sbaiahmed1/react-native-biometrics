@@ -308,10 +308,10 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
   }
 
   fun createKeys(keyAlias: String?, promise: Promise) {
-    createKeysWithType(keyAlias, null, null, false, promise)
+    createKeysWithType(keyAlias, null, null, false, false, promise)
   }
 
-  fun createKeysWithType(keyAlias: String?, keyType: String?, biometricStrength: String?, allowDeviceCredentials: Boolean, promise: Promise) {
+  fun createKeysWithType(keyAlias: String?, keyType: String?, biometricStrength: String?, allowDeviceCredentials: Boolean, failIfExists: Boolean, promise: Promise) {
     val actualKeyAlias = getKeyAlias(keyAlias)
     val actualKeyType = keyType?.lowercase() ?: "rsa2048"
     val requestedStrength = biometricStrength ?: "strong"
@@ -329,6 +329,11 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
       keyStore.load(null)
 
       if (keyStore.containsAlias(actualKeyAlias)) {
+        if (failIfExists) {
+          debugLog("createKeys failed - Key with alias '$actualKeyAlias' already exists")
+          promise.reject("KEY_ALREADY_EXISTS", "Key with alias '$actualKeyAlias' already exists", null)
+          return
+        }
         debugLog("Key already exists, deleting existing key")
         keyStore.deleteEntry(actualKeyAlias)
       }
