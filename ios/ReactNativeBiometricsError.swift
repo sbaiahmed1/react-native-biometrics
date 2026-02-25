@@ -214,7 +214,7 @@ public enum ReactNativeBiometricsError: Error {
     case errSecAllocate:
       return .memoryAllocationFailed
     case errSecDuplicateItem:
-      return .keyCreationFailed
+      return .keyAlreadyExists
     case errSecDecode:
       return .invalidSignatureFormat
     default:
