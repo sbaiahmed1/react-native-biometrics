@@ -370,8 +370,8 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
 
           try {
             val keyPair = if (useStrongBox) {
-              keyPairGenerator.initialize(buildRsaSpec(true))
               try {
+                keyPairGenerator.initialize(buildRsaSpec(true))
                 debugLog("Attempting RSA key generation with StrongBox")
                 keyPairGenerator.generateKeyPair()
               } catch (e: Exception) {
@@ -449,8 +449,8 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
 
           try {
             val keyPair = if (useStrongBox) {
-              keyPairGenerator.initialize(buildEcSpec(true))
               try {
+                keyPairGenerator.initialize(buildEcSpec(true))
                 debugLog("Attempting EC key generation with StrongBox")
                 keyPairGenerator.generateKeyPair()
               } catch (e: Exception) {
