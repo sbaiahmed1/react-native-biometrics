@@ -58,6 +58,13 @@ object BiometricUtils {
     }
 
     /**
+     * Checks if StrongBox Keymaster is available on the device.
+     */
+    fun isStrongBoxAvailable(context: Context): Boolean {
+        return context.packageManager.hasSystemFeature(android.content.pm.PackageManager.FEATURE_STRONGBOX_KEYSTORE)
+    }
+
+    /**
      * Encodes arbitrary byte array to Base64 string with NO_WRAP flag
      */
     fun encodeBase64(bytes: ByteArray): String {
