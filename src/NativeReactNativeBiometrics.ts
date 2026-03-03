@@ -42,6 +42,7 @@ export interface Spec extends TurboModule {
     success: boolean;
     error?: string;
     errorCode?: string;
+    authType?: number;
   }>;
   createKeys(
     keyAlias?: string | null,
@@ -91,6 +92,7 @@ export interface Spec extends TurboModule {
     signature?: string;
     error?: string;
     errorCode?: string;
+    authType?: number;
   }>;
   verifyKeySignatureWithOptions(
     keyAlias: string | null,
@@ -106,6 +108,7 @@ export interface Spec extends TurboModule {
     signature?: string;
     error?: string;
     errorCode?: string;
+    authType?: number;
   }>;
   verifyKeySignatureWithEncoding(
     keyAlias: string | null,
@@ -119,6 +122,7 @@ export interface Spec extends TurboModule {
     signature?: string;
     error?: string;
     errorCode?: string;
+    authType?: number;
   }>;
   validateSignature(
     keyAlias: string,

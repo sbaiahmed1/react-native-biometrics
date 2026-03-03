@@ -7,7 +7,7 @@ import {
   type EventSubscription,
   Platform,
 } from 'react-native';
-import { BiometricStrength } from './types';
+import { AuthType, BiometricStrength } from './types';
 
 export function isSensorAvailable(options?: {
   biometricStrength?: BiometricStrength;
@@ -101,7 +101,7 @@ export function simplePrompt(
     });
 }
 
-export { BiometricStrength } from './types';
+export { AuthType, BiometricStrength } from './types';
 
 export function authenticateWithOptions(
   options: BiometricAuthOptions
@@ -111,8 +111,19 @@ export function authenticateWithOptions(
     'authenticateWithOptions'
   );
 
-  if (Platform.OS === 'android' && options.biometricStrength) {
-    return ReactNativeBiometrics.authenticateWithOptions(options)
+  const { returnAuthType, ...nativeOptions } = options;
+
+  const stripAuthType = (result: BiometricAuthResult): BiometricAuthResult => {
+    if (!returnAuthType) {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { authType: _, ...cleanResult } = result;
+      return cleanResult;
+    }
+    return result;
+  };
+
+  if (Platform.OS === 'android' && nativeOptions.biometricStrength) {
+    return ReactNativeBiometrics.authenticateWithOptions(nativeOptions)
       .then((result) => {
         logger.info(
           'Authentication with options completed',
@@ -121,7 +132,7 @@ export function authenticateWithOptions(
             success: result.success,
           }
         );
-        return result;
+        return stripAuthType(result);
       })
       .catch((error) => {
         logger.error(
@@ -135,7 +146,7 @@ export function authenticateWithOptions(
 
   // For iOS or Android without biometricStrength, remove biometricStrength from options
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { biometricStrength: _, ...cleanOptions } = options;
+  const { biometricStrength: _, ...cleanOptions } = nativeOptions;
   return ReactNativeBiometrics.authenticateWithOptions(cleanOptions)
     .then((result) => {
       logger.info(
@@ -145,7 +156,7 @@ export function authenticateWithOptions(
           success: result.success,
         }
       );
-      return result;
+      return stripAuthType(result);
     })
     .catch((error) => {
       logger.error(
@@ -253,7 +264,8 @@ export function verifyKeySignature(
   data: string,
   promptTitle?: string,
   promptSubtitle?: string,
-  cancelButtonText?: string
+  cancelButtonText?: string,
+  returnAuthType?: boolean
 ): Promise<SignatureResult> {
   logger.debug('Verifying key signature', 'verifyKeySignature', {
     keyAlias,
@@ -276,6 +288,11 @@ export function verifyKeySignature(
           hasSignature: !!result.signature,
         }
       );
+      if (!returnAuthType) {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { authType: _, ...cleanResult } = result;
+        return cleanResult;
+      }
       return result;
     })
     .catch((error) => {
@@ -319,6 +336,7 @@ export function signWithOptions(
     cancelButtonText,
     biometricStrength,
     disableDeviceFallback = false,
+    returnAuthType,
   } = options;
 
   logger.debug('Signing with options', 'signWithOptions', {
@@ -328,6 +346,15 @@ export function signWithOptions(
     biometricStrength,
     disableDeviceFallback,
   });
+
+  const stripAuthType = (result: SignatureResult): SignatureResult => {
+    if (!returnAuthType) {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { authType: _, ...cleanResult } = result;
+      return cleanResult;
+    }
+    return result;
+  };
 
   // On Android, use the new method with options
   if (Platform.OS === 'android') {
@@ -347,7 +374,7 @@ export function signWithOptions(
           success: result.success,
           hasSignature: !!result.signature,
         });
-        return result;
+        return stripAuthType(result);
       })
       .catch((error: Error) => {
         logger.error('Sign with options failed', 'signWithOptions', error, {
@@ -372,7 +399,7 @@ export function signWithOptions(
         success: result.success,
         hasSignature: !!result.signature,
       });
-      return result;
+      return stripAuthType(result);
     })
     .catch((error: Error) => {
       logger.error('Sign with options failed', 'signWithOptions', error, {
@@ -631,6 +658,7 @@ export type BiometricAuthOptions = {
   disableDeviceFallback?: boolean;
   allowDeviceCredentials?: boolean;
   biometricStrength?: BiometricStrength;
+  returnAuthType?: boolean;
 };
 
 export type BiometricAuthResult = {
@@ -639,6 +667,7 @@ export type BiometricAuthResult = {
   errorCode?: string;
   fallbackUsed?: boolean;
   biometricStrength?: BiometricStrength;
+  authType?: AuthType;
 };
 
 export type KeyCreationResult = {
@@ -672,6 +701,7 @@ export type SignatureResult = {
   signature?: string;
   error?: string;
   errorCode?: string;
+  authType?: AuthType;
 };
 
 /**
@@ -728,6 +758,11 @@ export type SignatureOptions = {
    * (Android only - iOS Secure Enclave keys already enforce biometrics by default)
    */
   disableDeviceFallback?: boolean;
+  /**
+   * When true, includes authType in the result indicating how the user authenticated.
+   * See AuthType enum for possible values.
+   */
+  returnAuthType?: boolean;
 };
 
 export type SignatureValidationResult = {
