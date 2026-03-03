@@ -197,6 +197,21 @@ class ReactNativeBiometrics: RCTEventEmitter {
     }
   }
   
+  private func getAuthType(from context: LAContext) -> Int {
+    if #available(iOS 17.0, *), context.biometryType == .opticID {
+      return 5
+    }
+    if #available(iOS 11.0, *) {
+      switch context.biometryType {
+      case .faceID: return 3
+      case .touchID: return 4
+      case .none: return 1 // No biometry but auth succeeded → device credentials
+      default: return 2
+      }
+    }
+    return 2
+  }
+
   @objc
   func authenticateWithOptions(_ options: NSDictionary,
                                resolver resolve: @escaping RCTPromiseResolveBlock,
@@ -254,11 +269,11 @@ class ReactNativeBiometrics: RCTEventEmitter {
       ReactNativeBiometricDebug.debugLog("Showing authentication prompt")
       context.evaluatePolicy(policy, localizedReason: reason) { success, error in
         DispatchQueue.main.async {
-          let result: [String: Any] = [
-            "success": success
-          ]
-          
           if success {
+            let result: [String: Any] = [
+              "success": true,
+              "authType": self.getAuthType(from: context)
+            ]
             ReactNativeBiometricDebug.debugLog("authenticateWithOptions authentication succeeded")
             resolve(result)
           } else {
@@ -807,10 +822,10 @@ class ReactNativeBiometrics: RCTEventEmitter {
     guard status == errSecSuccess else {
       let biometricsError = ReactNativeBiometricsError.fromOSStatus(status)
       ReactNativeBiometricDebug.debugLog("verifyKeySignature failed - \(biometricsError.errorInfo.message)")
-      resolve(["success": false, "error": biometricsError.errorInfo.message, "errorCode": biometricsError.errorInfo.code])
+      resolve(["success": false, "error": biometricsError.errorInfo.message, "errorCode": biometricsError.errorInfo.code, "authType": 0])
       return
     }
-    
+
     // Force cast SecKey since conditional downcast to CoreFoundation types always succeeds
     let keyRef = result as! SecKey
     let algorithm = getSignatureAlgorithm(for: keyRef)
@@ -820,7 +835,7 @@ class ReactNativeBiometrics: RCTEventEmitter {
     if encoding.lowercased() == "base64" {
       guard let decodedData = Data(base64Encoded: data as String) else {
         ReactNativeBiometricDebug.debugLog("verifyKeySignature failed - Invalid base64 data")
-        resolve(["success": false, "error": "Invalid base64 data", "errorCode": "INVALID_INPUT_ENCODING"])
+        resolve(["success": false, "error": "Invalid base64 data", "errorCode": "INVALID_INPUT_ENCODING", "authType": 0])
         return
       }
       dataToSign = decodedData
@@ -851,14 +866,22 @@ class ReactNativeBiometrics: RCTEventEmitter {
         biometricsError = ReactNativeBiometricsError.signatureCreationFailed
         ReactNativeBiometricDebug.debugLog("verifyKeySignature failed - Signature creation failed (unknown error)")
       }
-      resolve(["success": false, "error": biometricsError.errorInfo.message, "errorCode": biometricsError.errorInfo.code])
+      resolve(["success": false, "error": biometricsError.errorInfo.message, "errorCode": biometricsError.errorInfo.code, "authType": 0])
       return
     }
-    
+
     let signatureBase64 = (signature as Data).base64EncodedString()
-    
+
+    var authType = 0
+    let authContext = LAContext()
+    if authContext.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: nil) {
+      authType = getAuthType(from: authContext)
+    } else if authContext.canEvaluatePolicy(.deviceOwnerAuthentication, error: nil) {
+      authType = 1 // No biometry available but device has credentials (PIN/passcode)
+    }
+
     ReactNativeBiometricDebug.debugLog("verifyKeySignature completed successfully")
-    resolve(["success": true, "signature": signatureBase64])
+    resolve(["success": true, "signature": signatureBase64, "authType": authType])
   }
   
   @objc

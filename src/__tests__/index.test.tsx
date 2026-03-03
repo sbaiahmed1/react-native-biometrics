@@ -71,7 +71,9 @@ jest.mock('../NativeReactNativeBiometrics', () => ({
     Promise.resolve({ available: true, biometryType: 'FaceID' })
   ),
   simplePrompt: jest.fn(() => Promise.resolve(true)),
-  authenticateWithOptions: jest.fn(() => Promise.resolve({ success: true })),
+  authenticateWithOptions: jest.fn(() =>
+    Promise.resolve({ success: true, authType: 3 })
+  ),
   createKeys: jest.fn(() => Promise.resolve({ publicKey: 'mockPublicKey' })),
   deleteKeys: jest.fn(() => Promise.resolve({ success: true })),
   configureKeyAlias: jest.fn(() => Promise.resolve()),
@@ -108,6 +110,12 @@ jest.mock('../NativeReactNativeBiometrics', () => ({
   getDeviceIntegrityStatus: jest.fn(() =>
     Promise.resolve(MOCK_RESPONSES.deviceIntegritySecure)
   ),
+  verifyKeySignatureWithOptions: jest.fn(() =>
+    Promise.resolve({ success: true, signature: 'mockSig', authType: 3 })
+  ),
+  verifyKeySignatureWithEncoding: jest.fn(() =>
+    Promise.resolve({ success: true, signature: 'mockSig', authType: 3 })
+  ),
 }));
 
 // Helper function to create custom mocks for error scenarios
@@ -117,7 +125,7 @@ const createMockNative = (overrides = {}) => ({
   ),
   simplePrompt: jest.fn(() => Promise.resolve(true)),
   authenticateWithOptions: jest.fn(() =>
-    Promise.resolve(MOCK_RESPONSES.authSuccess)
+    Promise.resolve({ ...MOCK_RESPONSES.authSuccess, authType: 3 })
   ),
   createKeys: jest.fn(() => Promise.resolve(MOCK_RESPONSES.keyCreation)),
   deleteKeys: jest.fn(() => Promise.resolve(MOCK_RESPONSES.keyDeletion)),
@@ -142,6 +150,12 @@ const createMockNative = (overrides = {}) => ({
       isCompromised: false,
       riskLevel: 'low',
     })
+  ),
+  verifyKeySignatureWithOptions: jest.fn(() =>
+    Promise.resolve({ success: true, signature: 'mockSig', authType: 3 })
+  ),
+  verifyKeySignatureWithEncoding: jest.fn(() =>
+    Promise.resolve({ success: true, signature: 'mockSig', authType: 3 })
   ),
   ...overrides,
 });
@@ -267,6 +281,7 @@ describe('ReactNativeBiometrics', () => {
             Promise.resolve({
               success: true,
               signature: 'mockSignature123',
+              authType: 3,
             })
           ),
         })
@@ -288,6 +303,7 @@ describe('ReactNativeBiometrics', () => {
             Promise.resolve({
               success: true,
               signature: 'mockSignature123',
+              authType: 3,
             })
           ),
         })
@@ -563,6 +579,7 @@ describe('ReactNativeBiometrics', () => {
             Promise.resolve({
               success: true,
               signature: 'mockSignatureWithParams123',
+              authType: 3,
             })
           ),
         })
@@ -941,6 +958,96 @@ describe('ReactNativeBiometrics', () => {
       await expect(BiometricsModule.getDeviceIntegrityStatus()).rejects.toThrow(
         'Permission denied'
       );
+    });
+  });
+
+  describe('AuthType Return Value', () => {
+    it('authenticateWithOptions strips authType by default', async () => {
+      const result = await Biometrics.authenticateWithOptions({
+        title: 'Test',
+      });
+      expect(result.success).toBe(true);
+      expect(result).not.toHaveProperty('authType');
+    });
+
+    it('authenticateWithOptions includes authType when returnAuthType is true', async () => {
+      const result = await Biometrics.authenticateWithOptions({
+        title: 'Test',
+        returnAuthType: true,
+      });
+      expect(result.success).toBe(true);
+      expect(result).toHaveProperty('authType');
+      expect(result.authType).toBe(3);
+    });
+
+    it('verifyKeySignature strips authType by default', async () => {
+      jest.resetModules();
+      jest.doMock('../NativeReactNativeBiometrics', () =>
+        createMockNative({
+          verifyKeySignature: jest.fn(() =>
+            Promise.resolve({
+              success: true,
+              signature: 'mockSig',
+              authType: 3,
+            })
+          ),
+        })
+      );
+      const BiometricsModule = await import('../index');
+      const result = await BiometricsModule.verifyKeySignature(
+        'testAlias',
+        'testData'
+      );
+      expect(result.success).toBe(true);
+      expect(result.signature).toBe('mockSig');
+      expect(result).not.toHaveProperty('authType');
+    });
+
+    it('verifyKeySignature includes authType when 6th param is true', async () => {
+      jest.resetModules();
+      jest.doMock('../NativeReactNativeBiometrics', () =>
+        createMockNative({
+          verifyKeySignature: jest.fn(() =>
+            Promise.resolve({
+              success: true,
+              signature: 'mockSig',
+              authType: 3,
+            })
+          ),
+        })
+      );
+      const BiometricsModule = await import('../index');
+      const result = await BiometricsModule.verifyKeySignature(
+        'testAlias',
+        'testData',
+        undefined,
+        undefined,
+        undefined,
+        true
+      );
+      expect(result.success).toBe(true);
+      expect(result).toHaveProperty('authType');
+      expect(result.authType).toBe(3);
+    });
+
+    it('signWithOptions strips authType by default', async () => {
+      const result = await Biometrics.signWithOptions({
+        keyAlias: 'testAlias',
+        data: 'testData',
+      });
+      expect(result.success).toBe(true);
+      expect(result).not.toHaveProperty('authType');
+    });
+
+    it('signWithOptions includes authType when returnAuthType is true', async () => {
+      const result = await Biometrics.signWithOptions({
+        keyAlias: 'testAlias',
+        data: 'testData',
+        returnAuthType: true,
+      });
+      expect(result.success).toBe(true);
+      expect(result).toHaveProperty('authType');
+      expect(result.authType).toBe(3);
     });
   });
 });

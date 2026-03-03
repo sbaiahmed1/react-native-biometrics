@@ -104,6 +104,7 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
     errorResult.putBoolean("success", false)
     errorResult.putString("error", message)
     errorResult.putString("errorCode", code)
+    errorResult.putInt("authType", 0)
     return errorResult
   }
 
@@ -754,6 +755,13 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
         }
         successResult.putString("biometricStrength", actualStrength)
 
+        val authTypeValue = when (authResult.authenticationType) {
+          BiometricPrompt.AUTHENTICATION_RESULT_TYPE_DEVICE_CREDENTIAL -> 1
+          BiometricPrompt.AUTHENTICATION_RESULT_TYPE_BIOMETRIC -> 2
+          else -> 0
+        }
+        successResult.putInt("authType", authTypeValue)
+
         promise.resolve(successResult)
       }
 
@@ -1175,6 +1183,7 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
           val result = Arguments.createMap()
           result.putBoolean("success", true)
           result.putString("signature", signatureString)
+          result.putInt("authType", 0)
           debugLog("verifyKeySignature completed without authentication")
           promise.resolve(result)
           return
@@ -1286,6 +1295,14 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
             result.putString("signature", signatureString)
             result.putBoolean("fallbackUsed", usedDeviceCredential)
             result.putString("biometricStrength", if (usedDeviceCredential) "device_credential" else authenticatorResult.actualStrength)
+
+            val authTypeValue = when (authResult.authenticationType) {
+              BiometricPrompt.AUTHENTICATION_RESULT_TYPE_DEVICE_CREDENTIAL -> 1
+              BiometricPrompt.AUTHENTICATION_RESULT_TYPE_BIOMETRIC -> 2
+              else -> 0
+            }
+            result.putInt("authType", authTypeValue)
+
             debugLog("verifyKeySignature completed successfully (deviceCredential=$usedDeviceCredential)")
             promise.resolve(result)
 
