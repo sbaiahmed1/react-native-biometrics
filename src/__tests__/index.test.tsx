@@ -2,8 +2,16 @@ import * as Biometrics from '../index';
 
 // Mock data constants
 const MOCK_RESPONSES = {
-  sensorAvailable: { available: true, biometryType: 'FaceID' as const },
-  sensorUnavailable: { available: false, error: 'No sensor' },
+  sensorAvailable: {
+    available: true,
+    biometryType: 'FaceID' as const,
+    isDeviceSecure: true,
+  },
+  sensorUnavailable: {
+    available: false,
+    error: 'No sensor',
+    isDeviceSecure: true,
+  },
   authSuccess: { success: true },
   authFailure: { success: false, error: 'Failed', errorCode: 'AUTH_ERR' },
   keyCreation: { publicKey: 'mockPublicKey' },
@@ -68,7 +76,11 @@ const MOCK_RESPONSES = {
 // Default mock implementation
 jest.mock('../NativeReactNativeBiometrics', () => ({
   isSensorAvailable: jest.fn(() =>
-    Promise.resolve({ available: true, biometryType: 'FaceID' })
+    Promise.resolve({
+      available: true,
+      biometryType: 'FaceID',
+      isDeviceSecure: true,
+    })
   ),
   simplePrompt: jest.fn(() => Promise.resolve(true)),
   authenticateWithOptions: jest.fn(() =>

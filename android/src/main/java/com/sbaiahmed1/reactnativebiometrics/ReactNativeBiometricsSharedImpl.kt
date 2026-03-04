@@ -200,6 +200,7 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
         }
       }
 
+      result.putBoolean("isDeviceSecure", isKeyguardSecure())
       debugLog("isSensorAvailable result: ${result.toHashMap()}")
       promise.resolve(result)
     } catch (e: Exception) {
