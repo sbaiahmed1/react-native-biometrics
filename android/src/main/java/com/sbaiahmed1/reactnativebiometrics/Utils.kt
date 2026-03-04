@@ -282,16 +282,23 @@ object BiometricUtils {
     /**
      * Checks if key is hardware-backed
      */
-    fun isHardwareBacked(key: java.security.Key): Boolean {
+    fun isHardwareBacked(key: java.security.Key): String {
         return try {
-            // Check if the key is hardware-backed
-            val keyInfo = android.security.keystore.KeyInfo::class.java
-                .getDeclaredMethod("getInstance", java.security.Key::class.java)
-                .invoke(null, key) as android.security.keystore.KeyInfo
-            keyInfo.isInsideSecureHardware
+            val factory = java.security.KeyFactory.getInstance(key.algorithm, "AndroidKeyStore")
+            val keyInfo = factory.getKeySpec(key, android.security.keystore.KeyInfo::class.java)
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+                when (keyInfo.securityLevel) {
+                    android.security.keystore.KeyProperties.SECURITY_LEVEL_STRONGBOX -> "StrongBox"
+                    android.security.keystore.KeyProperties.SECURITY_LEVEL_TRUSTED_ENVIRONMENT -> "TEE"
+                    else -> "Software"
+                }
+            } else {
+                @Suppress("DEPRECATION")
+                if (keyInfo.isInsideSecureHardware) "Hardware" else "Software"
+            }
         } catch (e: Exception) {
             // If we can't determine, assume software-backed
-            false
+            "Software"
         }
     }
 
@@ -349,8 +356,9 @@ object BiometricUtils {
         padding.pushString("PKCS1")
         attributes.putArray("padding", padding)
 
-        attributes.putString("securityLevel", if (isHardwareBacked(privateKey)) "Hardware" else "Software")
-        attributes.putBoolean("hardwareBacked", isHardwareBacked(privateKey))
+        val backingType = isHardwareBacked(privateKey)
+        attributes.putString("securityLevel", if (backingType != "Software") "Hardware" else "Software")
+        attributes.putBoolean("hardwareBacked", backingType != "Software")
 
         // Check if the key actually requires user authentication
         val requiresAuth = try {

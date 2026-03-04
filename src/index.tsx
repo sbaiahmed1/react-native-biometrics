@@ -693,6 +693,7 @@ export type KeyIntegrityResult = {
     keyAccessible: boolean;
     signatureTestPassed: boolean;
     hardwareBacked: boolean;
+    strongBoxBacked?: boolean;
   };
   error?: string;
 };

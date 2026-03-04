@@ -79,6 +79,7 @@ export interface Spec extends TurboModule {
       keyAccessible: boolean;
       signatureTestPassed: boolean;
       hardwareBacked: boolean;
+      strongBoxBacked?: boolean;
     };
     error?: string;
   }>;

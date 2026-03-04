@@ -917,14 +917,19 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
         // Check key attributes
         val keyAttributes = Arguments.createMap()
         keyAttributes.putString("algorithm", privateKey.algorithm)
-        keyAttributes.putInt("keySize", if (publicKey is RSAPublicKey) publicKey.modulus.bitLength() else 2048)
-        keyAttributes.putString("securityLevel", if (this.isHardwareBacked(privateKey)) "Hardware" else "Software")
+        keyAttributes.putInt("keySize", BiometricUtils.getKeySize(publicKey))
+        val backingType = this.isHardwareBacked(privateKey)
+        keyAttributes.putString("securityLevel", if (backingType != "Software") "Hardware" else "Software")
         result.putMap("keyAttributes", keyAttributes)
 
         // Update integrity checks
         integrityChecks.putBoolean("keyFormatValid", true)
         integrityChecks.putBoolean("keyAccessible", true)
-        integrityChecks.putBoolean("hardwareBacked", this.isHardwareBacked(privateKey))
+        integrityChecks.putBoolean("hardwareBacked", backingType != "Software")
+        // Only expose strongBoxBacked on API 31+ where we can distinguish StrongBox from TEE
+        if (backingType != "Hardware") {
+          integrityChecks.putBoolean("strongBoxBacked", backingType == "StrongBox")
+        }
 
         // Check if the key requires user authentication
         val requiresAuth = try {
@@ -939,7 +944,7 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
         if (!requiresAuth) {
           debugLog("validateKeyIntegrity - Key doesn't require authentication, testing directly")
           try {
-            val testSignature = java.security.Signature.getInstance("SHA256withRSA")
+            val testSignature = java.security.Signature.getInstance(BiometricUtils.getSignatureAlgorithm(privateKey))
             testSignature.initSign(privateKey)
 
             val testData = "integrity_test_data".toByteArray()
@@ -1004,7 +1009,7 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
         val promptInfo = promptInfoBuilder.build()
 
         // Create signature instance and CryptoObject for authentication-required keys
-        val testSignature = java.security.Signature.getInstance("SHA256withRSA")
+        val testSignature = java.security.Signature.getInstance(BiometricUtils.getSignatureAlgorithm(privateKey))
         testSignature.initSign(privateKey)
         val cryptoObject = BiometricPrompt.CryptoObject(testSignature)
 
@@ -1520,16 +1525,23 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
 
     promise.resolve(result)
   }
-    private fun isHardwareBacked(key: java.security.Key): Boolean {
+    private fun isHardwareBacked(key: java.security.Key): String {
     return try {
-      // Check if the key is hardware-backed
-      val keyInfo = android.security.keystore.KeyInfo::class.java
-        .getDeclaredMethod("getInstance", java.security.Key::class.java)
-        .invoke(null, key) as android.security.keystore.KeyInfo
-      keyInfo.isInsideSecureHardware
+      val factory = java.security.KeyFactory.getInstance(key.algorithm, "AndroidKeyStore")
+      val keyInfo = factory.getKeySpec(key, android.security.keystore.KeyInfo::class.java)
+      if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+        when (keyInfo.securityLevel) {
+          android.security.keystore.KeyProperties.SECURITY_LEVEL_STRONGBOX -> "StrongBox"
+          android.security.keystore.KeyProperties.SECURITY_LEVEL_TRUSTED_ENVIRONMENT -> "TEE"
+          else -> "Software"
+        }
+      } else {
+        @Suppress("DEPRECATION")
+        if (keyInfo.isInsideSecureHardware) "Hardware" else "Software"
+      }
     } catch (e: Exception) {
-      // If we can't determine, assume software-backed
-      false
+      debugLog("Unexpected error determining isHardwareBacked: $e")
+      "Software"
     }
   }
 
