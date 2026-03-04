@@ -140,8 +140,9 @@ class ReactNativeBiometrics: RCTEventEmitter {
         ReactNativeBiometricDebug.debugLog("Legacy biometrics available")
       }
       
-      ReactNativeBiometricDebug.debugLog("isSensorAvailable result: available=true, biometryType=\(biometryType)")
-      resolve(["available": true, "biometryType": biometryType])
+      let isDeviceSecure = context.canEvaluatePolicy(.deviceOwnerAuthentication, error: nil)
+      ReactNativeBiometricDebug.debugLog("isSensorAvailable result: available=true, biometryType=\(biometryType), isDeviceSecure=\(isDeviceSecure)")
+      resolve(["available": true, "biometryType": biometryType, "isDeviceSecure": isDeviceSecure])
     } else {
       let biometricsError: ReactNativeBiometricsError
       if let laError = error as? LAError {
@@ -150,13 +151,15 @@ class ReactNativeBiometrics: RCTEventEmitter {
         biometricsError = .biometryNotAvailable
       }
       
+      let isDeviceSecure = context.canEvaluatePolicy(.deviceOwnerAuthentication, error: nil)
       let errorInfo = biometricsError.errorInfo
-      ReactNativeBiometricDebug.debugLog("Biometric sensor not available: \(errorInfo.message)")
+      ReactNativeBiometricDebug.debugLog("Biometric sensor not available: \(errorInfo.message), isDeviceSecure=\(isDeviceSecure)")
       resolve([
         "available": false,
         "biometryType": "None",
         "error": errorInfo.message,
-        "errorCode": errorInfo.code
+        "errorCode": errorInfo.code,
+        "isDeviceSecure": isDeviceSecure
       ])
       
     }
