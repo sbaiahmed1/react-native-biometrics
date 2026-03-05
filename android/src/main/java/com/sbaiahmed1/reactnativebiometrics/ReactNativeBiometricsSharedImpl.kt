@@ -1044,14 +1044,12 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
               integrityChecks.putBoolean("signatureTestPassed", isValid)
 
               val successResult = Arguments.createMap()
-              if (isValid) {
-                successResult.putBoolean("valid", true)
-              }
 
+              successResult.putBoolean("valid", isValid)
               successResult.putBoolean("keyExists", true)
               successResult.putMap("keyAttributes", result.getMap("keyAttributes"))
               successResult.putMap("integrityChecks", integrityChecks)
-              debugLog("validateKeyIntegrity completed - valid: ${successResult.getBoolean("valid")}")
+              debugLog("validateKeyIntegrity completed - valid: ${isValid}")
               promise.resolve(successResult)
 
             } catch (e: Exception) {
