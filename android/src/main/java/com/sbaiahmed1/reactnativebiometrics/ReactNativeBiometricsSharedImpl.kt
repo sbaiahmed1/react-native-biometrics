@@ -872,10 +872,6 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
   }
 
   fun validateKeyIntegrity(keyAlias: String?, promise: Promise) {
-    validateKeyIntegrity(keyAlias, "strong", promise)
-  }
-
-  fun validateKeyIntegrity(keyAlias: String?, biometricStrength: String?, promise: Promise) {
       debugLog("validateKeyIntegrity called with keyAlias: ${keyAlias ?: "default"}")
 
       val actualKeyAlias = getKeyAlias(keyAlias)
@@ -978,31 +974,27 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
         val executor = ContextCompat.getMainExecutor(context)
         val biometricManager = BiometricManager.from(context)
 
-        // Use shared helper to determine authenticator with fallback logic
-        val authenticatorResult = BiometricUtils.determineAuthenticator(context, biometricStrength)
-        val authenticator = authenticatorResult.authenticator
-        val fallbackUsed = authenticatorResult.fallbackUsed
-        val actualStrength = authenticatorResult.actualStrength
-        val biometricStatus = biometricManager.canAuthenticate(authenticator)
+        // Use shared helper to determine authenticator from the key's actual auth requirements
+        val authenticatorResult = BiometricUtils.getKeyAuthenticator(context, privateKey)
+        val authenticators = authenticatorResult.authenticator
 
-        val authenticators = if (biometricStatus == BiometricManager.BIOMETRIC_SUCCESS) {
-          authenticator
-        } else {
-          // Check API level for device credential support
-          if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
-            BiometricManager.Authenticators.DEVICE_CREDENTIAL
-          } else {
-             // On API < 30, we use BIOMETRIC_WEAK | DEVICE_CREDENTIAL
-             BiometricManager.Authenticators.BIOMETRIC_WEAK or BiometricManager.Authenticators.DEVICE_CREDENTIAL
-          }
+        val biometricStatus = biometricManager.canAuthenticate(authenticators)
+        if (biometricStatus != BiometricManager.BIOMETRIC_SUCCESS) {
+          debugLog("validateKeyIntegrity - Authentication not available: $biometricStatus for authenticator: $authenticators")
+          result.putString("error", "Authentication not available for this key")
+          result.putMap("integrityChecks", integrityChecks)
+          promise.resolve(result)
+          return
         }
+
+        debugLog("validateKeyIntegrity - Using authenticator: $authenticators")
 
         val promptInfoBuilder = BiometricPrompt.PromptInfo.Builder()
           .setTitle("Authenticate to test key integrity")
           .setSubtitle("Please verify your identity to test the key")
           .setAllowedAuthenticators(authenticators)
 
-        if (authenticators == BiometricManager.Authenticators.BIOMETRIC_STRONG || authenticators == BiometricManager.Authenticators.BIOMETRIC_WEAK) {
+        if ((authenticators and BiometricManager.Authenticators.DEVICE_CREDENTIAL) == 0) {
           promptInfoBuilder.setNegativeButtonText("Cancel")
         }
 
@@ -1056,8 +1048,8 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
                 successResult.putBoolean("valid", true)
               }
 
-              successResult.putBoolean("fallbackUsed", fallbackUsed)
-              successResult.putString("biometricStrength", actualStrength)
+              successResult.putBoolean("keyExists", true)
+              successResult.putMap("keyAttributes", result.getMap("keyAttributes"))
               successResult.putMap("integrityChecks", integrityChecks)
               debugLog("validateKeyIntegrity completed - valid: ${successResult.getBoolean("valid")}")
               promise.resolve(successResult)
