@@ -922,7 +922,7 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
         integrityChecks.putBoolean("keyFormatValid", true)
         integrityChecks.putBoolean("keyAccessible", true)
         integrityChecks.putBoolean("hardwareBacked", backingType != "Software")
-        // Only expose strongBoxBacked on API 31+ where we can distinguish StrongBox from TEE
+        // Do not expose strongBoxBacked if we can't distinguish hardware security used
         if (backingType != "Hardware") {
           integrityChecks.putBoolean("strongBoxBacked", backingType == "StrongBox")
         }
