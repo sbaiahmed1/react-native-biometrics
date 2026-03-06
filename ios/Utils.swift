@@ -125,9 +125,11 @@ public func createKeychainQuery(
     kSecAttrApplicationTag as String: keyTagData
   ]
 
+  #if !targetEnvironment(simulator)
   if includeSecureEnclave {
     query[kSecAttrTokenID as String] = kSecAttrTokenIDSecureEnclave
   }
+  #endif
 
   if let promptTitle = promptTitle as? String {
     let context = LAContext()
@@ -179,10 +181,16 @@ public func createBiometricAccessControl(
     )
   } else {
     // For EC keys (in Secure Enclave), we use privateKeyUsage
+    // On simulator, Secure Enclave is not available, so skip .privateKeyUsage
+    #if targetEnvironment(simulator)
+    let flags: SecAccessControlCreateFlags = authConstraint
+    #else
+    let flags: SecAccessControlCreateFlags = [authConstraint, .privateKeyUsage]
+    #endif
     return SecAccessControlCreateWithFlags(
       kCFAllocatorDefault,
       kSecAttrAccessibleWhenUnlockedThisDeviceOnly,
-      [authConstraint, .privateKeyUsage],
+      flags,
       nil
     )
   }
@@ -225,16 +233,19 @@ public func createKeyGenerationAttributes(
     ]
 
   case .ec256:
-    return [
+    var attributes: [String: Any] = [
       kSecAttrKeyType as String: kSecAttrKeyTypeECSECPrimeRandom,
       kSecAttrKeySizeInBits as String: 256,
-      kSecAttrTokenID as String: kSecAttrTokenIDSecureEnclave,
       kSecPrivateKeyAttrs as String: [
         kSecAttrIsPermanent as String: true,
         kSecAttrApplicationTag as String: keyTagData,
         kSecAttrAccessControl as String: accessControl
       ]
     ]
+    #if !targetEnvironment(simulator)
+    attributes[kSecAttrTokenID as String] = kSecAttrTokenIDSecureEnclave
+    #endif
+    return attributes
   }
 }
 
