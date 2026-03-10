@@ -25,6 +25,7 @@ export function isSensorAvailable(options?: {
           {
             available: result.available,
             biometryType: result.biometryType,
+            isDeviceSecure: result.isDeviceSecure,
           }
         );
         return result;
@@ -45,6 +46,7 @@ export function isSensorAvailable(options?: {
       logger.info('Sensor availability check completed', 'isSensorAvailable', {
         available: result.available,
         biometryType: result.biometryType,
+        isDeviceSecure: result.isDeviceSecure,
       });
       return result;
     })
