@@ -312,25 +312,17 @@ public func exportPublicKeyToBase64(_ publicKey: SecKey) -> String? {
 /// Derives the appropriate LAPolicy from a key's SecAccessControl.
 /// Compares the access control against known biometry-only configurations
 /// (the same .biometryAny / .userPresence split used in createBiometricAccessControl).
-///   .biometryAny  → .deviceOwnerAuthenticationWithBiometrics
-///   .userPresence  → .deviceOwnerAuthentication
+///   .biometryAny  -> .deviceOwnerAuthenticationWithBiometrics
+///   .userPresence  -> .deviceOwnerAuthentication
 public func deriveLAPolicy(from accessControl: SecAccessControl) -> LAPolicy {
-  // EC keys use kSecAttrAccessibleWhenUnlockedThisDeviceOnly,
-  // RSA keys use kSecAttrAccessibleWhenPasscodeSetThisDeviceOnly.
   // On simulator, .privateKeyUsage is omitted so the flags are just the auth constraint.
-  let biometryProtections: [CFTypeRef] = [
-    kSecAttrAccessibleWhenUnlockedThisDeviceOnly,
-    kSecAttrAccessibleWhenPasscodeSetThisDeviceOnly,
-  ]
 
-  for protection in biometryProtections {
-    if let ref = SecAccessControlCreateWithFlags(kCFAllocatorDefault, protection, .biometryAny, nil),
-       CFEqual(accessControl, ref) {
-      return .deviceOwnerAuthenticationWithBiometrics
-    }
+  if let ref = SecAccessControlCreateWithFlags(kCFAllocatorDefault, kSecAttrAccessibleWhenPasscodeSetThisDeviceOnly, .biometryAny, nil),
+      CFEqual(accessControl, ref) {
+    return .deviceOwnerAuthenticationWithBiometrics
   }
 
-  // No biometry-only match → key uses .userPresence (allows passcode fallback)
+  // No biometry-only match -> key uses .userPresence (allows passcode fallback)
   return .deviceOwnerAuthentication
 }
 #endif
