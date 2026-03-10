@@ -758,11 +758,18 @@ class ReactNativeBiometrics: RCTEventEmitter {
     }
 
     // On simulator, Secure Enclave is unavailable so SecKeyCreateSignature won't trigger a biometric prompt.
-    // Show one explicitly before the signature test.
+    // Show one explicitly before the signature test, using the policy that matches the key's access control.
     #if targetEnvironment(simulator)
+    let derivedPolicy: LAPolicy
+    if let ac = keyItem[kSecAttrAccessControl as String] as? SecAccessControl {
+      derivedPolicy = deriveLAPolicy(from: ac)
+    } else {
+      derivedPolicy = .deviceOwnerAuthentication
+    }
     let simContext = LAContext()
-    if simContext.canEvaluatePolicy(.deviceOwnerAuthentication, error: nil) {
-      simContext.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: "Validate key integrity") { success, authError in
+    var policyError: NSError?
+    if simContext.canEvaluatePolicy(derivedPolicy, error: &policyError) {
+      simContext.evaluatePolicy(derivedPolicy, localizedReason: "Validate key integrity") { success, authError in
         DispatchQueue.main.async {
           if success {
             performSignatureTest()
@@ -780,9 +787,20 @@ class ReactNativeBiometrics: RCTEventEmitter {
         }
       }
       return
+    } else {
+      let biometricsError: ReactNativeBiometricsError
+      if let laError = policyError as? LAError {
+        biometricsError = ReactNativeBiometricsError.fromLAError(laError)
+      } else {
+        biometricsError = .biometryNotAvailable
+      }
+      integrityResult["error"] = biometricsError.errorInfo.message
+      integrityResult["integrityChecks"] = checks
+      resolve(integrityResult)
+      return
     }
     #endif
-
+    // Device path (simulators return before #endif)
     performSignatureTest()
   }
   
@@ -919,14 +937,26 @@ class ReactNativeBiometrics: RCTEventEmitter {
     }
 
     // On simulator, Secure Enclave is unavailable so SecKeyCreateSignature won't trigger a biometric prompt.
-    // Show one explicitly before signing.
+    // Show one explicitly before signing, using the policy that matches the key's access control.
     #if targetEnvironment(simulator)
+    let derivedPolicy: LAPolicy = {
+      var attrResult: CFTypeRef?
+      let attrQuery = createKeychainQuery(keyTag: keyTag, returnAttributes: true)
+      let attrStatus = SecItemCopyMatching(attrQuery as CFDictionary, &attrResult)
+      if attrStatus == errSecSuccess,
+         let attrs = attrResult as? [String: Any],
+         let ac = attrs[kSecAttrAccessControl as String] as? SecAccessControl {
+        return deriveLAPolicy(from: ac)
+      }
+      return .deviceOwnerAuthentication
+    }()
     let simContext = LAContext()
     if let cancel = cancelButtonText as? String {
       simContext.localizedCancelTitle = cancel
     }
-    if simContext.canEvaluatePolicy(.deviceOwnerAuthentication, error: nil) {
-      simContext.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: (promptTitle as String?) ?? "Authenticate") { success, authError in
+    var policyError: NSError?
+    if simContext.canEvaluatePolicy(derivedPolicy, error: &policyError) {
+      simContext.evaluatePolicy(derivedPolicy, localizedReason: (promptTitle as String?) ?? "Authenticate") { success, authError in
         DispatchQueue.main.async {
           if success {
             performSign()
@@ -942,9 +972,18 @@ class ReactNativeBiometrics: RCTEventEmitter {
         }
       }
       return
+    } else {
+      let biometricsError: ReactNativeBiometricsError
+      if let laError = policyError as? LAError {
+        biometricsError = ReactNativeBiometricsError.fromLAError(laError)
+      } else {
+        biometricsError = .biometryNotAvailable
+      }
+      resolve(["success": false, "error": biometricsError.errorInfo.message, "errorCode": biometricsError.errorInfo.code, "authType": 0])
+      return
     }
     #endif
-
+    // Device path (simulators return before #endif)
     performSign()
   }
   
