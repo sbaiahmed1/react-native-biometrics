@@ -761,8 +761,8 @@ class ReactNativeBiometrics: RCTEventEmitter {
     // Show one explicitly before the signature test, using the policy that matches the key's access control.
     #if targetEnvironment(simulator)
     let derivedPolicy: LAPolicy
-    if let ac = keyItem[kSecAttrAccessControl as String] as? SecAccessControl {
-      derivedPolicy = deriveLAPolicy(from: ac)
+    if let acValue = keyItem[kSecAttrAccessControl as String] {
+      derivedPolicy = deriveLAPolicy(from: acValue as! SecAccessControl)
     } else {
       derivedPolicy = .deviceOwnerAuthentication
     }
@@ -945,8 +945,8 @@ class ReactNativeBiometrics: RCTEventEmitter {
       let attrStatus = SecItemCopyMatching(attrQuery as CFDictionary, &attrResult)
       if attrStatus == errSecSuccess,
          let attrs = attrResult as? [String: Any],
-         let ac = attrs[kSecAttrAccessControl as String] as? SecAccessControl {
-        return deriveLAPolicy(from: ac)
+         let acValue = attrs[kSecAttrAccessControl as String] {
+        return deriveLAPolicy(from: acValue as! SecAccessControl)
       }
       return .deviceOwnerAuthentication
     }()
