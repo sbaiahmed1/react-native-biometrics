@@ -227,6 +227,14 @@ object BiometricUtils {
     }
 
     /**
+     * Checks if keyguard is secure
+     */
+    fun isDeviceSecure(context: Context): Boolean {
+        val keyguardManager = context.getSystemService(Context.KEYGUARD_SERVICE) as android.app.KeyguardManager
+        return keyguardManager.isDeviceSecure
+    }
+
+    /**
      * Gets enrolled biometrics
      */
     fun getEnrolledBiometrics(context: Context): WritableArray {
