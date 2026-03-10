@@ -189,7 +189,7 @@ public func createBiometricAccessControl(
     #endif
     return SecAccessControlCreateWithFlags(
       kCFAllocatorDefault,
-      kSecAttrAccessibleWhenUnlockedThisDeviceOnly,
+      kSecAttrAccessibleWhenPasscodeSetThisDeviceOnly,
       flags,
       nil
     )
