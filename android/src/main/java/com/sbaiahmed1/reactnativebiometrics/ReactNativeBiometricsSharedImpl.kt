@@ -365,6 +365,7 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
 
             } else {
               builder.setUserAuthenticationValidityDurationSeconds(-1) // Biometric only
+                .setInvalidatedByBiometricEnrollment(false)
             }
 
             if (strongBox) {
@@ -444,6 +445,7 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
 
             } else {
               builder.setUserAuthenticationValidityDurationSeconds(-1) // Biometric only
+                .setInvalidatedByBiometricEnrollment(false)
             }
 
             if (strongBox) {
