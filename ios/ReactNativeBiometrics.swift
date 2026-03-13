@@ -1081,6 +1081,33 @@ class ReactNativeBiometrics: RCTEventEmitter {
   }
   
   @objc
+  func sha256(_ data: NSString,
+              inputEncoding: NSString?,
+              resolver resolve: @escaping RCTPromiseResolveBlock,
+              rejecter reject: @escaping RCTPromiseRejectBlock) {
+    let encoding = (inputEncoding as String?) ?? "utf8"
+
+    let dataBytes: Data
+    if encoding.lowercased() == "base64" {
+      guard let decoded = Data(base64Encoded: data as String) else {
+        resolve(["hash": "", "error": "Invalid base64 data"])
+        return
+      }
+      dataBytes = decoded
+    } else {
+      guard let utf8Data = (data as String).data(using: .utf8) else {
+        resolve(["hash": "", "error": "UTF-8 encoding failed"])
+        return
+      }
+      dataBytes = utf8Data
+    }
+
+    let hash = SHA256.hash(data: dataBytes)
+    let hashData = Data(hash)
+    resolve(["hash": hashData.base64EncodedString()])
+  }
+
+  @objc
   func getKeyAttributes(_ keyAlias: NSString?,
                         resolver resolve: @escaping RCTPromiseResolveBlock,
                         rejecter reject: @escaping RCTPromiseRejectBlock) {

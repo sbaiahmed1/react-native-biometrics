@@ -437,6 +437,25 @@ export function validateSignature(
     });
 }
 
+export function sha256(
+  data: string,
+  inputEncoding: 'utf8' | 'base64' = 'utf8'
+): Promise<Sha256Result> {
+  logger.debug('Computing SHA256', 'sha256', {
+    dataLength: data.length,
+    inputEncoding,
+  });
+  return ReactNativeBiometrics.sha256(data, inputEncoding)
+    .then((result) => {
+      logger.info('SHA256 completed', 'sha256');
+      return result;
+    })
+    .catch((error) => {
+      logger.error('SHA256 failed', 'sha256', error);
+      throw error;
+    });
+}
+
 export function getKeyAttributes(
   keyAlias?: string
 ): Promise<KeyAttributesResult> {
@@ -771,6 +790,11 @@ export type SignatureOptions = {
 
 export type SignatureValidationResult = {
   valid: boolean;
+  error?: string;
+};
+
+export type Sha256Result = {
+  hash: string;
   error?: string;
 };
 

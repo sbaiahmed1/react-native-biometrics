@@ -25,6 +25,7 @@ import java.security.NoSuchProviderException
 import java.security.Signature
 import java.security.UnrecoverableKeyException
 import java.security.cert.CertificateException
+import java.security.MessageDigest
 import java.security.interfaces.RSAPublicKey
 import androidx.core.content.edit
 
@@ -1375,6 +1376,33 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
       errorResult.putBoolean("valid", false)
       errorResult.putString("error", "Failed to validate signature: ${e.message}")
       promise.resolve(errorResult)
+    }
+  }
+
+  fun sha256(data: String, inputEncoding: String?, promise: Promise) {
+    try {
+      val encoding = inputEncoding ?: "utf8"
+      val dataBytes = decodeInputData(data, encoding)
+      if (dataBytes == null) {
+        promise.resolve(Arguments.createMap().apply {
+          putString("hash", "")
+          putString("error", "Invalid base64 data")
+        })
+        return
+      }
+
+      val digest = MessageDigest.getInstance("SHA-256")
+      val hashBytes = digest.digest(dataBytes)
+      val hashBase64 = BiometricUtils.encodeBase64(hashBytes)
+
+      promise.resolve(Arguments.createMap().apply {
+        putString("hash", hashBase64)
+      })
+    } catch (e: Exception) {
+      promise.resolve(Arguments.createMap().apply {
+        putString("hash", "")
+        putString("error", e.message ?: "SHA256 failed")
+      })
     }
   }
 

@@ -134,6 +134,13 @@ export interface Spec extends TurboModule {
     valid: boolean;
     error?: string;
   }>;
+  sha256(
+    data: string,
+    inputEncoding?: 'utf8' | 'base64' | null
+  ): Promise<{
+    hash: string;
+    error?: string;
+  }>;
   getKeyAttributes(keyAlias?: string | null): Promise<{
     exists: boolean;
     attributes?: {
