@@ -101,6 +101,12 @@ RCT_EXTERN_METHOD(validateSignature:
     resolver:(RCTPromiseResolveBlock)resolve
     rejecter:(RCTPromiseRejectBlock)reject)
 
+RCT_EXTERN_METHOD(sha256:
+    (NSString *)data
+    inputEncoding:(NSString *)inputEncoding
+    resolver:(RCTPromiseResolveBlock)resolve
+    rejecter:(RCTPromiseRejectBlock)reject)
+
 RCT_EXTERN_METHOD(getKeyAttributes:
     (NSString *)keyAlias
     resolver:(RCTPromiseResolveBlock)resolve

@@ -108,6 +108,11 @@ class ReactNativeBiometricsModule(reactContext: ReactApplicationContext) :
   }
 
   @ReactMethod
+  override fun sha256(data: String, inputEncoding: String?, promise: Promise) {
+    sharedImpl.sha256(data, inputEncoding, promise)
+  }
+
+  @ReactMethod
   override fun getKeyAttributes(keyAlias: String?, promise: Promise) {
     sharedImpl.getKeyAttributes(keyAlias, promise)
   }
