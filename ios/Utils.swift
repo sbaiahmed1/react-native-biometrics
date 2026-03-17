@@ -163,16 +163,17 @@ public func createBiometricAccessControl(
   allowDeviceCredentialsFallback: Bool = false
 ) -> SecAccessControl? {
   // Determine the authentication constraint:
-  // - .biometryAny: biometrics only (no passcode fallback)
-  // - .userPresence: biometry first, with passcode fallback if biometry fails or is unavailable
+  // - .biometryCurrentSet: biometrics only, bound to the currently enrolled set.
+  //   Any enrollment change invalidates the key and requires re-enrollment.
+  // - .userPresence: biometry first, with passcode fallback if biometry fails
+  //   or is unavailable. This cannot be tied to the current biometric set.
   let authConstraint: SecAccessControlCreateFlags = allowDeviceCredentialsFallback
     ? .userPresence
-    : .biometryAny
+    : .biometryCurrentSet
 
   // For RSA keys (not in Secure Enclave), we use access control matching old Objective-C implementation
   if keyType == .rsa2048 {
-    // Use kSecAttrAccessibleWhenPasscodeSetThisDeviceOnly with authConstraint, preserving the old default behavior
-    // (when allowDeviceCredentials is false, authConstraint = .biometryAny)
+    // Use kSecAttrAccessibleWhenPasscodeSetThisDeviceOnly with authConstraint.
     return SecAccessControlCreateWithFlags(
       kCFAllocatorDefault,
       kSecAttrAccessibleWhenPasscodeSetThisDeviceOnly,
@@ -317,7 +318,7 @@ public func exportPublicKeyToBase64(_ publicKey: SecKey) -> String? {
 public func deriveLAPolicy(from accessControl: SecAccessControl) -> LAPolicy {
   // On simulator, .privateKeyUsage is omitted so the flags are just the auth constraint.
 
-  if let ref = SecAccessControlCreateWithFlags(kCFAllocatorDefault, kSecAttrAccessibleWhenPasscodeSetThisDeviceOnly, .biometryAny, nil),
+  if let ref = SecAccessControlCreateWithFlags(kCFAllocatorDefault, kSecAttrAccessibleWhenPasscodeSetThisDeviceOnly, .biometryCurrentSet, nil),
       CFEqual(accessControl, ref) {
     return .deviceOwnerAuthenticationWithBiometrics
   }
