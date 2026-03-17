@@ -34,6 +34,49 @@ class ReactNativeBiometrics: RCTEventEmitter {
     return generateKeyAlias(customAlias: customAlias, configuredAlias: configuredKeyAlias)
   }
 
+  private func biometricDomainStateStorageKey(for keyTag: String) -> String {
+    return "ReactNativeBiometricsDomainState.\(keyTag)"
+  }
+
+  private func clearStoredBiometricDomainState(for keyTag: String) {
+    UserDefaults.standard.removeObject(forKey: biometricDomainStateStorageKey(for: keyTag))
+  }
+
+  private func persistCurrentBiometricDomainState(for keyTag: String) {
+    let context = LAContext()
+    var error: NSError?
+
+    guard context.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: &error),
+          let domainState = context.evaluatedPolicyDomainState else {
+      clearStoredBiometricDomainState(for: keyTag)
+      return
+    }
+
+    UserDefaults.standard.set(
+      domainState.base64EncodedString(),
+      forKey: biometricDomainStateStorageKey(for: keyTag)
+    )
+  }
+
+  private func hasBiometricDomainStateChanged(for keyTag: String) -> Bool {
+    guard let storedDomainStateBase64 = UserDefaults.standard.string(
+      forKey: biometricDomainStateStorageKey(for: keyTag)
+    ),
+    let storedDomainState = Data(base64Encoded: storedDomainStateBase64) else {
+      return false
+    }
+
+    let context = LAContext()
+    var error: NSError?
+
+    guard context.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: &error),
+          let currentDomainState = context.evaluatedPolicyDomainState else {
+      return false
+    }
+
+    return storedDomainState != currentDomainState
+  }
+
   @objc
   override static func requiresMainQueueSetup() -> Bool {
     return false
@@ -469,6 +512,12 @@ class ReactNativeBiometrics: RCTEventEmitter {
     let result: [String: Any] = [
       "publicKey": publicKeyBase64
     ]
+
+    if deviceCredentialsFallback {
+      clearStoredBiometricDomainState(for: keyTag)
+    } else {
+      persistCurrentBiometricDomainState(for: keyTag)
+    }
     
     ReactNativeBiometricDebug.debugLog("Keys created successfully with tag: \(keyTag), type: \(biometricKeyType)")
     resolve(result)
@@ -497,6 +546,7 @@ class ReactNativeBiometrics: RCTEventEmitter {
     let checkStatus = SecItemCopyMatching(query as CFDictionary, nil)
     
     if checkStatus == errSecItemNotFound {
+      clearStoredBiometricDomainState(for: keyTag)
       ReactNativeBiometricDebug.debugLog("No key found with tag '\(keyTag)' - nothing to delete")
       resolve(["success": true])
       return
@@ -507,6 +557,7 @@ class ReactNativeBiometrics: RCTEventEmitter {
     
     switch deleteStatus {
     case errSecSuccess:
+      clearStoredBiometricDomainState(for: keyTag)
       ReactNativeBiometricDebug.debugLog("Key with tag '\(keyTag)' deleted successfully")
       
       // Verify deletion
@@ -520,6 +571,7 @@ class ReactNativeBiometrics: RCTEventEmitter {
       }
       
     case errSecItemNotFound:
+      clearStoredBiometricDomainState(for: keyTag)
       ReactNativeBiometricDebug.debugLog("No key found with tag '\(keyTag)' - nothing to delete")
       resolve(["success": true])
       
@@ -709,6 +761,15 @@ class ReactNativeBiometrics: RCTEventEmitter {
     checks["keyFormatValid"] = true
     checks["keyAccessible"] = true
     checks["hardwareBacked"] = isHardwareBacked
+
+    if hasBiometricDomainStateChanged(for: keyTag) {
+      checks["keyAccessible"] = false
+      integrityResult["integrityChecks"] = checks
+      integrityResult["error"] = ReactNativeBiometricsError.biometryCurrentSetChanged.errorInfo.message
+      ReactNativeBiometricDebug.debugLog("validateKeyIntegrity - Biometric enrollment change detected for keyTag: \(keyTag)")
+      resolve(integrityResult)
+      return
+    }
     
     // Perform signature test
     let testData = "integrity_test_data".data(using: .utf8)!
@@ -879,6 +940,19 @@ class ReactNativeBiometrics: RCTEventEmitter {
 
     // Force cast SecKey since conditional downcast to CoreFoundation types always succeeds
     let keyRef = result as! SecKey
+
+    if hasBiometricDomainStateChanged(for: keyTag) {
+      let biometricsError = ReactNativeBiometricsError.biometryCurrentSetChanged
+      ReactNativeBiometricDebug.debugLog("verifyKeySignature failed - \(biometricsError.errorInfo.message)")
+      resolve([
+        "success": false,
+        "error": biometricsError.errorInfo.message,
+        "errorCode": biometricsError.errorInfo.code,
+        "authType": 0
+      ])
+      return
+    }
+
     let algorithm = getSignatureAlgorithm(for: keyRef)
 
     // Decode data based on input encoding

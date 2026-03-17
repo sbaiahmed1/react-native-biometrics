@@ -35,6 +35,7 @@ public enum ReactNativeBiometricsError: Error {
   case keychainQueryFailed
   case invalidKeyReference
   case keyIntegrityCheckFailed
+  case biometryCurrentSetChanged
 
   case signatureCreationFailed
   case signatureVerificationFailed
@@ -123,6 +124,11 @@ public enum ReactNativeBiometricsError: Error {
       return ("INVALID_KEY_REFERENCE", "Invalid key reference")
     case .keyIntegrityCheckFailed:
       return ("KEY_INTEGRITY_CHECK_FAILED", "Key integrity verification failed")
+    case .biometryCurrentSetChanged:
+      return (
+        "BIOMETRY_CURRENT_SET_CHANGED",
+        "Biometric enrollment changed. Re-enrollment required"
+      )
 
       // Signature Errors
     case .signatureCreationFailed:
