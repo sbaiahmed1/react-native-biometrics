@@ -37,6 +37,9 @@
 - 🐛 **Debug Tools** - Comprehensive diagnostic and testing utilities
 - 📝 **Centralized Logging** - Advanced logging system for debugging and monitoring
 - 🔐 **Key Integrity Validation** - Comprehensive cryptographic key validation and signature verification
+- 🏗️ **StrongBox Support** - Automatic use of Android StrongBox hardware security with TEE fallback
+- 🔍 **Authentication Type Reporting** - Know exactly how the user authenticated (FaceID, TouchID, PIN, etc.) via `AuthType`
+- #️⃣ **Native SHA-256 Hashing** - Platform-native SHA-256 via `sha256()` function
 - 📦 **Lightweight** - Minimal dependencies and optimized for performance
 - 🎯 **TypeScript** - Full TypeScript support with detailed type definitions
 - 🔄 **New Architecture** - Compatible with React Native's new architecture (TurboModules)
@@ -159,7 +162,7 @@ The key management functions have been updated and are now named exports. Here a
 
 | `react-native-biometrics` (Old) | `@sbaiahmed1/react-native-biometrics` (New) | Notes |
 | ------------------------------- | ------------------------------------------- | ----- |
-| `createKeys()`                  | `createKeys(keyAlias?, keyType?)`           | Now supports optional `keyType` parameter ('ec256' or 'rsa2048'). |
+| `createKeys()`                  | `createKeys(keyAlias?, keyType?, biometricStrength?, allowDeviceCredentials?, failIfExists?)` | Supports key type, biometric strength, device credential fallback, and duplicate key protection. |
 | `biometricKeysExist()`          | `validateKeyIntegrity()`                    | Check the `keyExists` boolean in the returned object. |
 | `createSignature()`             | `verifyKeySignature()`                      | This function now creates the signature. The name is updated to reflect its primary use in verification flows. |
 | `deleteKeys()`                  | `deleteKeys()`                              | No change in function name. |
@@ -742,6 +745,7 @@ const isSensorAvailable = (): Promise<SensorInfo> => {
 type SensorInfo = {
   available: boolean;        // Whether biometric auth is available
   biometryType?: string;     // Type of biometry ('FaceID', 'TouchID', 'Fingerprint', etc.)
+  isDeviceSecure?: boolean;  // Whether the device has a passcode/PIN/password set
   error?: string;            // Error message if not available
   errorCode?: string;        // Error code if not available (platform-specific)
 }
@@ -783,12 +787,14 @@ type AuthOptions = {
   fallbackLabel?: string;            // Fallback button text
   allowDeviceCredentials?: boolean;  // Allow PIN/password fallback
   disableDeviceFallback?: boolean;   // Disable fallback options
+  returnAuthType?: boolean;          // Include authType in result (see AuthType enum)
 }
 
 type AuthResult = {
   success: boolean;          // Authentication result
   error?: string;            // Error message if failed
   errorCode?: string;        // Error code if failed
+  authType?: AuthType;       // How the user authenticated (only when returnAuthType is true)
 }
 ```
 
@@ -796,12 +802,18 @@ type AuthResult = {
 
 **Important note:** RSA keys are stored in the regular keychain (not Secure Enclave on iOS) and may have different security characteristics compared to EC256 keys. For maximum security, EC256 keys are recommended as they can leverage hardware-backed storage when available.
 
-#### `createKeys(keyAlias?: string, keyType?: 'ec256' | 'rsa2048')`
+#### `createKeys(keyAlias?, keyType?, biometricStrength?, allowDeviceCredentials?, failIfExists?)`
 
-Generates cryptographic keys for secure biometric operations. Optionally accepts a custom key alias and key type.
+Generates cryptographic keys for secure biometric operations. Optionally accepts a custom key alias, key type, and additional options.
 
 ```typescript
-const createKeys = (keyAlias?: string, keyType?: 'ec256' | 'rsa2048'): Promise<KeyResult> => {
+const createKeys = (
+  keyAlias?: string,
+  keyType?: 'ec256' | 'rsa2048',
+  biometricStrength?: BiometricStrength,
+  allowDeviceCredentials?: boolean,
+  failIfExists?: boolean
+): Promise<KeyResult> => {
 };
 
 type KeyResult = {
@@ -812,6 +824,9 @@ type KeyResult = {
 **Parameters:**
 - `keyAlias` (optional): Custom key identifier. If not provided, uses the configured default alias.
 - `keyType` (optional): Type of cryptographic key to generate. Defaults to `'ec256'` on iOS and `'rsa2048'` on Android.
+- `biometricStrength` (optional): Biometric strength requirement (`'strong'` or `'weak'`).
+- `allowDeviceCredentials` (optional, default `false`): When `true`, the key can be unlocked by biometrics OR device credentials (PIN/passcode). Requires Android API 30+.
+- `failIfExists` (optional, default `false`): When `true`, rejects with `KEY_ALREADY_EXISTS` if a key with the alias already exists instead of overwriting it.
 
 > 📖 **For detailed key type information, security considerations, and advanced usage patterns, see the [Cryptographic Keys Guide](./docs/CRYPTOGRAPHIC_KEYS.md)**
 
@@ -1161,9 +1176,9 @@ console.log('Recent logs:', logs);
 ### Key Integrity Validation
 
 #### `validateKeyIntegrity(keyAlias?: string): Promise<KeyIntegrityResult>`
-Performs comprehensive validation of key integrity including format checks, accessibility tests, signature validation, and hardware backing verification.
+Performs comprehensive validation of key integrity including format checks, accessibility tests, signature validation, and hardware backing verification. On Android API 31+, the result also reports `strongBoxBacked` in `integrityChecks` when the backing type can be distinguished.
 
-#### `verifyKeySignature(keyAlias?: string, data: string, promptTitle?: string, promptSubtitle?: string, cancelButtonText?: string): Promise<SignatureResult>`
+#### `verifyKeySignature(keyAlias?, data, promptTitle?, promptSubtitle?, cancelButtonText?, returnAuthType?): Promise<SignatureResult>`
 Generates a cryptographic signature for the provided data using the specified key.
 
 - `data`: The data to be signed.
@@ -1171,7 +1186,8 @@ Generates a cryptographic signature for the provided data using the specified ke
 - `promptTitle` (optional): Title text displayed in the signature prompt dialog.
 - `promptSubtitle` (optional): Subtitle text providing additional context in the prompt dialog (Android only).
 - `cancelButtonText` (optional): Text for the cancel button in the prompt dialog (Android only).
-- Returns a `SignatureResult` with `success`, `signature`, `error`, and `errorCode` (when available) on both iOS and Android.
+- `returnAuthType` (optional): When `true`, includes `authType` in the result indicating how the user authenticated.
+- Returns a `SignatureResult` with `success`, `signature`, `error`, `errorCode`, and optionally `authType` (when `returnAuthType` is `true`).
 
 #### `signWithOptions(options: SignatureOptions): Promise<SignatureResult>` 🆕
 
@@ -1189,6 +1205,7 @@ type SignatureOptions = {
   cancelButtonText?: string;              // Cancel button text
   biometricStrength?: BiometricStrength;  // Biometric strength (Android only)
   disableDeviceFallback?: boolean;        // Prevent PIN/pattern fallback (Android only)
+  returnAuthType?: boolean;               // Include authType in result (see AuthType enum)
 };
 
 // InputEncoding enum values:
@@ -1243,6 +1260,29 @@ This avoids double-encoding issues when working with WebAuthn challenges or othe
 #### `validateSignature(data: string, signature: string, keyAlias?: string): Promise<SignatureValidationResult>`
 Validates a signature against the original data using the public key.
 
+#### `sha256(data: string, inputEncoding?: 'utf8' | 'base64'): Promise<Sha256Result>`
+
+Computes a SHA-256 hash of the provided data using native platform cryptography.
+
+```typescript
+type Sha256Result = {
+  hash: string;    // Base64-encoded SHA-256 hash
+  error?: string;  // Error message if hashing failed
+}
+```
+
+**Parameters:**
+- `data`: The data to hash.
+- `inputEncoding` (optional, default `'utf8'`): How to interpret the input data. Use `'base64'` if the data is already base64-encoded binary.
+
+**Example:**
+```javascript
+import { sha256 } from '@sbaiahmed1/react-native-biometrics';
+
+const result = await sha256('Hello, world!');
+console.log('Hash:', result.hash); // Base64-encoded SHA-256 hash
+```
+
 #### `getKeyAttributes(keyAlias?: string): Promise<KeyAttributesResult>`
 Retrieves detailed attributes and security properties of the specified key.
 
@@ -1259,6 +1299,7 @@ import {
 const integrityResult = await validateKeyIntegrity('my-key');
 console.log('Key valid:', integrityResult.valid);
 console.log('Hardware backed:', integrityResult.integrityChecks.hardwareBacked);
+console.log('StrongBox backed:', integrityResult.integrityChecks.strongBoxBacked); // Android API 31+ only
 
 // Generate and validate signature
 const data = 'Hello, secure world!';
@@ -1653,6 +1694,13 @@ This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) 
 - [x] **Advanced Security Features**: Enhanced security measures and validation
 - [x] **Key Type Support**: Added support for EC256 and RSA2048 key types in createKeys function
 - [x] **Biometrics Change Event Handling**: Implement event listeners for biometric changes (e.g., new enrollment, removal)
+- [x] **StrongBox Support**: Automatic StrongBox hardware security on Android with TEE fallback
+- [x] **AuthType Reporting**: `AuthType` enum and opt-in `authType` field in authentication and signing results
+- [x] **Native SHA-256**: Exported `sha256()` function using platform-native cryptography
+- [x] **Device Credential Keys**: `allowDeviceCredentials` parameter for `createKeys` to allow PIN/passcode-bound keys
+- [x] **Duplicate Key Protection**: `failIfExists` parameter for `createKeys` to prevent accidental key overwrites
+- [x] **Device Security Check**: `isDeviceSecure` field in `isSensorAvailable` result
+- [x] **iOS Simulator Support**: Full biometric prompt support on iOS Simulator via LAContext workarounds
 
 ### 🔄 In Progress
 - [ ] **Performance Optimization**: Optimize biometric operations and reduce latency
