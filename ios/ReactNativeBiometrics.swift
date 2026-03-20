@@ -71,7 +71,7 @@ class ReactNativeBiometrics: RCTEventEmitter {
 
     guard context.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: &error),
           let currentDomainState = context.evaluatedPolicyDomainState else {
-      return false
+      return true
     }
 
     return storedDomainState != currentDomainState
@@ -434,6 +434,12 @@ class ReactNativeBiometrics: RCTEventEmitter {
     } else {
       biometricKeyType = .ec256
     }
+
+    // iOS migration-safe behavior:
+    // - default/weak -> .biometryAny (backward-compatible with existing keys)
+    // - strong       -> .biometryCurrentSet (invalidated on biometric enrollment change)
+    let biometricStrengthValue = (biometricStrength as String?)?.lowercased()
+    let useBiometryCurrentSet = biometricStrengthValue == "strong"
     
     // Check if key already exists when failIfExists is true
     if failIfKeyExists {
@@ -473,7 +479,8 @@ class ReactNativeBiometrics: RCTEventEmitter {
     // Create access control for biometric authentication
     guard let accessControl = createBiometricAccessControl(
       for: biometricKeyType,
-      allowDeviceCredentialsFallback: deviceCredentialsFallback
+      allowDeviceCredentialsFallback: deviceCredentialsFallback,
+      useBiometryCurrentSet: useBiometryCurrentSet
     ) else {
       ReactNativeBiometricDebug.debugLog("createKeys failed - Could not create access control")
       handleError(.accessControlCreationFailed, reject: reject)

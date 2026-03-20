@@ -245,6 +245,22 @@ async function debugKeyCreation() {
 
 ## Migration Guide
 
+### iOS Access-Control Migration (`.biometryAny` vs `.biometryCurrentSet`)
+
+On iOS, key access-control policy is fixed at key creation time:
+
+- Existing keys remain bound to the policy they were created with.
+- New keys can use:
+  - `.biometryAny` (default/backward-compatible)
+  - `.biometryCurrentSet` (use `biometricStrength: 'strong'` during `createKeys`)
+  - `.userPresence` (when `allowDeviceCredentials` is `true`)
+
+Migration recommendations:
+
+1. Keep existing aliases on `.biometryAny` for compatibility unless stricter behavior is required.
+2. To adopt `.biometryCurrentSet`, roll keys by alias (`deleteKeys` then `createKeys` with `biometricStrength: 'strong'`).
+3. Communicate to users that `.biometryCurrentSet` keys are invalidated after biometric enrollment changes and require key re-enrollment.
+
 ### From Legacy Implementations
 
 If you're upgrading from an older version that only supported RSA:
