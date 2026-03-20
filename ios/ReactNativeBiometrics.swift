@@ -63,14 +63,30 @@ class ReactNativeBiometrics: RCTEventEmitter {
       forKey: biometricDomainStateStorageKey(for: keyTag)
     ),
     let storedDomainState = Data(base64Encoded: storedDomainStateBase64) else {
+      // Keys that do not use .biometryCurrentSet intentionally do not store domain state.
       return false
     }
 
     let context = LAContext()
     var error: NSError?
 
-    guard context.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: &error),
-          let currentDomainState = context.evaluatedPolicyDomainState else {
+    let canEvaluate = context.canEvaluatePolicy(
+      .deviceOwnerAuthenticationWithBiometrics,
+      error: &error
+    )
+
+    if !canEvaluate {
+      switch error.flatMap({ LAError.Code(rawValue: $0.code) }) {
+      case .biometryNotEnrolled:
+        return true
+      case .biometryLockout:
+        return false
+      default:
+        return false
+      }
+    }
+
+    guard let currentDomainState = context.evaluatedPolicyDomainState else {
       return true
     }
 
@@ -520,7 +536,9 @@ class ReactNativeBiometrics: RCTEventEmitter {
       "publicKey": publicKeyBase64
     ]
 
-    if deviceCredentialsFallback {
+    let shouldPersistBiometricDomainState = !deviceCredentialsFallback && useBiometryCurrentSet
+
+    if !shouldPersistBiometricDomainState {
       clearStoredBiometricDomainState(for: keyTag)
     } else {
       persistCurrentBiometricDomainState(for: keyTag)
@@ -564,12 +582,12 @@ class ReactNativeBiometrics: RCTEventEmitter {
     
     switch deleteStatus {
     case errSecSuccess:
-      clearStoredBiometricDomainState(for: keyTag)
-      ReactNativeBiometricDebug.debugLog("Key with tag '\(keyTag)' deleted successfully")
+      ReactNativeBiometricDebug.debugLog("Deletion succeeded for key with tag '\(keyTag)'; verifying removal")
       
       // Verify deletion
       let verifyStatus = SecItemCopyMatching(query as CFDictionary, nil)
       if verifyStatus == errSecItemNotFound {
+        clearStoredBiometricDomainState(for: keyTag)
         ReactNativeBiometricDebug.debugLog("Keys deleted and verified successfully")
         resolve(["success": true])
       } else {
