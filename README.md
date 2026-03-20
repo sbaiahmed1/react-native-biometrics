@@ -827,6 +827,14 @@ type KeyResult = {
 - `biometricStrength` (optional): Biometric strength requirement (`'strong'` or `'weak'`).
 - `allowDeviceCredentials` (optional, default `false`): When `true`, the key can be unlocked by biometrics OR device credentials (PIN/passcode). Requires Android API 30+.
 - `failIfExists` (optional, default `false`): When `true`, rejects with `KEY_ALREADY_EXISTS` if a key with the alias already exists instead of overwriting it.
+- `biometricStrength` (optional): Uses `BiometricStrength.Strong` or `BiometricStrength.Weak`. On iOS, `Strong` binds new keys to `.biometryCurrentSet`; `Weak`/unset uses `.biometryAny` for backward compatibility.
+- `allowDeviceCredentials` (optional, default `false`): When `true`, the key can be unlocked by biometrics OR device credentials (PIN/passcode). On iOS this uses `.userPresence` to allow passcode fallback; on Android this requires API 30+.
+- `failIfExists` (optional, default `false`): When `true`, rejects with `KEY_ALREADY_EXISTS` if a key with the alias already exists instead of overwriting it.
+
+**iOS migration guidance**
+- Existing keys keep the access-control policy they were created with; this setting only affects newly created keys.
+- If you switch iOS key creation to `BiometricStrength.Strong`, recreate keys (`deleteKeys` + `createKeys`) to migrate.
+- Keys created with `.biometryCurrentSet` are invalidated when biometric enrollment changes.
 
 > 📖 **For detailed key type information, security considerations, and advanced usage patterns, see the [Cryptographic Keys Guide](./docs/CRYPTOGRAPHIC_KEYS.md)**
 

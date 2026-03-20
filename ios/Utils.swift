@@ -160,16 +160,18 @@ public func createKeychainQuery(
  */
 public func createBiometricAccessControl(
   for keyType: BiometricKeyType = .ec256,
-  allowDeviceCredentialsFallback: Bool = false
+  allowDeviceCredentialsFallback: Bool = false,
+  useBiometryCurrentSet: Bool = false
 ) -> SecAccessControl? {
   // Determine the authentication constraint:
+  // - .biometryAny: biometrics only, supports legacy key behavior across enrollments.
   // - .biometryCurrentSet: biometrics only, bound to the currently enrolled set.
   //   Any enrollment change invalidates the key and requires re-enrollment.
   // - .userPresence: biometry first, with passcode fallback if biometry fails
   //   or is unavailable. This cannot be tied to the current biometric set.
   let authConstraint: SecAccessControlCreateFlags = allowDeviceCredentialsFallback
     ? .userPresence
-    : .biometryCurrentSet
+    : (useBiometryCurrentSet ? .biometryCurrentSet : .biometryAny)
 
   // For RSA keys (not in Secure Enclave), we use access control matching old Objective-C implementation
   if keyType == .rsa2048 {
@@ -312,14 +314,25 @@ public func exportPublicKeyToBase64(_ publicKey: SecKey) -> String? {
 #if targetEnvironment(simulator)
 /// Derives the appropriate LAPolicy from a key's SecAccessControl.
 /// Compares the access control against known biometry-only configurations
-/// (the same .biometryAny / .userPresence split used in createBiometricAccessControl).
-///   .biometryAny  -> .deviceOwnerAuthenticationWithBiometrics
+/// (the same split used in createBiometricAccessControl).
+///   .biometryAny/.biometryCurrentSet -> .deviceOwnerAuthenticationWithBiometrics
 ///   .userPresence  -> .deviceOwnerAuthentication
 public func deriveLAPolicy(from accessControl: SecAccessControl) -> LAPolicy {
   // On simulator, .privateKeyUsage is omitted so the flags are just the auth constraint.
-
-  if let ref = SecAccessControlCreateWithFlags(kCFAllocatorDefault, kSecAttrAccessibleWhenPasscodeSetThisDeviceOnly, .biometryCurrentSet, nil),
-      CFEqual(accessControl, ref) {
+  if let currentSetRef = SecAccessControlCreateWithFlags(
+    kCFAllocatorDefault,
+    kSecAttrAccessibleWhenPasscodeSetThisDeviceOnly,
+    .biometryCurrentSet,
+    nil
+  ), CFEqual(accessControl, currentSetRef) {
+    return .deviceOwnerAuthenticationWithBiometrics
+  }
+  if let anyRef = SecAccessControlCreateWithFlags(
+    kCFAllocatorDefault,
+    kSecAttrAccessibleWhenPasscodeSetThisDeviceOnly,
+    .biometryAny,
+    nil
+  ), CFEqual(accessControl, anyRef) {
     return .deviceOwnerAuthenticationWithBiometrics
   }
 
