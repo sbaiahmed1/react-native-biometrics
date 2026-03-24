@@ -10,6 +10,7 @@ export enum BiometricStrength {
  * available on the device, due to platform limitations.
  */
 export enum AuthType {
+  Unknown = -1,
   None = 0,
   DeviceCredentials = 1,
   Biometrics = 2,
