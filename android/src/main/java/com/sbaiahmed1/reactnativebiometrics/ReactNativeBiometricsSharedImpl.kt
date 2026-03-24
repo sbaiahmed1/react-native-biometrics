@@ -760,6 +760,7 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
         val authTypeValue = when (authResult.authenticationType) {
           BiometricPrompt.AUTHENTICATION_RESULT_TYPE_DEVICE_CREDENTIAL -> 1
           BiometricPrompt.AUTHENTICATION_RESULT_TYPE_BIOMETRIC -> 2
+          BiometricPrompt.AUTHENTICATION_RESULT_TYPE_UNKNOWN -> -1
           else -> 0
         }
         successResult.putInt("authType", authTypeValue)
@@ -1296,6 +1297,7 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
             val authTypeValue = when (authResult.authenticationType) {
               BiometricPrompt.AUTHENTICATION_RESULT_TYPE_DEVICE_CREDENTIAL -> 1
               BiometricPrompt.AUTHENTICATION_RESULT_TYPE_BIOMETRIC -> 2
+              BiometricPrompt.AUTHENTICATION_RESULT_TYPE_UNKNOWN -> -1
               else -> 0
             }
             result.putInt("authType", authTypeValue)
