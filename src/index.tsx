@@ -668,7 +668,7 @@ export type BiometricSensorInfo = {
   errorCode?: string;
   fallbackUsed?: boolean;
   biometricStrength?: BiometricStrength;
-  isDeviceSecure?: boolean;
+  isDeviceSecure: boolean;
 };
 
 export type BiometricAuthOptions = {
