@@ -20,7 +20,7 @@ export interface Spec extends TurboModule {
     available: boolean;
     biometryType?: 'Biometrics' | 'FaceID' | 'TouchID' | 'None' | 'Unknown';
     error?: string;
-    isDeviceSecure?: boolean;
+    isDeviceSecure: boolean;
   }>;
   simplePrompt(
     promptMessage: string,
