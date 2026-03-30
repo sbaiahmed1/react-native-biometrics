@@ -745,7 +745,7 @@ const isSensorAvailable = (): Promise<SensorInfo> => {
 type SensorInfo = {
   available: boolean;        // Whether biometric auth is available
   biometryType?: string;     // Type of biometry ('FaceID', 'TouchID', 'Fingerprint', etc.)
-  isDeviceSecure?: boolean;  // Whether the device has a passcode/PIN/password set
+  isDeviceSecure: boolean;  // Whether the device has a passcode/PIN/password set
   error?: string;            // Error message if not available
   errorCode?: string;        // Error code if not available (platform-specific)
 }
