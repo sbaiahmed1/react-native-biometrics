@@ -16,6 +16,17 @@
         "default": "./lib/commonjs/index.js"
       }
     },
+    "./types": {
+      "source": "./src/types.ts",
+      "import": {
+        "types": "./lib/typescript/module/src/types.d.ts",
+        "default": "./lib/module/types.js"
+      },
+      "require": {
+        "types": "./lib/typescript/commonjs/src/types.d.ts",
+        "default": "./lib/commonjs/types.js"
+      }
+    },
     "./package.json": "./package.json"
   },
   "files": [
