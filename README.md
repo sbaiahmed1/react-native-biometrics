@@ -305,6 +305,14 @@ android {
 -keep class com.sbaiahmed1.reactnativebiometrics.** { *; }
 ```
 
+### Importing Types on Non-Native Platforms
+
+The `AuthType` and `BiometricStrength` enums can be safely imported from `@sbaiahmed1/react-native-biometrics/types` on non-mobile platforms (e.g. web), as this entry point does not load native modules.
+
+```typescript
+import { AuthType, BiometricStrength } from '@sbaiahmed1/react-native-biometrics/types';
+```
+
 ## 📖 Usage
 
 ### 🔍 Quick Start
