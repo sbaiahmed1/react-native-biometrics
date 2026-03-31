@@ -3,6 +3,7 @@ import LocalAuthentication
 import React
 import Security
 import CryptoKit
+import CryptoTokenKit
 
 @objc(ReactNativeBiometrics)
 class ReactNativeBiometrics: RCTEventEmitter {
@@ -826,6 +827,8 @@ class ReactNativeBiometrics: RCTEventEmitter {
             biometricsError = .userCancel
           } else if errorCode == errSecAuthFailed {
             biometricsError = .authenticationFailed
+          } else if errorCode == TKError.Code.corruptedData.rawValue {
+            biometricsError = .keyAccessFailed
           } else {
             biometricsError = .signatureCreationFailed
           }
@@ -1009,6 +1012,8 @@ class ReactNativeBiometrics: RCTEventEmitter {
             biometricsError = ReactNativeBiometricsError.userCancel
           } else if errorCode == errSecAuthFailed {
             biometricsError = ReactNativeBiometricsError.authenticationFailed
+          } else if errorCode == TKError.Code.corruptedData.rawValue {
+            biometricsError = ReactNativeBiometricsError.keyAccessFailed
           } else {
             biometricsError = ReactNativeBiometricsError.signatureCreationFailed
           }
