@@ -2,7 +2,8 @@
   "compilerOptions": {
     "rootDir": ".",
     "paths": {
-      "@sbaiahmed1/react-native-biometrics": ["./src/index"]
+      "@sbaiahmed1/react-native-biometrics": ["./src/index"],
+      "@sbaiahmed1/react-native-biometrics/types": ["./src/types"]
     },
     "allowUnreachableCode": false,
     "allowUnusedLabels": false,
