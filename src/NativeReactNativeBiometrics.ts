@@ -198,6 +198,26 @@ export interface Spec extends TurboModule {
   readonly onBiometricChange: EventEmitter<BiometricChangeEvent>;
 }
 
-export default TurboModuleRegistry.getEnforcing<Spec>(
-  'ReactNativeBiometrics'
-) ?? NativeModules.ReactNativeBiometrics;
+let module: Spec | null = null;
+
+function getNativeModule(): Spec {
+  if (!module) {
+    module =
+      TurboModuleRegistry.get<Spec>('ReactNativeBiometrics') ??
+      NativeModules.ReactNativeBiometrics;
+  }
+  if (!module) {
+    throw new Error(
+      'ReactNativeBiometrics native module is not available. ' +
+        'Biometric functions are not supported on this platform.'
+    );
+  }
+  return module;
+}
+
+export default new Proxy({} as Spec, {
+  get(_target, prop) {
+    if (typeof prop === 'symbol' || prop === 'then') return undefined;
+    return getNativeModule()[prop as keyof Spec];
+  },
+});
