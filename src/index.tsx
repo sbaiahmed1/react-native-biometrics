@@ -269,12 +269,13 @@ export function verifyKeySignature(
   cancelButtonText?: string,
   returnAuthType?: boolean
 ): Promise<SignatureResult> {
+  const resolvedKeyAlias = keyAlias || undefined;
   logger.debug('Verifying key signature', 'verifyKeySignature', {
     keyAlias,
     dataLength: data.length,
   });
   return ReactNativeBiometrics.verifyKeySignature(
-    keyAlias,
+    resolvedKeyAlias,
     data,
     promptTitle,
     promptSubtitle,
@@ -341,6 +342,8 @@ export function signWithOptions(
     returnAuthType,
   } = options;
 
+  const resolvedKeyAlias = keyAlias || undefined;
+
   logger.debug('Signing with options', 'signWithOptions', {
     keyAlias,
     dataLength: data.length,
@@ -361,7 +364,7 @@ export function signWithOptions(
   // On Android, use the new method with options
   if (Platform.OS === 'android') {
     return ReactNativeBiometrics.verifyKeySignatureWithOptions(
-      keyAlias,
+      resolvedKeyAlias,
       data,
       promptTitle,
       promptSubtitle,
@@ -388,7 +391,7 @@ export function signWithOptions(
 
   // On iOS, use the standard method with inputEncoding
   return ReactNativeBiometrics.verifyKeySignatureWithEncoding(
-    keyAlias,
+    resolvedKeyAlias,
     data,
     promptTitle,
     promptSubtitle,
