@@ -269,7 +269,7 @@ export function verifyKeySignature(
   cancelButtonText?: string,
   returnAuthType?: boolean
 ): Promise<SignatureResult> {
-  const resolvedKeyAlias = keyAlias || undefined;
+  const resolvedKeyAlias = keyAlias || null;
   logger.debug('Verifying key signature', 'verifyKeySignature', {
     keyAlias,
     dataLength: data.length,
@@ -342,7 +342,7 @@ export function signWithOptions(
     returnAuthType,
   } = options;
 
-  const resolvedKeyAlias = keyAlias || undefined;
+  const resolvedKeyAlias = keyAlias || null;
 
   logger.debug('Signing with options', 'signWithOptions', {
     keyAlias,

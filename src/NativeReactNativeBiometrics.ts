@@ -84,7 +84,7 @@ export interface Spec extends TurboModule {
     error?: string;
   }>;
   verifyKeySignature(
-    keyAlias: string,
+    keyAlias: string | null,
     data: string,
     promptTitle?: string,
     promptSubtitle?: string,
