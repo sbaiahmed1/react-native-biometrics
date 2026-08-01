@@ -832,9 +832,6 @@ type KeyResult = {
 **Parameters:**
 - `keyAlias` (optional): Custom key identifier. If not provided, uses the configured default alias.
 - `keyType` (optional): Type of cryptographic key to generate. Defaults to `'ec256'` on iOS and `'rsa2048'` on Android.
-- `biometricStrength` (optional): Biometric strength requirement (`'strong'` or `'weak'`).
-- `allowDeviceCredentials` (optional, default `false`): When `true`, the key can be unlocked by biometrics OR device credentials (PIN/passcode). Requires Android API 30+.
-- `failIfExists` (optional, default `false`): When `true`, rejects with `KEY_ALREADY_EXISTS` if a key with the alias already exists instead of overwriting it.
 - `biometricStrength` (optional): Uses `BiometricStrength.Strong` or `BiometricStrength.Weak`. On iOS, `Strong` binds new keys to `.biometryCurrentSet`; `Weak`/unset uses `.biometryAny` for backward compatibility.
 - `allowDeviceCredentials` (optional, default `false`): When `true`, the key can be unlocked by biometrics OR device credentials (PIN/passcode). On iOS this uses `.userPresence` to allow passcode fallback; on Android this requires API 30+.
 - `failIfExists` (optional, default `false`): When `true`, rejects with `KEY_ALREADY_EXISTS` if a key with the alias already exists instead of overwriting it.
@@ -846,19 +843,18 @@ type KeyResult = {
 
 > 📖 **For detailed key type information, security considerations, and advanced usage patterns, see the [Cryptographic Keys Guide](./docs/CRYPTOGRAPHIC_KEYS.md)**
 
-**⚠️ Platform Behavior Differences:**
+**⚠️ Platform Behavior Notes:**
 
 | Behavior | iOS | Android |
 |----------|-----|---------|
-| **Biometric prompt during `createKeys()`** | Silent - no prompt shown | Shows biometric prompt (required by Android Keystore when `setUserAuthenticationRequired` is true) |
+| **Biometric prompt during `createKeys()`** | Silent - no prompt shown | Silent - no prompt shown |
 | **Key storage** | EC256 uses Secure Enclave; RSA uses regular Keychain | Android Keystore (hardware-backed when available) |
-| **Authentication requirement** | Enforced during signing only | Enforced during key creation AND signing |
+| **Authentication requirement** | Enforced when the key is used (e.g. `verifyKeySignature()`) | Enforced when the key is used (e.g. `verifyKeySignature()`) |
+| **Requirement at creation time** | A device passcode must be set | A strong (Class 3) biometric must be enrolled — or a device credential when `allowDeviceCredentials: true` (API 30+) |
 
-This difference exists because:
-- **iOS**: Keys are created silently in the Secure Enclave. Biometric authentication is only required when using the key (e.g., during `verifyKeySignature()`).
-- **Android**: The Android Keystore requires biometric authentication during key creation when `setUserAuthenticationRequired(true)` is set, which is necessary for crypto-bound keys.
+On both platforms, key generation is silent — no biometric prompt appears during `createKeys()`. Setting `setUserAuthenticationRequired(true)` (Android) or a Keychain access control (iOS) means authentication is required to *use* the private key, so the biometric prompt appears during signing operations like `verifyKeySignature()` / `signWithOptions()`, not during key creation.
 
-To maintain consistent UX across platforms, consider showing a custom "setup" screen on iOS before calling `createKeys()` to match Android's behavior.
+One platform difference to be aware of: Android refuses to generate an auth-bound key unless a strong (Class 3) biometric is enrolled, rejecting with `CREATE_KEYS_ERROR: "At least one biometric must be enrolled"`. Devices whose only biometric is a weak/convenience one (e.g. camera-based face unlock on many budget devices) can only create keys with `allowDeviceCredentials: true` (Android 11+ / API 30+), which lets the device PIN/pattern/password unlock the key.
 
 **Example:**
 ```javascript
