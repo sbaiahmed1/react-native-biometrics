@@ -1511,16 +1511,17 @@ Debugging and diagnostic utilities:
 
 ### Running the Example App
 
+The example is an Expo app using [Continuous Native Generation](https://docs.expo.dev/workflow/continuous-native-generation/) — the native projects are generated on first run, no manual `pod install` needed.
+
 ```bash
-cd example
-npm install
+# from the repository root
+yarn
 
 # iOS
-cd ios && pod install && cd ..
-npx react-native run-ios
+yarn example ios
 
 # Android
-npx react-native run-android
+yarn example android
 ```
 
 The example app provides hands-on experience with all library features and serves as a reference implementation for integration patterns.
