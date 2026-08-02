@@ -89,6 +89,11 @@ jobs:
         run: |
           /bin/bash -c "yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses > /dev/null"
 
+      - name: Prebuild Expo app for Android
+        if: env.turbo_cache_hit != 1
+        run: |
+          yarn example expo prebuild --platform android
+
       - name: Cache Gradle
         if: env.turbo_cache_hit != 1
         uses: actions/cache@v4
@@ -110,41 +115,11 @@ jobs:
     runs-on: self-hosted
     env:
       TURBO_CACHE_DIR: .turbo/ios
+      RCT_USE_RN_DEP: 1
+      RCT_USE_PREBUILT_RNCORE: 1
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Setup Ruby environment for runner
-        run: |
-          # Reset Ruby environment to prevent architecture conflicts
-          if command -v rbenv &> /dev/null; then
-            rbenv rehash
-          fi
-          # Ensure we're using the system Ruby or correct architecture
-          ruby --version
-          gem --version
-          # Clear bundler config that might cause issues
-          bundle config --delete build.json || true
-          bundle config --delete force_ruby_platform || true
-          # Set bundler to use system gems path
-          bundle config --local path vendor/bundle
-
-      - name: Clean iOS build artifacts and Ruby gems
-        run: |
-          cd example
-          # Clean Ruby vendor bundle to prevent architecture conflicts
-          rm -rf vendor/bundle
-          rm -rf .bundle
-          # Clean iOS build artifacts
-          rm -rf ios/build
-          rm -rf ios/Pods
-          rm -rf ios/Podfile.lock
-          # Clean Xcode derived data
-          rm -rf ~/Library/Developer/Xcode/DerivedData
-          # Force reinstall gems with correct architecture for runner
-          # Clear any cached gems that might have wrong architecture
-          # Clean Gemfile.lock to force fresh dependency resolution
-          rm -f Gemfile.lock
 
       - name: Setup
         uses: ./.github/actions/setup
@@ -165,31 +140,22 @@ jobs:
             echo "turbo_cache_hit=1" >> $GITHUB_ENV
           fi
 
-      - name: Restore cocoapods
+      - name: Check toolchain
         if: env.turbo_cache_hit != 1
-        id: cocoapods-cache
-        uses: actions/cache/restore@v4
-        with:
-          path: |
-            **/ios/Pods
-          key: ${{ runner.os }}-cocoapods-${{ hashFiles('example/ios/Podfile.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-cocoapods-
-
-      - name: Install cocoapods
-        if: env.turbo_cache_hit != 1 && steps.cocoapods-cache.outputs.cache-hit != 'true'
         run: |
-          cd example
-          bundle install
-          bundle exec pod install --project-directory=ios
+          xcodebuild -version
+          pod --version
 
-      - name: Cache cocoapods
-        if: env.turbo_cache_hit != 1 && steps.cocoapods-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v4
-        with:
-          path: |
-            **/ios/Pods
-          key: ${{ steps.cocoapods-cache.outputs.cache-key }}
+      - name: Clean stale artifacts
+        if: env.turbo_cache_hit != 1
+        run: |
+          rm -rf example/ios example/android example/.expo
+          rm -rf ~/Library/Developer/Xcode/DerivedData
+
+      - name: Prebuild Expo app for iOS
+        if: env.turbo_cache_hit != 1
+        run: |
+          yarn example expo prebuild --platform ios
 
       - name: Build example for iOS
         run: |
