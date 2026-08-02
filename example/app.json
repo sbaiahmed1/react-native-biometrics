@@ -1,4 +1,26 @@
 {
-  "name": "ReactNativeBiometricsExample",
-  "displayName": "ReactNativeBiometricsExample"
+  "expo": {
+    "name": "ReactNativeBiometrics Example",
+    "slug": "react-native-biometrics-example",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "bundleIdentifier": "sbaiahmed1.reactnativebiometrics.example",
+      "newArchEnabled": true,
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSFaceIDUsageDescription": "FaceID used"
+      }
+    },
+    "android": {
+      "package": "sbaiahmed1.reactnativebiometrics.example",
+      "newArchEnabled": false,
+      "edgeToEdgeEnabled": true,
+      "permissions": [
+        "android.permission.USE_BIOMETRIC",
+        "android.permission.USE_FINGERPRINT"
+      ]
+    }
+  }
 }

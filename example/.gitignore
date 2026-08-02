@@ -1,0 +1,6 @@
+# These folders are generated with prebuild (CNG)
+android/
+ios/
+
+# Expo
+.expo/
