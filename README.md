@@ -1511,7 +1511,7 @@ Debugging and diagnostic utilities:
 
 ### Running the Example App
 
-The example is an Expo app using [Continuous Native Generation](https://docs.expo.dev/workflow/continuous-native-generation/) — the native projects are generated on first run, no manual `pod install` needed.
+The example is an Expo app using [Continuous Native Generation](https://docs.expo.dev/workflow/continuous-native-generation/) — the native projects are generated on first run, and Expo runs `pod install` for you on iOS. You still need [CocoaPods](https://cocoapods.org) installed (`pod` on your PATH) for the iOS build.
 
 ```bash
 # from the repository root
