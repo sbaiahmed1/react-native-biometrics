@@ -35,5 +35,15 @@ target 'ReactNativeBiometricsExample' do
       :mac_catalyst_enabled => false,
       # :ccache_enabled => true
     )
+
+    # Xcode 26's Apple clang rejects fmt 11's consteval FMT_STRING usages
+    # (https://github.com/fmtlib/fmt/issues/4740). Building the fmt pod as
+    # C++17 makes fmt's own version check disable consteval.
+    installer.pods_project.targets.each do |target|
+      next unless target.name == 'fmt'
+      target.build_configurations.each do |config|
+        config.build_settings['CLANG_CXX_LANGUAGE_STANDARD'] = 'c++17'
+      end
+    end
   end
 end
