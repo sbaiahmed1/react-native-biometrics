@@ -5,6 +5,8 @@ import { type LogEntry, logger, LogLevel } from './logger';
 import {
   DeviceEventEmitter,
   type EventSubscription,
+  NativeEventEmitter,
+  NativeModules,
   Platform,
 } from 'react-native';
 import { AuthType, BiometricStrength } from './types';
@@ -895,8 +897,23 @@ export function subscribeToBiometricChanges(
     'subscribeToBiometricChanges'
   );
 
-  // Subscribe using DeviceEventEmitter for cross-architecture compatibility
-  // The native modules emit events via DeviceEventManagerModule
+  // New architecture: events emitted through the codegen event emitter are
+  // only delivered to its own subscribers, never to DeviceEventEmitter.
+  if (typeof ReactNativeBiometrics.onBiometricChange === 'function') {
+    return ReactNativeBiometrics.onBiometricChange(callback);
+  }
+
+  // Old architecture: NativeEventEmitter invokes the native addListener
+  // method — required on iOS, where RCTEventEmitter drops events while its
+  // listener count is zero — and both platforms auto-start detection when
+  // the first listener attaches.
+  if (NativeModules.ReactNativeBiometrics != null) {
+    return new NativeEventEmitter(
+      NativeModules.ReactNativeBiometrics
+    ).addListener('onBiometricChange', callback);
+  }
+
+  // Environments without the native module (e.g. web).
   return DeviceEventEmitter.addListener('onBiometricChange', callback);
 }
 
