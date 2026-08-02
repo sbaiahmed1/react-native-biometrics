@@ -1063,3 +1063,41 @@ describe('ReactNativeBiometrics', () => {
     });
   });
 });
+
+describe('Biometric Change Events', () => {
+  const NativeBiometrics: any = jest.requireMock(
+    '../NativeReactNativeBiometrics'
+  );
+
+  afterEach(() => {
+    delete NativeBiometrics.onBiometricChange;
+  });
+
+  it('should subscribe via the TurboModule event emitter when available (new architecture)', () => {
+    const mockSubscription = { remove: jest.fn() };
+    NativeBiometrics.onBiometricChange = jest.fn(() => mockSubscription);
+
+    const callback = jest.fn();
+    const subscription = Biometrics.subscribeToBiometricChanges(callback);
+
+    expect(NativeBiometrics.onBiometricChange).toHaveBeenCalledWith(callback);
+    expect(subscription).toBe(mockSubscription);
+  });
+
+  it('should fall back to an event emitter subscription without the TurboModule emitter (old architecture)', () => {
+    const subscription = Biometrics.subscribeToBiometricChanges(jest.fn());
+
+    expect(typeof subscription.remove).toBe('function');
+    subscription.remove();
+  });
+
+  it('should remove the subscription when unsubscribing', () => {
+    const mockSubscription = { remove: jest.fn() };
+    NativeBiometrics.onBiometricChange = jest.fn(() => mockSubscription);
+
+    const subscription = Biometrics.subscribeToBiometricChanges(jest.fn());
+    Biometrics.unsubscribeFromBiometricChanges(subscription);
+
+    expect(mockSubscription.remove).toHaveBeenCalled();
+  });
+});
