@@ -18,7 +18,7 @@ yarn example android   # build + run on an Android emulator/device
 yarn example start     # start Metro (dev client) on its own
 ```
 
-The first `ios`/`android` run generates the native project and installs pods automatically. To regenerate from scratch (e.g. after changing `app.json`):
+The first run generates the native project automatically: on iOS this includes `pod install` (requires [CocoaPods](https://cocoapods.org) installed with `pod` on your PATH); on Android it generates the Gradle project — no pods involved. To regenerate from scratch (e.g. after changing `app.json`):
 
 ```sh
 yarn example expo prebuild --clean
