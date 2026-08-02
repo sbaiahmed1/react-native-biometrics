@@ -1287,16 +1287,20 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
         override fun onAuthenticationSucceeded(authResult: BiometricPrompt.AuthenticationResult) {
           debugLog("verifyKeySignature - Authentication succeeded, generating signature")
 
-          // If cryptoObject carries the signature, the user authenticated via biometrics
-          // (hardware-atomic binding — highest security).
-          // If null, the user chose device credential: Android does not bind CryptoObject
-          // to device credential auth, but the Keystore key is still unlocked
-          // via the fresh auth token, so we can call sign() on the pre-initialized signature.
-          val usedDeviceCredential = authResult.cryptoObject?.signature == null
-          val authenticatedSignature = authResult.cryptoObject?.signature ?: signature
+          // Prefer the signature bound to the authentication result. On API 30+ the
+          // CryptoObject is returned even for device-credential authentication; a null
+          // signature only means the platform did not bind the CryptoObject, in which
+          // case the pre-initialized signature is the best remaining option.
+          val cryptoSignature = authResult.cryptoObject?.signature
+          val authenticatedSignature = cryptoSignature ?: signature
 
-          if (usedDeviceCredential) {
-            debugLog("verifyKeySignature - Device credential used, signing with pre-initialized signature")
+          // CryptoObject presence does not indicate how the user authenticated —
+          // classify device-credential usage from the reported authentication type.
+          val usedDeviceCredential = authResult.authenticationType ==
+            BiometricPrompt.AUTHENTICATION_RESULT_TYPE_DEVICE_CREDENTIAL
+
+          if (cryptoSignature == null) {
+            debugLog("verifyKeySignature - CryptoObject not bound to result, signing with pre-initialized signature")
           }
 
           fun resolveSuccess(signatureBytes: ByteArray) {
