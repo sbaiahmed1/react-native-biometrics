@@ -49,10 +49,11 @@ To run the example app on iOS:
 yarn example ios
 ```
 
-The example deliberately runs the **new architecture on iOS** and the **old architecture on Android**, so both of the library's code paths (`android/src/newarch` vs `android/src/oldarch`, and both JS event-emitter paths) are exercised. To flip a platform, change `ios.newArchEnabled` / `android.newArchEnabled` in `example/app.json`, then regenerate and rebuild:
+By default the example runs the **new architecture on iOS** and the **old architecture on Android**. This covers both JS event-emitter paths, but on the Android native side only `android/src/oldarch` is built — `android/src/newarch` is **not** exercised by the default configuration. To validate it, set `android.newArchEnabled` to `true` in `example/app.json` (the same works in reverse for `ios.newArchEnabled`), then regenerate and rebuild that platform:
 
 ```sh
 yarn example expo prebuild --clean --platform android   # or ios
+yarn example android                                    # or ios
 ```
 
 To confirm which architecture the app is running, check the Metro logs for a message like this:

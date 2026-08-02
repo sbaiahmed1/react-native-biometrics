@@ -26,7 +26,7 @@ yarn example expo prebuild --clean
 
 ## Architecture coverage
 
-The app intentionally runs the **new architecture on iOS** and the **old architecture on Android** (`ios.newArchEnabled` / `android.newArchEnabled` in `app.json`), so both of the library's native code paths and both JS event-emitter paths are exercised. Flip a flag and re-run `expo prebuild --clean` to test the other combination.
+By default the app runs the **new architecture on iOS** and the **old architecture on Android** (`ios.newArchEnabled` / `android.newArchEnabled` in `app.json`). That covers both JS event-emitter paths and the library's `android/src/oldarch` module; the `android/src/newarch` module is only exercised if you set `android.newArchEnabled` to `true`, re-run `expo prebuild --clean --platform android`, and rebuild.
 
 ## What's inside
 
