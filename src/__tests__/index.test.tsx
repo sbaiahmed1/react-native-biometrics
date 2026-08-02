@@ -1068,9 +1068,16 @@ describe('Biometric Change Events', () => {
   const NativeBiometrics: any = jest.requireMock(
     '../NativeReactNativeBiometrics'
   );
+  // Earlier tests in this file call jest.resetModules(), and react-native's
+  // exports are lazy getters resolved against the current module registry —
+  // react-native must therefore be required inside each test so the spies
+  // attach to the same instances the library resolves at call time.
+  const reactNative = () => require('react-native');
 
   afterEach(() => {
     delete NativeBiometrics.onBiometricChange;
+    delete reactNative().NativeModules.ReactNativeBiometrics;
+    jest.restoreAllMocks();
   });
 
   it('should subscribe via the TurboModule event emitter when available (new architecture)', () => {
@@ -1084,10 +1091,45 @@ describe('Biometric Change Events', () => {
     expect(subscription).toBe(mockSubscription);
   });
 
-  it('should fall back to an event emitter subscription without the TurboModule emitter (old architecture)', () => {
-    const subscription = Biometrics.subscribeToBiometricChanges(jest.fn());
+  it('should subscribe via NativeEventEmitter when the native module exists (old architecture)', () => {
+    const { NativeEventEmitter, NativeModules } = reactNative();
+    NativeModules.ReactNativeBiometrics = {
+      addListener: jest.fn(),
+      removeListeners: jest.fn(),
+    };
+    const nativeEmitterAddListener = jest.spyOn(
+      NativeEventEmitter.prototype,
+      'addListener'
+    );
 
-    expect(typeof subscription.remove).toBe('function');
+    const callback = jest.fn();
+    const subscription = Biometrics.subscribeToBiometricChanges(callback);
+
+    expect(nativeEmitterAddListener).toHaveBeenCalledWith(
+      'onBiometricChange',
+      callback
+    );
+    // The native addListener call is what un-gates iOS RCTEventEmitter emission.
+    expect(
+      NativeModules.ReactNativeBiometrics.addListener
+    ).toHaveBeenCalledWith('onBiometricChange');
+    subscription.remove();
+  });
+
+  it('should fall back to DeviceEventEmitter without the native module', () => {
+    const { DeviceEventEmitter } = reactNative();
+    const deviceEmitterAddListener = jest.spyOn(
+      DeviceEventEmitter,
+      'addListener'
+    );
+
+    const callback = jest.fn();
+    const subscription = Biometrics.subscribeToBiometricChanges(callback);
+
+    expect(deviceEmitterAddListener).toHaveBeenCalledWith(
+      'onBiometricChange',
+      callback
+    );
     subscription.remove();
   });
 
