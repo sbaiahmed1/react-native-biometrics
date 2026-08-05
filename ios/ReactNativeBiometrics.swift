@@ -596,14 +596,7 @@ class ReactNativeBiometrics: RCTEventEmitter {
     
     // Query to find the key
     var query = createKeychainQuery(keyTag: keyTag, includeSecureEnclave: false)
-    // Use LAContext with interaction disabled instead of deprecated kSecUseAuthenticationUIFail
-    if #available(iOS 16.0, *) {
-      let noUIContext = LAContext()
-      noUIContext.interactionNotAllowed = true
-      query[kSecUseAuthenticationContext as String] = noUIContext
-    } else {
-      query[kSecUseAuthenticationUI as String] = kSecUseAuthenticationUIFail
-    }
+    applyNoInteractionContext(&query)
     
     // Check if key exists first
     let checkStatus = SecItemCopyMatching(query as CFDictionary, nil)
@@ -671,6 +664,11 @@ class ReactNativeBiometrics: RCTEventEmitter {
       if status == errSecItemNotFound {
         ReactNativeBiometricDebug.debugLog("getPublicKey failed - Key not found")
         handleError(.keyNotFound, reject: reject)
+      } else if status == errSecInteractionNotAllowed {
+        // Auth-gated keys can refuse even a no-interaction ref lookup; the
+        // public key is then only obtainable from the createKeys result.
+        ReactNativeBiometricDebug.debugLog("getPublicKey failed - Key requires user authentication")
+        handleError(.keyRequiresAuthentication, reject: reject)
       } else {
         let biometricsError = ReactNativeBiometricsError.fromOSStatus(status)
         ReactNativeBiometricDebug.debugLog("getPublicKey failed - \(biometricsError.errorInfo.message)")
@@ -1433,14 +1431,7 @@ class ReactNativeBiometrics: RCTEventEmitter {
       returnRef: true,
       returnAttributes: true
     )
-    // Use LAContext with interaction disabled instead of deprecated kSecUseAuthenticationUIFail
-    if #available(iOS 16.0, *) {
-      let noUIContext = LAContext()
-      noUIContext.interactionNotAllowed = true
-      secureEnclaveQuery[kSecUseAuthenticationContext as String] = noUIContext
-    } else {
-      secureEnclaveQuery[kSecUseAuthenticationUI as String] = kSecUseAuthenticationUIFail
-    }
+    applyNoInteractionContext(&secureEnclaveQuery)
     
     status = SecItemCopyMatching(secureEnclaveQuery as CFDictionary, &result)
     
@@ -1452,13 +1443,7 @@ class ReactNativeBiometrics: RCTEventEmitter {
         returnRef: true,
         returnAttributes: true
       )
-      if #available(iOS 16.0, *) {
-        let noUIContext = LAContext()
-        noUIContext.interactionNotAllowed = true
-        regularQuery[kSecUseAuthenticationContext as String] = noUIContext
-      } else {
-        regularQuery[kSecUseAuthenticationUI as String] = kSecUseAuthenticationUIFail
-      }
+      applyNoInteractionContext(&regularQuery)
       
       status = SecItemCopyMatching(regularQuery as CFDictionary, &result)
     }
