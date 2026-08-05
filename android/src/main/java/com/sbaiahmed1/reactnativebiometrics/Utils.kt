@@ -434,6 +434,36 @@ object BiometricUtils {
         }
     }
 
+    private val RSA_SIGNATURE_ALGORITHMS = setOf("SHA256withRSA", "SHA512withRSA")
+    private val EC_SIGNATURE_ALGORITHMS = setOf("SHA256withECDSA", "SHA512withECDSA")
+
+    /**
+     * Resolves the signature algorithm for a key, honoring an optional caller
+     * request. Falls back to the SHA-256 default for the key type when no
+     * algorithm is requested.
+     * @throws IllegalArgumentException when the requested algorithm is unknown
+     * or does not match the key type
+     */
+    fun resolveSignatureAlgorithm(key: java.security.Key, requested: String?): String {
+        if (requested == null) {
+            return getSignatureAlgorithm(key)
+        }
+        if (requested !in RSA_SIGNATURE_ALGORITHMS && requested !in EC_SIGNATURE_ALGORITHMS) {
+            throw IllegalArgumentException(
+                "Unsupported algorithm: $requested. Supported: ${(RSA_SIGNATURE_ALGORITHMS + EC_SIGNATURE_ALGORITHMS).joinToString(", ")}"
+            )
+        }
+        val matchesKeyType = when (key) {
+            is RSAKey -> requested in RSA_SIGNATURE_ALGORITHMS
+            is ECKey -> requested in EC_SIGNATURE_ALGORITHMS
+            else -> requested in RSA_SIGNATURE_ALGORITHMS
+        }
+        if (!matchesKeyType) {
+            throw IllegalArgumentException("Algorithm $requested does not match the key type (${key.algorithm})")
+        }
+        return requested
+    }
+
     /**
      * Checks if the device is rooted
      * This performs multiple checks to detect root access

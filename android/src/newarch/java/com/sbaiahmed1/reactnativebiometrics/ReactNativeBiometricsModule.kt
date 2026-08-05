@@ -73,6 +73,21 @@ class ReactNativeBiometricsModule(reactContext: ReactApplicationContext) :
   }
 
   @ReactMethod
+  override fun createKeysWithOptions(options: ReadableMap, promise: Promise) {
+    sharedImpl.createKeysWithOptions(options, promise)
+  }
+
+  @ReactMethod
+  override fun getPublicKey(keyAlias: String?, promise: Promise) {
+    sharedImpl.getPublicKey(keyAlias, promise)
+  }
+
+  @ReactMethod
+  override fun signData(options: ReadableMap, promise: Promise) {
+    sharedImpl.signData(options, promise)
+  }
+
+  @ReactMethod
   override fun deleteKeys(keyAlias: String?, promise: Promise) {
     sharedImpl.deleteKeys(keyAlias, promise)
   }

@@ -331,12 +331,26 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
   }
 
   fun createKeysWithType(keyAlias: String?, keyType: String?, biometricStrength: String?, allowDeviceCredentials: Boolean, failIfExists: Boolean, promise: Promise) {
+    createKeysInternal(keyAlias, keyType, biometricStrength, allowDeviceCredentials, failIfExists, requireAuthentication = true, promise = promise)
+  }
+
+  fun createKeysWithOptions(options: ReadableMap, promise: Promise) {
+    val keyAlias = if (options.hasKey("keyAlias")) options.getString("keyAlias") else null
+    val keyType = if (options.hasKey("keyType")) options.getString("keyType") else null
+    val requireAuthentication = if (options.hasKey("requireAuthentication")) options.getBoolean("requireAuthentication") else true
+    val biometricStrength = if (options.hasKey("biometricStrength")) options.getString("biometricStrength") else null
+    val allowDeviceCredentials = if (options.hasKey("allowDeviceCredentials")) options.getBoolean("allowDeviceCredentials") else false
+    val failIfExists = if (options.hasKey("failIfExists")) options.getBoolean("failIfExists") else false
+    createKeysInternal(keyAlias, keyType, biometricStrength, allowDeviceCredentials, failIfExists, requireAuthentication, promise)
+  }
+
+  private fun createKeysInternal(keyAlias: String?, keyType: String?, biometricStrength: String?, allowDeviceCredentials: Boolean, failIfExists: Boolean, requireAuthentication: Boolean, promise: Promise) {
     val actualKeyAlias = getKeyAlias(keyAlias)
     val actualKeyType = keyType?.lowercase() ?: "rsa2048"
     val requestedStrength = biometricStrength ?: "strong"
-    debugLog("createKeys called with keyAlias: ${keyAlias ?: "default"}, using: $actualKeyAlias, keyType: $actualKeyType, biometricStrength: $requestedStrength, allowDeviceCredentials: $allowDeviceCredentials")
+    debugLog("createKeys called with keyAlias: ${keyAlias ?: "default"}, using: $actualKeyAlias, keyType: $actualKeyType, biometricStrength: $requestedStrength, allowDeviceCredentials: $allowDeviceCredentials, requireAuthentication: $requireAuthentication")
 
-    if (allowDeviceCredentials && android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.R) {
+    if (requireAuthentication && allowDeviceCredentials && android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.R) {
       debugLog("createKeys failed - allowDeviceCredentials requires Android API 30+")
       promise.reject("CREATE_KEYS_ERROR", "allowDeviceCredentials requires Android API 30+", null)
       return
@@ -369,19 +383,29 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
               actualKeyAlias,
               KeyProperties.PURPOSE_SIGN or KeyProperties.PURPOSE_VERIFY
             )
-              .setDigests(KeyProperties.DIGEST_SHA256)
               .setSignaturePaddings(KeyProperties.SIGNATURE_PADDING_RSA_PKCS1)
               .setKeySize(2048)
 
-            builder.setUserAuthenticationRequired(true)
-            if (allowDeviceCredentials) {
-              builder.setUserAuthenticationParameters(
-                0, // require auth for every use
-                KeyProperties.AUTH_BIOMETRIC_STRONG or KeyProperties.AUTH_DEVICE_CREDENTIAL
-              )
-
+            // StrongBox is only mandated to support SHA-256; listing SHA-512 there
+            // could fail generation and silently demote the key to TEE via the
+            // fallback below.
+            if (strongBox) {
+              builder.setDigests(KeyProperties.DIGEST_SHA256)
             } else {
-              builder.setUserAuthenticationValidityDurationSeconds(-1) // Biometric only
+              builder.setDigests(KeyProperties.DIGEST_SHA256, KeyProperties.DIGEST_SHA512)
+            }
+
+            if (requireAuthentication) {
+              builder.setUserAuthenticationRequired(true)
+              if (allowDeviceCredentials) {
+                builder.setUserAuthenticationParameters(
+                  0, // require auth for every use
+                  KeyProperties.AUTH_BIOMETRIC_STRONG or KeyProperties.AUTH_DEVICE_CREDENTIAL
+                )
+
+              } else {
+                builder.setUserAuthenticationValidityDurationSeconds(-1) // Biometric only
+              }
             }
 
             if (strongBox) {
@@ -449,18 +473,28 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
               actualKeyAlias,
               KeyProperties.PURPOSE_SIGN or KeyProperties.PURPOSE_VERIFY
             )
-              .setDigests(KeyProperties.DIGEST_SHA256)
               .setKeySize(256)
 
-            builder.setUserAuthenticationRequired(true)
-            if (allowDeviceCredentials) {
-              builder.setUserAuthenticationParameters(
-                0, // require auth for every use
-                KeyProperties.AUTH_BIOMETRIC_STRONG or KeyProperties.AUTH_DEVICE_CREDENTIAL
-              )
-
+            // StrongBox is only mandated to support SHA-256; listing SHA-512 there
+            // could fail generation and silently demote the key to TEE via the
+            // fallback below.
+            if (strongBox) {
+              builder.setDigests(KeyProperties.DIGEST_SHA256)
             } else {
-              builder.setUserAuthenticationValidityDurationSeconds(-1) // Biometric only
+              builder.setDigests(KeyProperties.DIGEST_SHA256, KeyProperties.DIGEST_SHA512)
+            }
+
+            if (requireAuthentication) {
+              builder.setUserAuthenticationRequired(true)
+              if (allowDeviceCredentials) {
+                builder.setUserAuthenticationParameters(
+                  0, // require auth for every use
+                  KeyProperties.AUTH_BIOMETRIC_STRONG or KeyProperties.AUTH_DEVICE_CREDENTIAL
+                )
+
+              } else {
+                builder.setUserAuthenticationValidityDurationSeconds(-1) // Biometric only
+              }
             }
 
             if (strongBox) {
@@ -594,6 +628,41 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
     } catch (e: Exception) {
       debugLog("deleteKeys failed - Unexpected error: ${e.message}")
       promise.reject("DELETE_KEYS_ERROR", "Failed to delete keys: ${e.message}", e)
+    }
+  }
+
+  fun getPublicKey(keyAlias: String?, promise: Promise) {
+    val actualKeyAlias = getKeyAlias(keyAlias)
+    debugLog("getPublicKey called with keyAlias: ${keyAlias ?: "default"}, using: $actualKeyAlias")
+    try {
+      val keyStore = KeyStore.getInstance("AndroidKeyStore")
+      keyStore.load(null)
+
+      if (!keyStore.containsAlias(actualKeyAlias)) {
+        debugLog("getPublicKey failed - No key found with alias '$actualKeyAlias'")
+        promise.reject("KEY_NOT_FOUND", "No key found with alias '$actualKeyAlias'", null)
+        return
+      }
+
+      val publicKey = keyStore.getCertificate(actualKeyAlias)?.publicKey
+      if (publicKey == null) {
+        debugLog("getPublicKey failed - No certificate for alias '$actualKeyAlias'")
+        promise.reject("KEY_NOT_FOUND", "No public key found for alias '$actualKeyAlias'", null)
+        return
+      }
+
+      val result = Arguments.createMap()
+      // PublicKey.encoded is X.509 SubjectPublicKeyInfo DER
+      result.putString("publicKey", BiometricUtils.encodeBase64(publicKey.encoded))
+      when (publicKey) {
+        is java.security.interfaces.RSAKey -> result.putString("keyType", "rsa2048")
+        is java.security.interfaces.ECKey -> result.putString("keyType", "ec256")
+      }
+      debugLog("getPublicKey completed for alias '$actualKeyAlias'")
+      promise.resolve(result)
+    } catch (e: Exception) {
+      debugLog("getPublicKey failed - Unexpected error: ${e.message}")
+      promise.reject("GET_PUBLIC_KEY_ERROR", "Failed to get public key: ${e.message}", e)
     }
   }
 
@@ -1144,6 +1213,95 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
         }
       }
       else -> data.toByteArray(Charsets.UTF_8)
+    }
+  }
+
+  /**
+   * Signs data without any user authentication prompt. Only works with keys
+   * created with requireAuthentication = false; auth-bound keys resolve with
+   * KEY_REQUIRES_AUTHENTICATION instead of prompting.
+   */
+  fun signData(options: ReadableMap, promise: Promise) {
+    val keyAlias = if (options.hasKey("keyAlias")) options.getString("keyAlias") else null
+    val data = if (options.hasKey("data")) options.getString("data") else null
+    val inputEncoding = (if (options.hasKey("inputEncoding")) options.getString("inputEncoding") else null) ?: "utf8"
+    val requestedAlgorithm = if (options.hasKey("algorithm")) options.getString("algorithm") else null
+    val actualKeyAlias = getKeyAlias(keyAlias)
+    debugLog("signData called with keyAlias: ${keyAlias ?: "default"}, using: $actualKeyAlias, inputEncoding: $inputEncoding, algorithm: ${requestedAlgorithm ?: "default"}")
+
+    if (data == null) {
+      promise.resolve(createSignatureErrorResult("No data provided", "INVALID_INPUT"))
+      return
+    }
+
+    val dataBytes = decodeInputData(data, inputEncoding)
+    if (dataBytes == null) {
+      promise.resolve(createSignatureErrorResult("Invalid base64 data", "INVALID_INPUT_ENCODING"))
+      return
+    }
+
+    try {
+      val keyStore = KeyStore.getInstance("AndroidKeyStore")
+      keyStore.load(null)
+
+      if (!keyStore.containsAlias(actualKeyAlias)) {
+        promise.resolve(createSignatureErrorResult("Key not found", "KEY_NOT_FOUND"))
+        return
+      }
+
+      val keyEntry = keyStore.getEntry(actualKeyAlias, null)
+      if (keyEntry !is KeyStore.PrivateKeyEntry) {
+        promise.resolve(createSignatureErrorResult("Invalid key type", "INVALID_KEY_TYPE"))
+        return
+      }
+
+      val privateKey = keyEntry.privateKey
+
+      val requiresAuth = try {
+        val keyFactory = java.security.KeyFactory.getInstance(privateKey.algorithm, "AndroidKeyStore")
+        val keyInfo = keyFactory.getKeySpec(privateKey, android.security.keystore.KeyInfo::class.java)
+        keyInfo.isUserAuthenticationRequired
+      } catch (e: Exception) {
+        false
+      }
+
+      if (requiresAuth) {
+        debugLog("signData failed - Key requires user authentication")
+        promise.resolve(createSignatureErrorResult("Key requires user authentication. Use signWithOptions() instead.", "KEY_REQUIRES_AUTHENTICATION"))
+        return
+      }
+
+      val algorithm = try {
+        BiometricUtils.resolveSignatureAlgorithm(privateKey, requestedAlgorithm)
+      } catch (e: IllegalArgumentException) {
+        debugLog("signData failed - ${e.message}")
+        promise.resolve(createSignatureErrorResult(e.message ?: "Invalid algorithm", "INVALID_ALGORITHM"))
+        return
+      }
+
+      try {
+        val signature = Signature.getInstance(algorithm)
+        signature.initSign(privateKey)
+        signature.update(dataBytes)
+        val signatureBytes = signature.sign()
+
+        val result = Arguments.createMap()
+        result.putBoolean("success", true)
+        result.putString("signature", BiometricUtils.encodeBase64(signatureBytes))
+        debugLog("signData completed with $algorithm")
+        promise.resolve(result)
+      } catch (e: java.security.InvalidKeyException) {
+        // Keystore rejects digests the key was not minted with (pre-SHA512 or
+        // StrongBox keys) at initSign time.
+        debugLog("signData failed - Key does not support $algorithm: ${e.message}")
+        promise.resolve(createSignatureErrorResult("Key does not support $algorithm: ${e.message}", "UNSUPPORTED_ALGORITHM"))
+      } catch (e: Exception) {
+        debugLog("signData failed - Signing failed: ${e.message}")
+        promise.resolve(createSignatureErrorResult("Signing failed: ${e.message ?: "Unknown error"}", "SIGNATURE_CREATION_FAILED"))
+      }
+    } catch (e: Exception) {
+      debugLog("signData failed - Unexpected error: ${e.message}")
+      promise.resolve(createSignatureErrorResult("Signing failed: ${e.message ?: "Unknown error"}", "SIGNATURE_CREATION_FAILED"))
     }
   }
 
