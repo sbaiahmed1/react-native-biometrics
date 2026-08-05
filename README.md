@@ -32,6 +32,7 @@
 - 📱 **Multiple Biometric Types** - Face ID, Touch ID, Fingerprint, and more
 - 🛠️ **Advanced Options** - Customizable prompts, fallback options, and device credentials
 - 🔑 **Key Management** - Create and manage cryptographic keys (EC256/RSA2048) for secure operations
+- 🔏 **Non-Biometric Signing** - Hardware-backed RSA/EC signing without prompts (SHA-256/SHA-512) — a modern `react-native-rsa-native` alternative
 - 🛡️ **Device Integrity** - Detect compromised devices (rooted/jailbroken) for enhanced security
 - 🔔 **Biometric Change Detection** - Real-time monitoring of biometric enrollment changes with event-driven updates ([docs](./BIOMETRIC_CHANGE_DETECTION.md))
 - 🐛 **Debug Tools** - Comprehensive diagnostic and testing utilities
@@ -586,6 +587,53 @@ const keyLifecycleExample = async () => {
 };
 ```
 
+### 🔏 Non-Biometric Signing (Hardware-Backed, No Prompts)
+
+Create Keychain/Keystore-backed RSA or EC keys that sign **without any biometric prompt** — the modern replacement for the `react-native-rsa-native` use case. The private key never leaves the secure hardware; only the user-authentication requirement is removed.
+
+```typescript
+import {
+  createKeysWithOptions,
+  keyExists,
+  getPublicKey,
+  sign,
+  deleteKeys,
+  SignatureAlgorithm,
+} from '@sbaiahmed1/react-native-biometrics';
+
+const deviceBoundSigningExample = async () => {
+  // Create a hardware-backed RSA-2048 key that never prompts
+  await createKeysWithOptions({
+    keyAlias: 'server-auth-key',
+    keyType: 'rsa2048',
+    requireAuthentication: false,
+  });
+
+  // Prompt-free existence check
+  if (await keyExists('server-auth-key')) {
+    // Public key as base64 X.509 SubjectPublicKeyInfo DER on both platforms —
+    // consumable directly by e.g. `openssl pkey -pubin -inform DER`
+    const { publicKey } = await getPublicKey('server-auth-key');
+    await sendPublicKeyToServer(publicKey);
+  }
+
+  // Sign a payload — no prompt appears
+  const result = await sign({
+    keyAlias: 'server-auth-key',
+    data: 'payload-to-sign',
+    algorithm: SignatureAlgorithm.SHA512withRSA, // optional, defaults to SHA-256
+  });
+
+  if (result.success) {
+    console.log('✍️ Signature:', result.signature);
+  }
+};
+```
+
+`sign()` never prompts: called on a normal biometric-gated key it resolves with `{ success: false, errorCode: 'KEY_REQUIRES_AUTHENTICATION' }` — use `signWithOptions()` for those. Conversely, `signWithOptions()` on a no-auth key signs silently with `authType: 0`.
+
+> 📖 **See the [Cryptographic Keys Guide](./docs/CRYPTOGRAPHIC_KEYS.md) for algorithm constraints (SHA-512 availability on Android/StrongBox), key accessibility, and public key format details.**
+
 ### 🐛 Debugging Utilities
 
 Comprehensive debugging tools to help troubleshoot biometric authentication issues.
@@ -868,6 +916,91 @@ console.log('Keys created:', result.publicKey);
 const rsaKeys = await createKeys(undefined, 'rsa2048');
 const ecKeys = await createKeys(undefined, 'ec256');
 ```
+```
+
+#### `createKeysWithOptions(options?)`
+
+Options-object variant of `createKeys` with one additional capability: `requireAuthentication: false` creates a hardware-backed key that can sign **without any biometric prompt** (see [`sign()`](#signoptions)).
+
+```typescript
+const createKeysWithOptions = (options?: {
+  keyAlias?: string;
+  keyType?: 'ec256' | 'rsa2048';
+  requireAuthentication?: boolean;   // default true (same behavior as createKeys)
+  biometricStrength?: BiometricStrength;   // ignored when requireAuthentication is false
+  allowDeviceCredentials?: boolean;        // ignored when requireAuthentication is false
+  failIfExists?: boolean;
+}): Promise<KeyResult> => {
+};
+```
+
+With `requireAuthentication: false`:
+- The private key remains non-exportable in the Android Keystore / iOS Keychain (Secure Enclave for EC keys on device), but using it never requires user authentication.
+- No biometric enrollment or passcode is required at creation time on either platform (iOS uses `kSecAttrAccessibleWhenUnlockedThisDeviceOnly`, so the key is only usable while the device is unlocked).
+
+**Example:**
+```javascript
+const result = await createKeysWithOptions({
+  keyAlias: 'server-auth-key',
+  keyType: 'rsa2048',
+  requireAuthentication: false,
+});
+```
+
+#### `keyExists(keyAlias?)`
+
+Checks whether a key exists for the alias without triggering any biometric prompt.
+
+```typescript
+const keyExists = (keyAlias?: string): Promise<boolean> => {
+};
+```
+
+#### `getPublicKey(keyAlias?)`
+
+Retrieves the public key without triggering any biometric prompt. Unlike the `publicKey` returned by `createKeys`, the result is base64-encoded **X.509 SubjectPublicKeyInfo DER on both platforms and for both key types**, so it can be consumed directly by standard tooling (`openssl pkey -pubin -inform DER`). Rejects with `KEY_NOT_FOUND` if no key exists.
+
+```typescript
+const getPublicKey = (keyAlias?: string): Promise<{
+  publicKey: string;   // Base64 X.509 SPKI DER
+  keyType?: string;    // 'rsa2048' | 'ec256'
+}> => {
+};
+```
+
+#### `sign(options)`
+
+Signs data **without any user authentication prompt**. Only works with keys created via `createKeysWithOptions({ requireAuthentication: false })`; on a biometric-gated key it never prompts — it resolves with `{ success: false, errorCode: 'KEY_REQUIRES_AUTHENTICATION' }` (use `signWithOptions()` for those keys).
+
+```typescript
+const sign = (options: {
+  keyAlias?: string;
+  data: string;
+  inputEncoding?: InputEncoding;      // 'utf8' (default) | 'base64'
+  algorithm?: SignatureAlgorithm;     // defaults to the SHA-256 variant for the key type
+}): Promise<SignatureResult> => {
+};
+
+enum SignatureAlgorithm {
+  SHA256withRSA = 'SHA256withRSA',
+  SHA512withRSA = 'SHA512withRSA',
+  SHA256withECDSA = 'SHA256withECDSA',
+  SHA512withECDSA = 'SHA512withECDSA',
+}
+```
+
+**Error codes:** `KEY_NOT_FOUND`, `KEY_REQUIRES_AUTHENTICATION`, `INVALID_ALGORITHM` (algorithm/key-type mismatch), `UNSUPPORTED_ALGORITHM` (e.g. SHA-512 on an Android key minted before SHA-512 support or inside StrongBox), `INVALID_INPUT_ENCODING`.
+
+**Example:**
+```javascript
+const result = await sign({
+  keyAlias: 'server-auth-key',
+  data: payload,
+  algorithm: SignatureAlgorithm.SHA512withRSA,
+});
+if (result.success) {
+  console.log('Signature:', result.signature);
+}
 ```
 
 #### `deleteKeys(keyAlias?: string)`
@@ -1715,6 +1848,7 @@ This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) 
 - [x] **Duplicate Key Protection**: `failIfExists` parameter for `createKeys` to prevent accidental key overwrites
 - [x] **Device Security Check**: `isDeviceSecure` field in `isSensorAvailable` result
 - [x] **iOS Simulator Support**: Full biometric prompt support on iOS Simulator via LAContext workarounds
+- [x] **Non-Biometric Signing**: Hardware-backed, prompt-free RSA/EC signing (`createKeysWithOptions`, `keyExists`, `getPublicKey`, `sign`) with SHA-256/SHA-512 — a modern `react-native-rsa-native` alternative (#90)
 
 ### 🔄 In Progress
 - [ ] **Performance Optimization**: Optimize biometric operations and reduce latency
