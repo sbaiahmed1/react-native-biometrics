@@ -126,6 +126,83 @@ async function migrateToEC256() {
 }
 ```
 
+## Non-Biometric Signing (Hardware-Backed Keys Without Prompts)
+
+For device-bound signing without any user interaction — server authentication,
+request signing, attestation — keys can be created with no user-authentication
+requirement. The private key still never leaves the Android Keystore / iOS
+Keychain (Secure Enclave for EC keys on device); only the prompt is removed.
+This covers the use cases previously served by `react-native-rsa-native`.
+
+```javascript
+import {
+  createKeysWithOptions,
+  keyExists,
+  getPublicKey,
+  sign,
+  deleteKeys,
+  SignatureAlgorithm,
+} from '@sbaiahmed1/react-native-biometrics';
+
+// 1. Create a hardware-backed key that never prompts
+const { publicKey } = await createKeysWithOptions({
+  keyAlias: 'server-auth-key',
+  keyType: 'rsa2048',
+  requireAuthentication: false,
+});
+
+// 2. Prompt-free existence check
+const exists = await keyExists('server-auth-key');
+
+// 3. Public key as base64 X.509 SubjectPublicKeyInfo DER (both platforms)
+const { publicKey: spki } = await getPublicKey('server-auth-key');
+
+// 4. Sign without any prompt
+const result = await sign({
+  keyAlias: 'server-auth-key',
+  data: payload,
+  algorithm: SignatureAlgorithm.SHA512withRSA, // optional, defaults to SHA-256
+});
+
+// 5. Cleanup
+await deleteKeys('server-auth-key');
+```
+
+### Behavior Notes
+
+- `createKeysWithOptions` defaults to `requireAuthentication: true`, which is
+  identical to `createKeys` — the non-biometric mode is strictly opt-in.
+- `sign()` never shows a prompt. Called on a biometric-gated key it resolves
+  with `{ success: false, errorCode: 'KEY_REQUIRES_AUTHENTICATION' }` — use
+  `signWithOptions()` for those keys.
+- The reverse works: `signWithOptions()` on a no-auth key signs silently and
+  resolves with `authType: 0`.
+- On iOS, no-auth keys use `kSecAttrAccessibleWhenUnlockedThisDeviceOnly`:
+  they don't depend on a passcode being set, but are unusable while the
+  device is locked and never migrate to another device.
+
+### Signature Algorithms
+
+`sign()` accepts `SHA256withRSA`, `SHA512withRSA`, `SHA256withECDSA`, and
+`SHA512withECDSA` (the algorithm must match the key type). Constraints:
+
+- **Android**: keys created before SHA-512 support was added, and keys
+  generated inside **StrongBox**, only permit SHA-256. Requesting SHA-512 on
+  such a key fails with `UNSUPPORTED_ALGORITHM`; recreate the key to enable
+  SHA-512 (StrongBox keys stay SHA-256 only).
+- **iOS**: the algorithm is chosen per call, so SHA-512 works with existing
+  keys too.
+
+### Public Key Formats
+
+`getPublicKey()` always returns base64-encoded X.509 SubjectPublicKeyInfo
+(SPKI) DER, directly consumable by standard tooling
+(`openssl pkey -pubin -inform DER`). Note that the `publicKey` returned by
+`createKeys`/`createKeysWithOptions`/`getAllKeys` is unchanged for backward
+compatibility: on Android and for iOS EC keys it is also SPKI, but **iOS RSA
+keys are returned as raw PKCS#1 DER** there. Prefer `getPublicKey()` when a
+server needs to consume the key.
+
 ## Performance Considerations
 
 ### Key Generation Speed
