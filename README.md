@@ -32,7 +32,7 @@
 - 📱 **Multiple Biometric Types** - Face ID, Touch ID, Fingerprint, and more
 - 🛠️ **Advanced Options** - Customizable prompts, fallback options, and device credentials
 - 🔑 **Key Management** - Create and manage cryptographic keys (EC256/RSA2048) for secure operations
-- 🔏 **Non-Biometric Signing** - Hardware-backed RSA/EC signing without prompts (SHA-256/SHA-512) — a modern `react-native-rsa-native` alternative
+- 🔏 **Non-Biometric Signing** - Keystore/Keychain-backed RSA/EC signing without prompts (SHA-256/SHA-512), hardware-backed where supported — a modern `react-native-rsa-native` alternative
 - 🛡️ **Device Integrity** - Detect compromised devices (rooted/jailbroken) for enhanced security
 - 🔔 **Biometric Change Detection** - Real-time monitoring of biometric enrollment changes with event-driven updates ([docs](./BIOMETRIC_CHANGE_DETECTION.md))
 - 🐛 **Debug Tools** - Comprehensive diagnostic and testing utilities
@@ -587,9 +587,9 @@ const keyLifecycleExample = async () => {
 };
 ```
 
-### 🔏 Non-Biometric Signing (Hardware-Backed, No Prompts)
+### 🔏 Non-Biometric Signing (No Prompts)
 
-Create Keychain/Keystore-backed RSA or EC keys that sign **without any biometric prompt** — the modern replacement for the `react-native-rsa-native` use case. The private key never leaves the secure hardware; only the user-authentication requirement is removed.
+Create Keychain/Keystore-backed RSA or EC keys that sign **without any biometric prompt** — the modern replacement for the `react-native-rsa-native` use case. The private key never leaves the Keychain/Keystore and is hardware-backed where the platform supports it (Android TEE/StrongBox for both key types, iOS Secure Enclave for EC keys; iOS RSA keys reside in the regular Keychain); only the user-authentication requirement is removed.
 
 ```typescript
 import {
@@ -920,7 +920,7 @@ const ecKeys = await createKeys(undefined, 'ec256');
 
 #### `createKeysWithOptions(options?)`
 
-Options-object variant of `createKeys` with one additional capability: `requireAuthentication: false` creates a hardware-backed key that can sign **without any biometric prompt** (see [`sign()`](#signoptions)).
+Options-object variant of `createKeys` with one additional capability: `requireAuthentication: false` creates a Keystore/Keychain-backed key that can sign **without any biometric prompt** (see [`sign()`](#signoptions)).
 
 ```typescript
 const createKeysWithOptions = (options?: {
@@ -935,7 +935,7 @@ const createKeysWithOptions = (options?: {
 ```
 
 With `requireAuthentication: false`:
-- The private key remains non-exportable in the Android Keystore / iOS Keychain (Secure Enclave for EC keys on device), but using it never requires user authentication.
+- The private key remains non-exportable in the Android Keystore / iOS Keychain, but using it never requires user authentication. Non-exportability is guaranteed on all paths; hardware residency depends on platform and key type — Android keys are TEE/StrongBox-backed, iOS EC keys use the Secure Enclave on device, while iOS RSA keys live in the regular Keychain without hardware protection.
 - No biometric enrollment or passcode is required at creation time on either platform (iOS uses `kSecAttrAccessibleWhenUnlockedThisDeviceOnly`, so the key is only usable while the device is unlocked).
 
 **Example:**
@@ -958,7 +958,7 @@ const keyExists = (keyAlias?: string): Promise<boolean> => {
 
 #### `getPublicKey(keyAlias?)`
 
-Retrieves the public key without triggering any biometric prompt. Unlike the `publicKey` returned by `createKeys`, the result is base64-encoded **X.509 SubjectPublicKeyInfo DER on both platforms and for both key types**, so it can be consumed directly by standard tooling (`openssl pkey -pubin -inform DER`). Rejects with `KEY_NOT_FOUND` if no key exists.
+Retrieves the public key without triggering any biometric prompt. Unlike the `publicKey` returned by `createKeys`, the result is base64-encoded **X.509 SubjectPublicKeyInfo DER on both platforms and for both key types**, so it can be consumed directly by standard tooling (`openssl pkey -pubin -inform DER`). Rejects with `KEY_NOT_FOUND` if no key exists. On iOS, a biometric-gated key may reject with `KEY_REQUIRES_AUTHENTICATION` — the Keychain can refuse even a non-interactive lookup of an auth-bound key — so for those keys capture the `publicKey` returned by `createKeys` at creation time instead (Android is unaffected).
 
 ```typescript
 const getPublicKey = (keyAlias?: string): Promise<{
@@ -1848,7 +1848,7 @@ This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) 
 - [x] **Duplicate Key Protection**: `failIfExists` parameter for `createKeys` to prevent accidental key overwrites
 - [x] **Device Security Check**: `isDeviceSecure` field in `isSensorAvailable` result
 - [x] **iOS Simulator Support**: Full biometric prompt support on iOS Simulator via LAContext workarounds
-- [x] **Non-Biometric Signing**: Hardware-backed, prompt-free RSA/EC signing (`createKeysWithOptions`, `keyExists`, `getPublicKey`, `sign`) with SHA-256/SHA-512 — a modern `react-native-rsa-native` alternative (#90)
+- [x] **Non-Biometric Signing**: Keystore/Keychain-backed, prompt-free RSA/EC signing (`createKeysWithOptions`, `keyExists`, `getPublicKey`, `sign`) with SHA-256/SHA-512, hardware-backed where supported — a modern `react-native-rsa-native` alternative (#90)
 
 ### 🔄 In Progress
 - [ ] **Performance Optimization**: Optimize biometric operations and reduce latency

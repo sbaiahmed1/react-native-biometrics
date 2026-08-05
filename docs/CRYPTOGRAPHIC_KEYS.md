@@ -126,13 +126,17 @@ async function migrateToEC256() {
 }
 ```
 
-## Non-Biometric Signing (Hardware-Backed Keys Without Prompts)
+## Non-Biometric Signing (Keystore/Keychain Keys Without Prompts)
 
 For device-bound signing without any user interaction — server authentication,
 request signing, attestation — keys can be created with no user-authentication
 requirement. The private key still never leaves the Android Keystore / iOS
-Keychain (Secure Enclave for EC keys on device); only the prompt is removed.
-This covers the use cases previously served by `react-native-rsa-native`.
+Keychain; only the prompt is removed. Hardware backing follows the same
+platform matrix as biometric keys (see the table above): Android keys are
+TEE/StrongBox-backed, iOS EC keys use the Secure Enclave on device, and iOS
+RSA keys reside in the regular Keychain without hardware protection —
+non-exportable via the API, but not hardware-resident. This covers the use
+cases previously served by `react-native-rsa-native`.
 
 ```javascript
 import {
