@@ -639,7 +639,11 @@ export function keyExists(keyAlias?: string): Promise<boolean> {
  * both key types, so it can be consumed directly by standard tooling
  * (e.g. `openssl pkey -pubin -inform DER`).
  *
- * Rejects with code `KEY_NOT_FOUND` if no key exists for the alias.
+ * Rejects with code `KEY_NOT_FOUND` if no key exists for the alias. On iOS,
+ * a biometric-gated key may reject with `KEY_REQUIRES_AUTHENTICATION`
+ * because the Keychain can refuse even a non-interactive lookup of an
+ * auth-bound key — capture the `publicKey` from {@link createKeys} at
+ * creation time for those keys (Android is unaffected).
  */
 export function getPublicKey(keyAlias?: string): Promise<PublicKeyResult> {
   logger.debug('Getting public key', 'getPublicKey', { keyAlias });
@@ -888,7 +892,9 @@ export type CreateKeysOptions = {
    * When true (default), using the private key requires user authentication —
    * the existing biometric-gated behavior. When false, the key is created
    * without any user-authentication requirement so {@link sign} works without
-   * a prompt. The private key remains hardware-backed and non-exportable.
+   * a prompt. The private key remains non-exportable in the Keystore/Keychain
+   * and is hardware-backed where supported (Android TEE/StrongBox, iOS Secure
+   * Enclave for EC keys; iOS RSA keys reside in the regular Keychain).
    */
   requireAuthentication?: boolean;
   /** Ignored when requireAuthentication is false. (Android only) */
