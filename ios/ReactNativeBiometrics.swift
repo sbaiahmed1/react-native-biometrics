@@ -474,16 +474,26 @@ class ReactNativeBiometrics: RCTEventEmitter {
     
     // Parse key type
     let biometricKeyType: BiometricKeyType
-    if let keyTypeString = keyType, keyTypeString.lowercased() == "rsa2048" {
-      biometricKeyType = .rsa2048
-    } else {
+    switch keyType?.lowercased() {
+    case nil, "ec256":
       biometricKeyType = .ec256
+    case "rsa2048":
+      biometricKeyType = .rsa2048
+    default:
+      ReactNativeBiometricDebug.debugLog("createKeys failed - Unsupported key type: \(keyType ?? "")")
+      handleError(.invalidParameters, reject: reject)
+      return
     }
 
     // iOS migration-safe behavior:
     // - default/weak -> .biometryAny (backward-compatible with existing keys)
     // - strong       -> .biometryCurrentSet (invalidated on biometric enrollment change)
     let biometricStrengthValue = biometricStrength?.lowercased()
+    guard biometricStrengthValue == nil || biometricStrengthValue == "weak" || biometricStrengthValue == "strong" else {
+      ReactNativeBiometricDebug.debugLog("createKeys failed - Invalid biometricStrength: \(biometricStrength ?? "")")
+      handleError(.invalidParameters, reject: reject)
+      return
+    }
     let useBiometryCurrentSet = biometricStrengthValue == "strong"
     
     // Check if key already exists when failIfExists is true
@@ -1481,10 +1491,27 @@ class ReactNativeBiometrics: RCTEventEmitter {
     let keySize = keyAttributes[kSecAttrKeySizeInBits as String] as? Int ?? 0
     let keyType = keyAttributes[kSecAttrKeyType as String] as? String ?? "Unknown"
     let isHardwareBacked = keyAttributes[kSecAttrTokenID as String] != nil
-    
+
     // Default key purposes for biometric keys (sign and verify)
     let keyPurposes = ["sign", "verify"]
-    
+
+    // A key without an access control (no-auth RSA / simulator keys) never
+    // requires user authentication. A key with one usually does — except the
+    // no-auth Secure Enclave ACL, which carries only .privateKeyUsage.
+    let accessControlValue =
+      keyItem[kSecAttrAccessControl as String] ?? keyAttributes[kSecAttrAccessControl as String]
+    var userAuthenticationRequired = accessControlValue != nil
+    if let accessControlValue = accessControlValue,
+       let noAuthReference = SecAccessControlCreateWithFlags(
+         kCFAllocatorDefault,
+         kSecAttrAccessibleWhenUnlockedThisDeviceOnly,
+         [.privateKeyUsage],
+         nil
+       ),
+       CFEqual(accessControlValue as! SecAccessControl, noAuthReference) {
+      userAuthenticationRequired = false
+    }
+
     let attributes: [String: Any] = [
       "algorithm": keyType == kSecAttrKeyTypeRSA as String ? "RSA" : "EC",
       "keySize": keySize,
@@ -1493,7 +1520,7 @@ class ReactNativeBiometrics: RCTEventEmitter {
       "padding": ["PKCS1"],
       "securityLevel": isHardwareBacked ? "Hardware" : "Software",
       "hardwareBacked": isHardwareBacked,
-      "userAuthenticationRequired": true
+      "userAuthenticationRequired": userAuthenticationRequired
     ]
     
     ReactNativeBiometricDebug.debugLog("getKeyAttributes completed successfully")
