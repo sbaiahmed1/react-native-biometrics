@@ -572,8 +572,18 @@ object BiometricUtils {
      * "nothing detected", not proof of integrity.
      */
     fun detectFrida(): Boolean {
-        return checkFridaArtifacts() || checkProcMaps(listOf("frida")) || checkFridaPort()
+        return checkFridaArtifacts() || checkProcMaps(FRIDA_IMAGES) || checkFridaPort()
     }
+
+    /**
+     * Instrumentation image names, matched against the file name of a mapped
+     * library. Deliberately more specific than the framework name: a bare
+     * "frida" or "substrate" would also match an app whose own package
+     * directory, APK path, or bundled library contains that word, and a single
+     * match forces riskLevel HIGH.
+     */
+    private val FRIDA_IMAGES = listOf("frida-agent", "frida-gadget", "fridagadget", "libfrida")
+    private val XPOSED_IMAGES = listOf("libxposed", "xposedbridge", "liblspd", "libriru", "libsubstrate")
 
     /**
      * Detects an active Xposed-family hooking framework (Xposed, EdXposed,
@@ -583,9 +593,7 @@ object BiometricUtils {
     fun detectXposed(): Boolean {
         return checkXposedClasses() ||
             checkXposedStackTrace() ||
-            // Needles are library-name specific on purpose: a bare "substrate"
-            // would match any app asset path containing that word.
-            checkProcMaps(listOf("xposed", "lsposed", "liblspd", "libsubstrate"))
+            checkProcMaps(XPOSED_IMAGES)
     }
 
     /**
@@ -625,16 +633,36 @@ object BiometricUtils {
     }
 
     /**
-     * Scan the libraries mapped into this process for instrumentation frameworks
+     * Scan the libraries mapped into this process for instrumentation
+     * frameworks. Matches the mapped file's name only, never its directory
+     * path, so an app whose own package directory contains one of these words
+     * is not flagged. The app's own mappings are still scanned on purpose: a
+     * repackaged APK carries the Frida gadget in its own lib directory, which
+     * is the usual injection route on an unrooted device.
      */
     private fun checkProcMaps(needles: List<String>): Boolean {
         return try {
             java.io.File("/proc/self/maps").useLines { lines ->
-                lines.any { line -> needles.any { line.contains(it, ignoreCase = true) } }
+                lines.any { line ->
+                    val image = mappedImageName(line) ?: return@any false
+                    needles.any { image.contains(it, ignoreCase = true) }
+                }
             }
         } catch (e: Exception) {
             false
         }
+    }
+
+    /**
+     * Extracts the file name from a /proc/self/maps entry, or null for
+     * anonymous mappings and pseudo-paths such as [stack]. No field preceding
+     * the pathname (address range, perms, offset, device, inode) contains a
+     * slash, so the first one starts the path.
+     */
+    private fun mappedImageName(line: String): String? {
+        val pathStart = line.indexOf('/')
+        if (pathStart < 0) return null
+        return line.substring(pathStart).substringAfterLast('/')
     }
 
     /**
