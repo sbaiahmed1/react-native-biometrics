@@ -3,6 +3,7 @@ import DebuggingExample from './DebuggingExample';
 import AuthExample from './AuthExample';
 import ColorDemo from './ColorExample';
 import CombinedBiometricsDemo from './CombinedBiometricsDemo';
+import NonBiometricSigningExample from './NonBiometricSigningExample';
 import BiometricChangeExample from '../BiometricChangeExample';
 
 export default function App() {
@@ -13,6 +14,7 @@ export default function App() {
         <AuthExample />
         <ColorDemo />
         <CombinedBiometricsDemo />
+        <NonBiometricSigningExample />
         <DebuggingExample />
       </ScrollView>
     </SafeAreaView>
