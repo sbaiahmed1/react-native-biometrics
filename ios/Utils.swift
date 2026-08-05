@@ -20,6 +20,44 @@ public func getSignatureAlgorithm(for keyRef: SecKey) -> SecKeyAlgorithm {
 }
 
 /**
+ * Result of resolving a requested signature algorithm name against a key
+ */
+public enum SignatureAlgorithmResolution {
+  case algorithm(SecKeyAlgorithm)
+  case invalid(message: String)
+}
+
+/**
+ * Resolves the SecKeyAlgorithm for a key from an optional requested algorithm
+ * name (SHA256withRSA / SHA512withRSA / SHA256withECDSA / SHA512withECDSA).
+ * Falls back to the SHA-256 default for the key type when nothing is requested.
+ */
+public func resolveSignatureAlgorithm(for keyRef: SecKey, requested: String?) -> SignatureAlgorithmResolution {
+  guard let requested = requested else {
+    return .algorithm(getSignatureAlgorithm(for: keyRef))
+  }
+
+  let keyAttributes = SecKeyCopyAttributes(keyRef) as? [String: Any] ?? [:]
+  let isRSA = (keyAttributes[kSecAttrKeyType as String] as? String ?? "") == kSecAttrKeyTypeRSA as String
+
+  switch (requested, isRSA) {
+  case ("SHA256withRSA", true):
+    return .algorithm(.rsaSignatureMessagePKCS1v15SHA256)
+  case ("SHA512withRSA", true):
+    return .algorithm(.rsaSignatureMessagePKCS1v15SHA512)
+  case ("SHA256withECDSA", false):
+    return .algorithm(.ecdsaSignatureMessageX962SHA256)
+  case ("SHA512withECDSA", false):
+    return .algorithm(.ecdsaSignatureMessageX962SHA512)
+  case ("SHA256withRSA", false), ("SHA512withRSA", false),
+       ("SHA256withECDSA", true), ("SHA512withECDSA", true):
+    return .invalid(message: "Algorithm \(requested) does not match the key type")
+  default:
+    return .invalid(message: "Unsupported algorithm: \(requested). Supported: SHA256withRSA, SHA512withRSA, SHA256withECDSA, SHA512withECDSA")
+  }
+}
+
+/**
  * Performs biometric authentication with consistent error handling
  * - Parameters:
  *   - reason: The localized reason for authentication
@@ -152,6 +190,20 @@ public func createKeychainQuery(
 }
 
 /**
+ * Disables authentication UI on a keychain query so lookups never prompt —
+ * an auth-gated key surfaces as errSecInteractionNotAllowed instead.
+ */
+public func applyNoInteractionContext(_ query: inout [String: Any]) {
+  if #available(iOS 16.0, *) {
+    let noUIContext = LAContext()
+    noUIContext.interactionNotAllowed = true
+    query[kSecUseAuthenticationContext as String] = noUIContext
+  } else {
+    query[kSecUseAuthenticationUI as String] = kSecUseAuthenticationUIFail
+  }
+}
+
+/**
  * Creates access control for biometric authentication
  * - Parameters:
  *   - keyType: The type of key being created
@@ -253,6 +305,67 @@ public func createKeyGenerationAttributes(
 }
 
 /**
+ * Creates key generation attributes for keys that do NOT require user
+ * authentication. The private key stays non-exportable and hardware-backed
+ * (Secure Enclave for EC keys on device), but using it never prompts.
+ *
+ * kSecAttrAccessibleWhenUnlockedThisDeviceOnly keeps the key device-bound
+ * without depending on a passcode being set (unlike the biometric path's
+ * WhenPasscodeSetThisDeviceOnly). Secure Enclave keys must still carry an
+ * access control, so they get one with only .privateKeyUsage — no biometry
+ * or user-presence constraint.
+ * - Returns: Key generation attributes dictionary, or nil if the required
+ *   access control could not be created
+ */
+public func createNoAuthKeyGenerationAttributes(
+  keyTagData: Data,
+  keyType: BiometricKeyType
+) -> [String: Any]? {
+  switch keyType {
+  case .rsa2048:
+    return [
+      kSecClass as String: kSecClassKey,
+      kSecAttrKeyType as String: kSecAttrKeyTypeRSA,
+      kSecAttrKeySizeInBits as String: 2048,
+      kSecPrivateKeyAttrs as String: [
+        kSecAttrIsPermanent as String: true,
+        kSecAttrApplicationTag as String: keyTagData,
+        kSecAttrAccessible as String: kSecAttrAccessibleWhenUnlockedThisDeviceOnly
+      ]
+    ]
+
+  case .ec256:
+    var privateKeyAttrs: [String: Any] = [
+      kSecAttrIsPermanent as String: true,
+      kSecAttrApplicationTag as String: keyTagData
+    ]
+    #if targetEnvironment(simulator)
+    privateKeyAttrs[kSecAttrAccessible as String] = kSecAttrAccessibleWhenUnlockedThisDeviceOnly
+    #else
+    guard let accessControl = SecAccessControlCreateWithFlags(
+      kCFAllocatorDefault,
+      kSecAttrAccessibleWhenUnlockedThisDeviceOnly,
+      [.privateKeyUsage],
+      nil
+    ) else {
+      return nil
+    }
+    privateKeyAttrs[kSecAttrAccessControl as String] = accessControl
+    #endif
+
+    var attributes: [String: Any] = [
+      kSecAttrKeyType as String: kSecAttrKeyTypeECSECPrimeRandom,
+      kSecAttrKeySizeInBits as String: 256,
+      kSecPrivateKeyAttrs as String: privateKeyAttrs
+    ]
+    #if !targetEnvironment(simulator)
+    attributes[kSecAttrTokenID as String] = kSecAttrTokenIDSecureEnclave
+    #endif
+    return attributes
+  }
+}
+
+/**
  * SPKI (Subject Public Key Info) header for EC P-256 (secp256r1) keys.
  * This ASN.1 header is required for standard X.509 SubjectPublicKeyInfo format
  * and compatibility with the old react-native-biometrics library.
@@ -309,6 +422,71 @@ public func exportPublicKeyToBase64(_ publicKey: SecKey) -> String? {
     ReactNativeBiometricDebug.debugLog("Exported public key (\(rawKeyData.count) bytes)")
     return rawKeyData.base64EncodedString()
   }
+}
+
+/**
+ * Encodes an ASN.1 DER length field (short or long form).
+ */
+private func derLength(_ length: Int) -> [UInt8] {
+  if length < 0x80 {
+    return [UInt8(length)]
+  }
+  var bytes: [UInt8] = []
+  var value = length
+  while value > 0 {
+    bytes.insert(UInt8(value & 0xFF), at: 0)
+    value >>= 8
+  }
+  return [0x80 | UInt8(bytes.count)] + bytes
+}
+
+/**
+ * Exports a public key as base64 X.509 SubjectPublicKeyInfo DER for all key
+ * types. EC P-256 reuses the fixed SPKI header; RSA wraps the PKCS#1 output
+ * of SecKeyCopyExternalRepresentation in a computed SPKI envelope:
+ *   SEQUENCE {
+ *     SEQUENCE { OID 1.2.840.113549.1.1.1 (rsaEncryption), NULL }
+ *     BIT STRING { PKCS#1 RSAPublicKey }
+ *   }
+ * Unlike exportPublicKeyToBase64 (kept for backward compatibility of
+ * createKeys output), the result is directly consumable by standard tooling.
+ */
+public func exportPublicKeyToSPKIBase64(_ publicKey: SecKey) -> String? {
+  var error: Unmanaged<CFError>?
+  guard let publicKeyData = SecKeyCopyExternalRepresentation(publicKey, &error) else {
+    if let cfError = error?.takeRetainedValue() {
+      ReactNativeBiometricDebug.debugLog("Public key export error: \(cfError.localizedDescription)")
+    }
+    return nil
+  }
+
+  let rawKeyData = publicKeyData as Data
+
+  if rawKeyData.count == 65 && rawKeyData[0] == 0x04 {
+    var spkiData = Data(ecP256SPKIHeader)
+    spkiData.append(rawKeyData)
+    ReactNativeBiometricDebug.debugLog("Exported EC P-256 public key as SPKI (\(spkiData.count) bytes)")
+    return spkiData.base64EncodedString()
+  }
+
+  let rsaAlgorithmIdentifier: [UInt8] = [
+    0x30, 0x0D,        // SEQUENCE, length 13
+    0x06, 0x09,        // OID, length 9
+    0x2A, 0x86, 0x48, 0x86, 0xF7, 0x0D, 0x01, 0x01, 0x01,  // 1.2.840.113549.1.1.1 (rsaEncryption)
+    0x05, 0x00         // NULL
+  ]
+  var bitString: [UInt8] = [0x03]
+  bitString += derLength(rawKeyData.count + 1)
+  bitString.append(0x00)  // unused bits
+  bitString += [UInt8](rawKeyData)
+
+  var spki: [UInt8] = [0x30]
+  spki += derLength(rsaAlgorithmIdentifier.count + bitString.count)
+  spki += rsaAlgorithmIdentifier
+  spki += bitString
+
+  ReactNativeBiometricDebug.debugLog("Exported RSA public key as SPKI (\(spki.count) bytes)")
+  return Data(spki).base64EncodedString()
 }
 
 #if targetEnvironment(simulator)
