@@ -26,6 +26,21 @@ RCT_EXTERN_METHOD(createKeys:
     resolver:(RCTPromiseResolveBlock)resolve
     rejecter:(RCTPromiseRejectBlock)reject)
 
+RCT_EXTERN_METHOD(createKeysWithOptions:
+    (NSDictionary *)options
+    resolver:(RCTPromiseResolveBlock)resolve
+    rejecter:(RCTPromiseRejectBlock)reject)
+
+RCT_EXTERN_METHOD(getPublicKey:
+    (NSString *)keyAlias
+    resolver:(RCTPromiseResolveBlock)resolve
+    rejecter:(RCTPromiseRejectBlock)reject)
+
+RCT_EXTERN_METHOD(signData:
+    (NSDictionary *)options
+    resolver:(RCTPromiseResolveBlock)resolve
+    rejecter:(RCTPromiseRejectBlock)reject)
+
 RCT_EXTERN_METHOD(deleteKeys:
     (NSString *)keyAlias
     resolver:(RCTPromiseResolveBlock)resolve

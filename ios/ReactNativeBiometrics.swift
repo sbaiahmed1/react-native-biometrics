@@ -432,13 +432,41 @@ class ReactNativeBiometrics: RCTEventEmitter {
                   failIfExists: NSNumber?,
                   resolver resolve: @escaping RCTPromiseResolveBlock,
                   rejecter reject: @escaping RCTPromiseRejectBlock) {
+    createKeysInternal(keyAlias: keyAlias as String?,
+                       keyType: keyType as String?,
+                       biometricStrength: biometricStrength as String?,
+                       allowDeviceCredentials: allowDeviceCredentials?.boolValue ?? false,
+                       failIfExists: failIfExists?.boolValue ?? false,
+                       requireAuthentication: true,
+                       resolve: resolve,
+                       reject: reject)
+  }
 
-    let deviceCredentialsFallback = allowDeviceCredentials?.boolValue ?? false
-    let failIfKeyExists = failIfExists?.boolValue ?? false
+  @objc
+  func createKeysWithOptions(_ options: NSDictionary,
+                             resolver resolve: @escaping RCTPromiseResolveBlock,
+                             rejecter reject: @escaping RCTPromiseRejectBlock) {
+    createKeysInternal(keyAlias: options["keyAlias"] as? String,
+                       keyType: options["keyType"] as? String,
+                       biometricStrength: options["biometricStrength"] as? String,
+                       allowDeviceCredentials: options["allowDeviceCredentials"] as? Bool ?? false,
+                       failIfExists: options["failIfExists"] as? Bool ?? false,
+                       requireAuthentication: options["requireAuthentication"] as? Bool ?? true,
+                       resolve: resolve,
+                       reject: reject)
+  }
 
-    ReactNativeBiometricDebug.debugLog("createKeys called with keyAlias: \(keyAlias ?? "default"), keyType: \(keyType ?? "ec256"), biometricStrength: \(biometricStrength ?? "strong"), allowDeviceCredentials: \(deviceCredentialsFallback), failIfExists: \(failIfKeyExists)")
+  private func createKeysInternal(keyAlias: String?,
+                                  keyType: String?,
+                                  biometricStrength: String?,
+                                  allowDeviceCredentials deviceCredentialsFallback: Bool,
+                                  failIfExists failIfKeyExists: Bool,
+                                  requireAuthentication: Bool,
+                                  resolve: @escaping RCTPromiseResolveBlock,
+                                  reject: @escaping RCTPromiseRejectBlock) {
+    ReactNativeBiometricDebug.debugLog("createKeys called with keyAlias: \(keyAlias ?? "default"), keyType: \(keyType ?? "ec256"), biometricStrength: \(biometricStrength ?? "strong"), allowDeviceCredentials: \(deviceCredentialsFallback), failIfExists: \(failIfKeyExists), requireAuthentication: \(requireAuthentication)")
 
-    let keyTag = getKeyAlias(keyAlias as String?)
+    let keyTag = getKeyAlias(keyAlias)
     guard let keyTagData = keyTag.data(using: .utf8) else {
       handleError(.dataEncodingFailed, reject: reject)
       return
@@ -446,7 +474,7 @@ class ReactNativeBiometrics: RCTEventEmitter {
     
     // Parse key type
     let biometricKeyType: BiometricKeyType
-    if let keyTypeString = keyType as String?, keyTypeString.lowercased() == "rsa2048" {
+    if let keyTypeString = keyType, keyTypeString.lowercased() == "rsa2048" {
       biometricKeyType = .rsa2048
     } else {
       biometricKeyType = .ec256
@@ -455,7 +483,7 @@ class ReactNativeBiometrics: RCTEventEmitter {
     // iOS migration-safe behavior:
     // - default/weak -> .biometryAny (backward-compatible with existing keys)
     // - strong       -> .biometryCurrentSet (invalidated on biometric enrollment change)
-    let biometricStrengthValue = (biometricStrength as String?)?.lowercased()
+    let biometricStrengthValue = biometricStrength?.lowercased()
     let useBiometryCurrentSet = biometricStrengthValue == "strong"
     
     // Check if key already exists when failIfExists is true
@@ -493,19 +521,28 @@ class ReactNativeBiometrics: RCTEventEmitter {
 
     ReactNativeBiometricDebug.debugLog("Deleted existing key (if any)")
     
-    // Create access control for biometric authentication
-    guard let accessControl = createBiometricAccessControl(
-      for: biometricKeyType,
-      allowDeviceCredentialsFallback: deviceCredentialsFallback,
-      useBiometryCurrentSet: useBiometryCurrentSet
-    ) else {
-      ReactNativeBiometricDebug.debugLog("createKeys failed - Could not create access control")
-      handleError(.accessControlCreationFailed, reject: reject)
-      return
-    }
-    
     // Key generation parameters
-    let keyAttributes = createKeyGenerationAttributes(keyTagData: keyTagData, accessControl: accessControl, keyType: biometricKeyType)
+    let keyAttributes: [String: Any]
+    if requireAuthentication {
+      // Create access control for biometric authentication
+      guard let accessControl = createBiometricAccessControl(
+        for: biometricKeyType,
+        allowDeviceCredentialsFallback: deviceCredentialsFallback,
+        useBiometryCurrentSet: useBiometryCurrentSet
+      ) else {
+        ReactNativeBiometricDebug.debugLog("createKeys failed - Could not create access control")
+        handleError(.accessControlCreationFailed, reject: reject)
+        return
+      }
+      keyAttributes = createKeyGenerationAttributes(keyTagData: keyTagData, accessControl: accessControl, keyType: biometricKeyType)
+    } else {
+      guard let noAuthAttributes = createNoAuthKeyGenerationAttributes(keyTagData: keyTagData, keyType: biometricKeyType) else {
+        ReactNativeBiometricDebug.debugLog("createKeys failed - Could not create no-auth key attributes")
+        handleError(.accessControlCreationFailed, reject: reject)
+        return
+      }
+      keyAttributes = noAuthAttributes
+    }
     
     var error: Unmanaged<CFError>?
     guard let privateKey = SecKeyCreateRandomKey(keyAttributes as CFDictionary, &error) else {
@@ -537,7 +574,7 @@ class ReactNativeBiometrics: RCTEventEmitter {
       "publicKey": publicKeyBase64
     ]
 
-    let shouldPersistBiometricDomainState = !deviceCredentialsFallback && useBiometryCurrentSet
+    let shouldPersistBiometricDomainState = requireAuthentication && !deviceCredentialsFallback && useBiometryCurrentSet
 
     if !shouldPersistBiometricDomainState {
       clearStoredBiometricDomainState(for: keyTag)
@@ -608,6 +645,62 @@ class ReactNativeBiometrics: RCTEventEmitter {
     }
   }
   
+  @objc
+  func getPublicKey(_ keyAlias: NSString?,
+                    resolver resolve: @escaping RCTPromiseResolveBlock,
+                    rejecter reject: @escaping RCTPromiseRejectBlock) {
+    ReactNativeBiometricDebug.debugLog("getPublicKey called with keyAlias: \(keyAlias ?? "default")")
+
+    let keyTag = getKeyAlias(keyAlias as String?)
+
+    // Try to find the key - first with Secure Enclave (for EC keys), then without (for RSA keys)
+    var result: CFTypeRef?
+    var status: OSStatus
+
+    var secureEnclaveQuery = createKeychainQuery(keyTag: keyTag, includeSecureEnclave: true, returnRef: true)
+    applyNoInteractionContext(&secureEnclaveQuery)
+    status = SecItemCopyMatching(secureEnclaveQuery as CFDictionary, &result)
+
+    if status == errSecItemNotFound {
+      var regularQuery = createKeychainQuery(keyTag: keyTag, includeSecureEnclave: false, returnRef: true)
+      applyNoInteractionContext(&regularQuery)
+      status = SecItemCopyMatching(regularQuery as CFDictionary, &result)
+    }
+
+    guard status == errSecSuccess else {
+      if status == errSecItemNotFound {
+        ReactNativeBiometricDebug.debugLog("getPublicKey failed - Key not found")
+        handleError(.keyNotFound, reject: reject)
+      } else {
+        let biometricsError = ReactNativeBiometricsError.fromOSStatus(status)
+        ReactNativeBiometricDebug.debugLog("getPublicKey failed - \(biometricsError.errorInfo.message)")
+        handleError(biometricsError, reject: reject)
+      }
+      return
+    }
+
+    // Force cast SecKey since conditional downcast to CoreFoundation types always succeeds
+    let keyRef = result as! SecKey
+
+    guard let publicKey = SecKeyCopyPublicKey(keyRef) else {
+      ReactNativeBiometricDebug.debugLog("getPublicKey failed - Could not extract public key")
+      handleError(.publicKeyExtractionFailed, reject: reject)
+      return
+    }
+
+    guard let publicKeyBase64 = exportPublicKeyToSPKIBase64(publicKey) else {
+      ReactNativeBiometricDebug.debugLog("getPublicKey failed - Public key export error")
+      handleError(.keyExportFailed, reject: reject)
+      return
+    }
+
+    let keyAttributes = SecKeyCopyAttributes(keyRef) as? [String: Any] ?? [:]
+    let isRSA = (keyAttributes[kSecAttrKeyType as String] as? String ?? "") == kSecAttrKeyTypeRSA as String
+
+    ReactNativeBiometricDebug.debugLog("getPublicKey completed successfully")
+    resolve(["publicKey": publicKeyBase64, "keyType": isRSA ? "rsa2048" : "ec256"])
+  }
+
   @objc
   func getAllKeys(_ customAlias: NSString?,
                   resolver resolve: @escaping RCTPromiseResolveBlock,
@@ -1090,7 +1183,118 @@ class ReactNativeBiometrics: RCTEventEmitter {
     // Device path (simulators return before #endif)
     performSign()
   }
-  
+
+  /**
+   * Signs data without any user authentication prompt. Only works with keys
+   * created with requireAuthentication = false; auth-bound keys resolve with
+   * KEY_REQUIRES_AUTHENTICATION instead of prompting.
+   */
+  @objc
+  func signData(_ options: NSDictionary,
+                resolver resolve: @escaping RCTPromiseResolveBlock,
+                rejecter reject: @escaping RCTPromiseRejectBlock) {
+    let keyAlias = options["keyAlias"] as? String
+    let encoding = (options["inputEncoding"] as? String ?? "utf8").lowercased()
+    let requestedAlgorithm = options["algorithm"] as? String
+
+    ReactNativeBiometricDebug.debugLog("signData called with keyAlias: \(keyAlias ?? "default"), inputEncoding: \(encoding), algorithm: \(requestedAlgorithm ?? "default")")
+
+    guard let data = options["data"] as? String else {
+      resolve(["success": false, "error": "No data provided", "errorCode": "INVALID_INPUT"])
+      return
+    }
+
+    let keyTag = getKeyAlias(keyAlias)
+
+    // Try to find the key - first with Secure Enclave (for EC keys), then
+    // without (for RSA keys). Interaction is disabled so an auth-gated key
+    // errors instead of prompting.
+    var result: CFTypeRef?
+    var status: OSStatus
+
+    var secureEnclaveQuery = createKeychainQuery(keyTag: keyTag, includeSecureEnclave: true, returnRef: true)
+    applyNoInteractionContext(&secureEnclaveQuery)
+    status = SecItemCopyMatching(secureEnclaveQuery as CFDictionary, &result)
+
+    if status == errSecItemNotFound {
+      var regularQuery = createKeychainQuery(keyTag: keyTag, includeSecureEnclave: false, returnRef: true)
+      applyNoInteractionContext(&regularQuery)
+      status = SecItemCopyMatching(regularQuery as CFDictionary, &result)
+    }
+
+    guard status == errSecSuccess else {
+      if status == errSecItemNotFound {
+        resolve(["success": false, "error": "Key not found", "errorCode": "KEY_NOT_FOUND"])
+      } else if status == errSecInteractionNotAllowed {
+        resolve(["success": false, "error": "Key requires user authentication. Use signWithOptions() instead.", "errorCode": "KEY_REQUIRES_AUTHENTICATION"])
+      } else {
+        let biometricsError = ReactNativeBiometricsError.fromOSStatus(status)
+        ReactNativeBiometricDebug.debugLog("signData failed - \(biometricsError.errorInfo.message)")
+        resolve(["success": false, "error": biometricsError.errorInfo.message, "errorCode": biometricsError.errorInfo.code])
+      }
+      return
+    }
+
+    // Force cast SecKey since conditional downcast to CoreFoundation types always succeeds
+    let keyRef = result as! SecKey
+
+    let algorithm: SecKeyAlgorithm
+    switch resolveSignatureAlgorithm(for: keyRef, requested: requestedAlgorithm) {
+    case .algorithm(let resolved):
+      algorithm = resolved
+    case .invalid(let message):
+      ReactNativeBiometricDebug.debugLog("signData failed - \(message)")
+      resolve(["success": false, "error": message, "errorCode": "INVALID_ALGORITHM"])
+      return
+    }
+
+    guard SecKeyIsAlgorithmSupported(keyRef, .sign, algorithm) else {
+      ReactNativeBiometricDebug.debugLog("signData failed - Key does not support the requested algorithm")
+      resolve(["success": false, "error": "Key does not support the requested algorithm", "errorCode": "UNSUPPORTED_ALGORITHM"])
+      return
+    }
+
+    // Decode data based on input encoding
+    let dataToSign: Data
+    if encoding == "base64" {
+      guard let decodedData = Data(base64Encoded: data) else {
+        ReactNativeBiometricDebug.debugLog("signData failed - Invalid base64 data")
+        resolve(["success": false, "error": "Invalid base64 data", "errorCode": "INVALID_INPUT_ENCODING"])
+        return
+      }
+      dataToSign = decodedData
+    } else {
+      guard let utf8Data = data.data(using: .utf8) else {
+        handleError(.dataEncodingFailed, reject: reject)
+        return
+      }
+      dataToSign = utf8Data
+    }
+
+    var error: Unmanaged<CFError>?
+    guard let signature = SecKeyCreateSignature(keyRef, algorithm, dataToSign as CFData, &error) else {
+      if let cfError = error?.takeRetainedValue() {
+        ReactNativeBiometricDebug.debugLog("signData failed - \(cfError.localizedDescription)")
+        let errorCode = CFErrorGetCode(cfError)
+        // An auth-gated key that survived the no-interaction lookup still
+        // fails here rather than prompting, because the no-UI context from
+        // the lookup governs the key's authorization.
+        if errorCode == Int(errSecInteractionNotAllowed) || (cfError as Error) is LAError {
+          resolve(["success": false, "error": "Key requires user authentication. Use signWithOptions() instead.", "errorCode": "KEY_REQUIRES_AUTHENTICATION"])
+          return
+        }
+      } else {
+        ReactNativeBiometricDebug.debugLog("signData failed - Signature creation failed (unknown error)")
+      }
+      let biometricsError = ReactNativeBiometricsError.signatureCreationFailed
+      resolve(["success": false, "error": biometricsError.errorInfo.message, "errorCode": biometricsError.errorInfo.code])
+      return
+    }
+
+    ReactNativeBiometricDebug.debugLog("signData completed successfully")
+    resolve(["success": true, "signature": (signature as Data).base64EncodedString()])
+  }
+
   @objc
   func validateSignature(_ keyAlias: NSString?,
                          data: NSString,
