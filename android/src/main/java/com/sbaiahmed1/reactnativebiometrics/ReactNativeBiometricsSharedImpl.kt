@@ -350,6 +350,12 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
     val requestedStrength = biometricStrength ?: "strong"
     debugLog("createKeys called with keyAlias: ${keyAlias ?: "default"}, using: $actualKeyAlias, keyType: $actualKeyType, biometricStrength: $requestedStrength, allowDeviceCredentials: $allowDeviceCredentials, requireAuthentication: $requireAuthentication")
 
+    if (biometricStrength != null && biometricStrength.lowercase() !in setOf("weak", "strong")) {
+      debugLog("createKeys failed - Invalid biometricStrength: $biometricStrength")
+      promise.reject("CREATE_KEYS_ERROR", "Invalid biometricStrength: $biometricStrength. Supported values: weak, strong", null)
+      return
+    }
+
     if (requireAuthentication && allowDeviceCredentials && android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.R) {
       debugLog("createKeys failed - allowDeviceCredentials requires Android API 30+")
       promise.reject("CREATE_KEYS_ERROR", "allowDeviceCredentials requires Android API 30+", null)
