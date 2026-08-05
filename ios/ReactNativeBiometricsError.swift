@@ -24,6 +24,7 @@ public enum ReactNativeBiometricsError: Error {
   case biometryDisconnected
 
   case keyNotFound
+  case keyRequiresAuthentication
   case keyCreationFailed
   case keyAlreadyExists
   case keyDeletionFailed
@@ -102,6 +103,8 @@ public enum ReactNativeBiometricsError: Error {
       // Key Management Errors
     case .keyNotFound:
       return ("KEY_NOT_FOUND", "Cryptographic key not found")
+    case .keyRequiresAuthentication:
+      return ("KEY_REQUIRES_AUTHENTICATION", "Key requires user authentication")
     case .keyCreationFailed:
       return ("KEY_CREATION_FAILED", "Failed to create cryptographic key")
     case .keyAlreadyExists:
