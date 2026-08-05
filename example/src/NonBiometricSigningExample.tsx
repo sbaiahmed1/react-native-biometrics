@@ -20,6 +20,8 @@ const NonBiometricSigningExample = () => {
   const [keyPresent, setKeyPresent] = useState<boolean | null>(null);
   const [publicKey, setPublicKey] = useState<string | null>(null);
   const [lastSignature, setLastSignature] = useState<string | null>(null);
+  const [lastSignatureAlgorithm, setLastSignatureAlgorithm] =
+    useState<SignatureAlgorithm | null>(null);
 
   const handleCreateNoAuthKey = async () => {
     setIsLoading(true);
@@ -77,19 +79,21 @@ const NonBiometricSigningExample = () => {
   };
 
   const handleSign = async (algorithm?: SignatureAlgorithm) => {
+    const selectedAlgorithm = algorithm ?? SignatureAlgorithm.SHA256withRSA;
     setIsLoading(true);
     try {
       const result = await sign({
         keyAlias: NO_AUTH_KEY_ALIAS,
         data: TEST_PAYLOAD,
-        algorithm,
+        algorithm: selectedAlgorithm,
       });
       console.log('sign result:', result);
       if (result.success && result.signature) {
         setLastSignature(result.signature);
+        setLastSignatureAlgorithm(selectedAlgorithm);
         Alert.alert(
           'Signed Without Prompt',
-          `Algorithm: ${algorithm ?? 'default (SHA-256)'}\nSignature: ${result.signature.substring(0, 60)}…`
+          `Algorithm: ${selectedAlgorithm}\nSignature: ${result.signature.substring(0, 60)}…`
         );
       } else {
         Alert.alert(
@@ -110,9 +114,16 @@ const NonBiometricSigningExample = () => {
       Alert.alert('Error', 'Sign something first');
       return;
     }
+    // validateSignature verifies with SHA-256 only
+    if (lastSignatureAlgorithm !== SignatureAlgorithm.SHA256withRSA) {
+      Alert.alert(
+        'Unsupported',
+        `validateSignature only verifies SHA-256 signatures; the last signature used ${lastSignatureAlgorithm}. Verify SHA-512 signatures server-side (e.g. openssl dgst -sha512 -verify).`
+      );
+      return;
+    }
     setIsLoading(true);
     try {
-      // validateSignature verifies with SHA-256; use it after a default sign()
       const result = await validateSignature(
         NO_AUTH_KEY_ALIAS,
         TEST_PAYLOAD,
@@ -159,6 +170,7 @@ const NonBiometricSigningExample = () => {
       setKeyPresent(false);
       setPublicKey(null);
       setLastSignature(null);
+      setLastSignatureAlgorithm(null);
       Alert.alert('Deleted', 'Example keys removed');
     } catch (error) {
       console.log('deleteKeys error:', error);
@@ -175,7 +187,7 @@ const NonBiometricSigningExample = () => {
           Non-Biometric Signing (RSA Keychain/Keystore)
         </Text>
         <Text style={styles.info}>
-          Hardware-backed keys usable without any biometric prompt.
+          Keystore/Keychain-backed keys usable without any biometric prompt.
         </Text>
         {keyPresent !== null && (
           <Text style={styles.info}>
