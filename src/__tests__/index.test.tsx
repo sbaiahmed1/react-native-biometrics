@@ -71,6 +71,19 @@ const MOCK_RESPONSES = {
     isCompromised: false,
     riskLevel: 'low',
   },
+  deviceIntegrityHooked: {
+    isRooted: false,
+    isKeyguardSecure: true,
+    hasSecureHardware: true,
+    hasRuntimeHooks: true,
+    isDebuggerAttached: false,
+    runtimeHookDetails: {
+      fridaDetected: true,
+      xposedDetected: false,
+    },
+    isCompromised: true,
+    riskLevel: 'HIGH',
+  },
 };
 
 // Default mock implementation
@@ -844,6 +857,45 @@ describe('ReactNativeBiometrics', () => {
       expect(result.isJailbroken).toBeUndefined();
       expect(result.isKeyguardSecure).toBe(true);
       expect(result.hasSecureHardware).toBe(true);
+    });
+
+    it('should surface runtime hook detection fields', async () => {
+      jest.resetModules();
+      jest.doMock('../NativeReactNativeBiometrics', () =>
+        createMockNative({
+          getDeviceIntegrityStatus: jest.fn(() =>
+            Promise.resolve(MOCK_RESPONSES.deviceIntegrityHooked)
+          ),
+        })
+      );
+      const BiometricsModule = await import('../index');
+      const result = await BiometricsModule.getDeviceIntegrityStatus();
+      expect(result).toEqual(MOCK_RESPONSES.deviceIntegrityHooked);
+      expect(result.hasRuntimeHooks).toBe(true);
+      expect(result.runtimeHookDetails).toEqual({
+        fridaDetected: true,
+        xposedDetected: false,
+      });
+      expect(result.isCompromised).toBe(true);
+      expect(result.riskLevel).toBe('HIGH');
+    });
+
+    it('should keep debugger attachment separate from compromise status', async () => {
+      jest.resetModules();
+      jest.doMock('../NativeReactNativeBiometrics', () =>
+        createMockNative({
+          getDeviceIntegrityStatus: jest.fn(() =>
+            Promise.resolve({
+              ...MOCK_RESPONSES.deviceIntegrityAndroid,
+              isDebuggerAttached: true,
+            })
+          ),
+        })
+      );
+      const BiometricsModule = await import('../index');
+      const result = await BiometricsModule.getDeviceIntegrityStatus();
+      expect(result.isDebuggerAttached).toBe(true);
+      expect(result.isCompromised).toBe(false);
     });
 
     it('should handle different risk levels', async () => {

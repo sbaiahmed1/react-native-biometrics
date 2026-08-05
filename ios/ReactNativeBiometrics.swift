@@ -1531,19 +1531,14 @@ class ReactNativeBiometrics: RCTEventEmitter {
   func getDeviceIntegrityStatus(_ resolver: @escaping RCTPromiseResolveBlock,
                                 rejecter reject: @escaping RCTPromiseRejectBlock) {
     ReactNativeBiometricDebug.debugLog("getDeviceIntegrityStatus called")
-    
-    // Call the global function from Utils.swift
-    let integrityStatus: [String: Any] = {
-      let isJailbroken = isDeviceJailbroken()
-      return [
-        "isJailbroken": isJailbroken,
-        "isCompromised": isJailbroken,
-        "riskLevel": isJailbroken ? "HIGH" : "NONE"
-      ]
-    }()
-    
-    ReactNativeBiometricDebug.debugLog("Device integrity check completed - isCompromised: \(integrityStatus["isCompromised"] as? Bool ?? false)")
-    resolver(integrityStatus)
+
+    // The global function from Utils.swift; includes a localhost port probe,
+    // so stay off the main thread.
+    DispatchQueue.global(qos: .userInitiated).async {
+      let integrityStatus = buildDeviceIntegrityStatus()
+      ReactNativeBiometricDebug.debugLog("Device integrity check completed - isCompromised: \(integrityStatus["isCompromised"] as? Bool ?? false)")
+      resolver(integrityStatus)
+    }
   }
 
   // MARK: - Biometric Change Detection

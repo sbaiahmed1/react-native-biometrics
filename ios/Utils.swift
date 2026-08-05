@@ -2,6 +2,7 @@
 import Foundation
 import Security
 import LocalAuthentication
+import MachO
 import React
 import UIKit
 
@@ -630,21 +631,97 @@ private func checkJailbreakMethod3() -> Bool {
 }
 
 /**
- * Checks if the device is compromised (jailbroken or has security issues)
+ * Detects an active Frida/instrumentation session: injected libraries in
+ * DYLD_INSERT_LIBRARIES, frida images loaded into the process, or the default
+ * frida-server port listening on localhost. Best-effort heuristics: an attacker
+ * who already controls the runtime can hook these checks themselves, so treat
+ * a negative result as "nothing detected", not proof of integrity.
  */
-public func isDeviceCompromised() -> Bool {
-  return isDeviceJailbroken()
+public func detectFridaRuntime() -> Bool {
+  if let dyldInsertLibraries = getenv("DYLD_INSERT_LIBRARIES") {
+    let libraries = String(cString: dyldInsertLibraries).lowercased()
+    if libraries.contains("frida") || libraries.contains("substrate") || libraries.contains("cycript") {
+      return true
+    }
+  }
+
+  for i in 0..<_dyld_image_count() {
+    if let imageName = _dyld_get_image_name(i) {
+      let image = String(cString: imageName).lowercased()
+      if image.contains("frida") || image.contains("cynject") || image.contains("libcycript") {
+        return true
+      }
+    }
+  }
+
+  return isLocalPortOpen(27042)
 }
 
 /**
- * Gets device integrity status
+ * Probe a TCP port on localhost (used for the default frida-server port).
+ * A closed local port refuses immediately; the 300ms send timeout bounds the
+ * pathological case.
  */
-public func getDeviceIntegrityStatus() -> [String: Any] {
+private func isLocalPortOpen(_ port: UInt16) -> Bool {
+  let sock = socket(AF_INET, SOCK_STREAM, 0)
+  guard sock >= 0 else { return false }
+  defer { close(sock) }
+
+  var timeout = timeval(tv_sec: 0, tv_usec: 300_000)
+  setsockopt(sock, SOL_SOCKET, SO_SNDTIMEO, &timeout, socklen_t(MemoryLayout<timeval>.size))
+
+  var addr = sockaddr_in()
+  addr.sin_len = UInt8(MemoryLayout<sockaddr_in>.size)
+  addr.sin_family = sa_family_t(AF_INET)
+  addr.sin_port = in_port_t(port).bigEndian
+  addr.sin_addr.s_addr = inet_addr("127.0.0.1")
+
+  let result = withUnsafePointer(to: &addr) {
+    $0.withMemoryRebound(to: sockaddr.self, capacity: 1) {
+      connect(sock, $0, socklen_t(MemoryLayout<sockaddr_in>.size))
+    }
+  }
+  return result == 0
+}
+
+/**
+ * Checks whether a debugger is currently attached to this process (P_TRACED)
+ */
+public func isDebuggerAttached() -> Bool {
+  var info = kinfo_proc()
+  var size = MemoryLayout<kinfo_proc>.stride
+  var mib: [Int32] = [CTL_KERN, KERN_PROC, KERN_PROC_PID, getpid()]
+  guard sysctl(&mib, u_int(mib.count), &info, &size, nil, 0) == 0 else {
+    return false
+  }
+  return (info.kp_proc.p_flag & P_TRACED) != 0
+}
+
+/**
+ * Checks if the device is compromised (jailbroken or actively hooked)
+ */
+public func isDeviceCompromised() -> Bool {
+  return isDeviceJailbroken() || detectFridaRuntime()
+}
+
+/**
+ * Gets device integrity status.
+ * Named distinctly from the module's `getDeviceIntegrityStatus(_:rejecter:)` so
+ * the call site inside the class resolves here instead of being shadowed by the
+ * member of the same name.
+ */
+public func buildDeviceIntegrityStatus() -> [String: Any] {
   let isJailbroken = isDeviceJailbroken()
+  let fridaDetected = detectFridaRuntime()
 
   return [
     "isJailbroken": isJailbroken,
-    "isCompromised": isJailbroken,
-    "riskLevel": isJailbroken ? "HIGH" : "NONE"
+    "hasRuntimeHooks": fridaDetected,
+    // Informational only: debuggers are routine in development, so this does
+    // not feed isCompromised/riskLevel.
+    "isDebuggerAttached": isDebuggerAttached(),
+    "runtimeHookDetails": ["fridaDetected": fridaDetected],
+    "isCompromised": isJailbroken || fridaDetected,
+    "riskLevel": (isJailbroken || fridaDetected) ? "HIGH" : "NONE"
   ]
 }

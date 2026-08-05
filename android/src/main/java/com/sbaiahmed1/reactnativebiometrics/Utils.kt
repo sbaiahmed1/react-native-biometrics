@@ -565,27 +565,153 @@ object BiometricUtils {
     }
 
     /**
-     * Checks if the device is compromised (rooted or has security issues)
+     * Detects an active Frida instrumentation session (server artifacts on disk,
+     * frida libraries mapped into this process, or the default frida-server port
+     * listening). Best-effort heuristics: an attacker who already controls the
+     * runtime can hook these checks themselves, so treat a negative result as
+     * "nothing detected", not proof of integrity.
      */
-    fun isDeviceCompromised(context: Context): Boolean {
-        return isDeviceRooted(context) || !isKeyguardSecure(context) || !isSecureHardware(context)
+    fun detectFrida(): Boolean {
+        return checkFridaArtifacts() || checkProcMaps(listOf("frida")) || checkFridaPort()
     }
 
     /**
-     * Gets device integrity status
+     * Detects an active Xposed-family hooking framework (Xposed, EdXposed,
+     * LSPosed, Substrate) in this process via class-load probes, stack-trace
+     * inspection, and mapped libraries.
+     */
+    fun detectXposed(): Boolean {
+        return checkXposedClasses() ||
+            checkXposedStackTrace() ||
+            // Needles are library-name specific on purpose: a bare "substrate"
+            // would match any app asset path containing that word.
+            checkProcMaps(listOf("xposed", "lsposed", "liblspd", "libsubstrate"))
+    }
+
+    /**
+     * Checks whether a debugger is currently attached to this process
+     */
+    fun isDebuggerAttached(): Boolean {
+        return android.os.Debug.isDebuggerConnected() || android.os.Debug.waitingForDebugger()
+    }
+
+    /**
+     * Check for frida-server binaries in their common drop locations
+     */
+    private fun checkFridaArtifacts(): Boolean {
+        val fridaPaths = arrayOf(
+            "/data/local/tmp/frida-server",
+            "/data/local/tmp/re.frida.server",
+            "/data/local/tmp/frida-gadget.so"
+        )
+        return fridaPaths.any { java.io.File(it).exists() }
+    }
+
+    /**
+     * Probe the default frida-server port on localhost.
+     * Requires android.permission.INTERNET in the host app; without it the
+     * SecurityException is swallowed and the probe reports nothing detected.
+     * Blocks up to 300ms — callers must stay off the UI/module thread.
+     */
+    private fun checkFridaPort(): Boolean {
+        return try {
+            java.net.Socket().use { socket ->
+                socket.connect(java.net.InetSocketAddress("127.0.0.1", 27042), 300)
+                true
+            }
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    /**
+     * Scan the libraries mapped into this process for instrumentation frameworks
+     */
+    private fun checkProcMaps(needles: List<String>): Boolean {
+        return try {
+            java.io.File("/proc/self/maps").useLines { lines ->
+                lines.any { line -> needles.any { line.contains(it, ignoreCase = true) } }
+            }
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    /**
+     * Check whether Xposed runtime classes are loadable in this process
+     */
+    private fun checkXposedClasses(): Boolean {
+        val hookClasses = arrayOf(
+            "de.robv.android.xposed.XposedBridge",
+            "de.robv.android.xposed.XC_MethodHook"
+        )
+        return hookClasses.any { className ->
+            try {
+                ClassLoader.getSystemClassLoader().loadClass(className)
+                true
+            } catch (e: Exception) {
+                false
+            }
+        }
+    }
+
+    /**
+     * Look for hooking-framework frames in the main thread's stack. With Xposed
+     * active the main thread bottoms out in XposedBridge.main instead of
+     * ZygoteInit.main. Inspects the main thread explicitly rather than the
+     * current one, because the integrity check runs on a background thread whose
+     * stack an injected framework would never appear in.
+     */
+    private fun checkXposedStackTrace(): Boolean {
+        return try {
+            android.os.Looper.getMainLooper().thread.stackTrace.any { frame ->
+                frame.className.startsWith("de.robv.android.xposed") ||
+                    frame.className.startsWith("com.saurik.substrate")
+            }
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    /**
+     * Checks if the device is compromised (rooted, hooked, or has security issues)
+     */
+    fun isDeviceCompromised(context: Context): Boolean {
+        return isDeviceRooted(context) ||
+            detectFrida() ||
+            detectXposed() ||
+            !isKeyguardSecure(context) ||
+            !isSecureHardware(context)
+    }
+
+    /**
+     * Gets device integrity status.
+     * Performs blocking I/O (getprop, /proc reads, a localhost port probe) —
+     * call from a background thread.
      */
     fun getDeviceIntegrityStatus(context: Context): WritableMap {
         val status = Arguments.createMap()
         val isRooted = isDeviceRooted(context)
         val isKeyguardSecure = isKeyguardSecure(context)
         val hasSecureHardware = isSecureHardware(context)
+        val fridaDetected = detectFrida()
+        val xposedDetected = detectXposed()
+        val hasRuntimeHooks = fridaDetected || xposedDetected
 
         status.putBoolean("isRooted", isRooted)
         status.putBoolean("isKeyguardSecure", isKeyguardSecure)
         status.putBoolean("hasSecureHardware", hasSecureHardware)
-        status.putBoolean("isCompromised", isRooted || !isKeyguardSecure || !hasSecureHardware)
+        status.putBoolean("hasRuntimeHooks", hasRuntimeHooks)
+        // Informational only: debuggers are routine in development, so this does
+        // not feed isCompromised/riskLevel.
+        status.putBoolean("isDebuggerAttached", isDebuggerAttached())
+        val hookDetails = Arguments.createMap()
+        hookDetails.putBoolean("fridaDetected", fridaDetected)
+        hookDetails.putBoolean("xposedDetected", xposedDetected)
+        status.putMap("runtimeHookDetails", hookDetails)
+        status.putBoolean("isCompromised", isRooted || hasRuntimeHooks || !isKeyguardSecure || !hasSecureHardware)
         status.putString("riskLevel", when {
-            isRooted -> "HIGH"
+            isRooted || hasRuntimeHooks -> "HIGH"
             !isKeyguardSecure -> "MEDIUM"
             !hasSecureHardware -> "LOW"
             else -> "NONE"
