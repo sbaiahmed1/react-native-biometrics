@@ -647,8 +647,13 @@ public func detectFridaRuntime() -> Bool {
 
   for i in 0..<_dyld_image_count() {
     if let imageName = _dyld_get_image_name(i) {
-      let image = String(cString: imageName).lowercased()
-      if image.contains("frida") || image.contains("cynject") || image.contains("libcycript") {
+      // Match the image's file name, never its directory path, so an app
+      // legitimately named Frida (executable .../Frida.app/Frida) is not
+      // flagged. The app's own bundle is still scanned on purpose: a
+      // repackaged IPA carries FridaGadget.dylib inside it, which is the usual
+      // injection route on a non-jailbroken device.
+      let image = (String(cString: imageName) as NSString).lastPathComponent.lowercased()
+      if instrumentationImages.contains(where: { image.contains($0) }) {
         return true
       }
     }
@@ -656,6 +661,17 @@ public func detectFridaRuntime() -> Bool {
 
   return isLocalPortOpen(27042)
 }
+
+/**
+ * Instrumentation image names, matched against the file name of a loaded image.
+ * Deliberately more specific than the framework name: a bare "frida" or
+ * "substrate" would also match an app whose own bundle or executable contains
+ * that word, and a single match forces riskLevel HIGH.
+ */
+private let instrumentationImages = [
+  "frida-agent", "frida-gadget", "fridagadget", "libfrida",
+  "cynject", "libcycript", "libsubstrate", "mobilesubstrate"
+]
 
 /**
  * Probe a TCP port on localhost (used for the default frida-server port).
