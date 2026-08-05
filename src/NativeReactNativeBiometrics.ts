@@ -211,6 +211,12 @@ export interface Spec extends TurboModule {
     isJailbroken?: boolean;
     isKeyguardSecure?: boolean;
     hasSecureHardware?: boolean;
+    hasRuntimeHooks?: boolean;
+    isDebuggerAttached?: boolean;
+    runtimeHookDetails?: {
+      fridaDetected: boolean;
+      xposedDetected?: boolean;
+    };
     isCompromised: boolean;
     riskLevel: 'NONE' | 'LOW' | 'MEDIUM' | 'HIGH' | 'UNKNOWN';
     error?: string;

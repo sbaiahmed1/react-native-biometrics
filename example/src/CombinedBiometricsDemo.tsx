@@ -257,8 +257,16 @@ export default function CombinedBiometricsDemo() {
       addTestResult('Device Integrity Check', result, !result.isCompromised);
 
       // Show alert with device status
+      const hookDetail = result.hasRuntimeHooks
+        ? `\nRuntime hooks: ${[
+            result.runtimeHookDetails?.fridaDetected && 'Frida',
+            result.runtimeHookDetails?.xposedDetected && 'Xposed',
+          ]
+            .filter(Boolean)
+            .join(', ')}`
+        : '';
       const statusMessage = result.isCompromised
-        ? `⚠️ Device Compromised!\nRisk Level: ${result.riskLevel}\n${result.isRooted ? 'Device is rooted' : ''}${result.isJailbroken ? 'Device is jailbroken' : ''}`
+        ? `⚠️ Device Compromised!\nRisk Level: ${result.riskLevel}\n${result.isRooted ? 'Device is rooted' : ''}${result.isJailbroken ? 'Device is jailbroken' : ''}${hookDetail}`
         : `✅ Device Secure\nRisk Level: ${result.riskLevel}`;
 
       Alert.alert('Device Integrity Status', statusMessage);

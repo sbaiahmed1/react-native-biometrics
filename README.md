@@ -1076,7 +1076,7 @@ console.log(`Found ${defaultKeys.keys.length} keys with default alias`);
 
 #### `getDeviceIntegrityStatus()`
 
-Checks the integrity and security status of the device, including detection of compromised devices (rooted/jailbroken).
+Checks the integrity and security status of the device, including detection of compromised devices (rooted/jailbroken) and active runtime instrumentation (Frida/Xposed).
 
 ```typescript
 const getDeviceIntegrityStatus = (): Promise<DeviceIntegrityResult> => {
@@ -1090,11 +1090,22 @@ type DeviceIntegrityResult = {
   hasSecureHardware?: boolean;  // 🤖 ANDROID ONLY: Whether secure hardware is available
 
   // Cross-platform properties
+  hasRuntimeHooks?: boolean;    // 🤖🍎 Whether an instrumentation framework (Frida, Xposed/LSPosed) is actively injected into the process
+  isDebuggerAttached?: boolean; // 🤖🍎 Whether a debugger is attached — informational only, does NOT affect isCompromised (debuggers are routine in development)
+  runtimeHookDetails?: {        // 🤖🍎 Per-framework breakdown of the hook detection
+    fridaDetected: boolean;     // 🤖🍎 Frida artifacts, mapped libraries, or default server port detected
+    xposedDetected?: boolean;   // 🤖 ANDROID ONLY: Xposed/EdXposed/LSPosed/Substrate detected
+  };
   isCompromised: boolean;       // 🤖🍎 Overall compromise status (always present)
   riskLevel: 'NONE' | 'LOW' | 'MEDIUM' | 'HIGH' | 'UNKNOWN';  // 🤖🍎 Risk assessment (always present)
   error?: string;               // 🤖🍎 Error message if check failed
 }
 ```
+
+> [!NOTE]
+> **Runtime hook detection is best-effort.** Detected hooks set `isCompromised: true` and `riskLevel: 'HIGH'`, but a negative result is not proof of integrity: an attacker who already controls the runtime can hook the detection itself, rename binaries, or move frida-server off its default port. These checks raise the bar — for server-verifiable integrity signals, pair them with [Play Integrity](https://developer.android.com/google/play/integrity) (Android) and [App Attest](https://developer.apple.com/documentation/devicecheck) (iOS).
+>
+> Two environment notes: on Android the frida-server port probe requires the host app to hold `android.permission.INTERNET` (virtually all React Native apps do) — the library does not declare it for you, and without it that single probe silently reports nothing. On the iOS **Simulator**, localhost is shared with the macOS host, so a `frida-server` running on your Mac will register as a hook inside the simulator; verify hook detection on a physical device.
 
 **Example:**
 ```javascript
@@ -1116,6 +1127,10 @@ const checkDeviceSecurity = async () => {
       if (status.isJailbroken) {
         // IOS ONLY
         console.log('📱 Device is jailbroken');
+      }
+
+      if (status.hasRuntimeHooks) {
+        console.log('🪝 Runtime instrumentation detected:', status.runtimeHookDetails);
       }
 
       // Handle compromised device (e.g., restrict functionality)
@@ -1718,6 +1733,19 @@ The example app provides hands-on experience with all library features and serve
 - **"No biometric features available"**: Check if device has fingerprint sensor and it's enrolled
 - **"BiometricPrompt not available"**: Ensure Android API level 23+ and androidx.biometric dependency
 - **Permission denied**: Verify `USE_FINGERPRINT` and `USE_BIOMETRIC` permissions are added
+
+#### Native crash on 32-bit Android (armeabi-v7a) release builds
+
+If your app crashes on startup on 32-bit devices in release builds with a backtrace pointing at `JavaTurboModule::setEventEmitterCallback` / `NativeReactNativeBiometricsSpecJSI`, this is a React Native core bug ([facebook/react-native#51628](https://github.com/facebook/react-native/issues/51628)), not a bug in this library. RN used an unsafe variadic JNI call that misreads the stack on 32-bit ABIs; it is triggered by any TurboModule that declares an event emitter (this library's `onBiometricChange`). See [issue #89](https://github.com/sbaiahmed1/react-native-biometrics/issues/89) for the full analysis.
+
+**Fix**: upgrade React Native to a version containing [the upstream fix](https://github.com/facebook/react-native/pull/51695):
+
+| RN line | Affected | Fixed in |
+|---|---|---|
+| ≤ 0.78.x | all | never backported — upgrade to 0.79.6+ |
+| 0.79.x | 0.79.0 – 0.79.5 | 0.79.6 |
+| 0.80.x | 0.80.0 | 0.80.1 |
+| 0.81.x and later | — | not affected |
 
 ### Debug Mode
 

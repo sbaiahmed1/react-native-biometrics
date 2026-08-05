@@ -795,6 +795,7 @@ export function getDeviceIntegrityStatus(): Promise<DeviceIntegrityResult> {
         {
           isCompromised: result.isCompromised,
           riskLevel: result.riskLevel,
+          hasRuntimeHooks: result.hasRuntimeHooks,
         }
       );
       return result;
@@ -1100,6 +1101,12 @@ export type DeviceIntegrityResult = {
   isJailbroken?: boolean;
   isKeyguardSecure?: boolean;
   hasSecureHardware?: boolean;
+  hasRuntimeHooks?: boolean;
+  isDebuggerAttached?: boolean;
+  runtimeHookDetails?: {
+    fridaDetected: boolean;
+    xposedDetected?: boolean;
+  };
   isCompromised: boolean;
   riskLevel: 'NONE' | 'LOW' | 'MEDIUM' | 'HIGH' | 'UNKNOWN';
   error?: string;
