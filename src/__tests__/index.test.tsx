@@ -128,6 +128,16 @@ jest.mock('../NativeReactNativeBiometrics', () => ({
   verifyKeySignatureWithEncoding: jest.fn(() =>
     Promise.resolve({ success: true, signature: 'mockSig', authType: 3 })
   ),
+  getKeyAttributes: jest.fn(() => Promise.resolve({ exists: true })),
+  createKeysWithOptions: jest.fn(() =>
+    Promise.resolve({ publicKey: 'mockPublicKey' })
+  ),
+  getPublicKey: jest.fn(() =>
+    Promise.resolve({ publicKey: 'mockSpkiKey', keyType: 'rsa2048' })
+  ),
+  signData: jest.fn(() =>
+    Promise.resolve({ success: true, signature: 'mockSig' })
+  ),
 }));
 
 // Helper function to create custom mocks for error scenarios
@@ -168,6 +178,16 @@ const createMockNative = (overrides = {}) => ({
   ),
   verifyKeySignatureWithEncoding: jest.fn(() =>
     Promise.resolve({ success: true, signature: 'mockSig', authType: 3 })
+  ),
+  getKeyAttributes: jest.fn(() => Promise.resolve({ exists: true })),
+  createKeysWithOptions: jest.fn(() =>
+    Promise.resolve({ publicKey: 'mockPublicKey' })
+  ),
+  getPublicKey: jest.fn(() =>
+    Promise.resolve({ publicKey: 'mockSpkiKey', keyType: 'rsa2048' })
+  ),
+  signData: jest.fn(() =>
+    Promise.resolve({ success: true, signature: 'mockSig' })
   ),
   ...overrides,
 });
@@ -1060,6 +1080,196 @@ describe('ReactNativeBiometrics', () => {
       expect(result.success).toBe(true);
       expect(result).toHaveProperty('authType');
       expect(result.authType).toBe(3);
+    });
+  });
+});
+
+describe('Non-Biometric Signing', () => {
+  // Grab the mock instance the static Biometrics import is bound to; this
+  // runs at collection time, before any jest.resetModules() in earlier tests.
+  const NativeBiometrics: any = jest.requireMock(
+    '../NativeReactNativeBiometrics'
+  );
+
+  describe('createKeysWithOptions', () => {
+    it('applies defaults when called without options', async () => {
+      const result = await Biometrics.createKeysWithOptions();
+      expect(result).toEqual(MOCK_RESPONSES.keyCreation);
+      expect(NativeBiometrics.createKeysWithOptions).toHaveBeenLastCalledWith({
+        keyAlias: undefined,
+        keyType: undefined,
+        requireAuthentication: true,
+        biometricStrength: undefined,
+        allowDeviceCredentials: false,
+        failIfExists: false,
+      });
+    });
+
+    it('forwards options for an auth-required key', async () => {
+      await Biometrics.createKeysWithOptions({
+        keyAlias: 'testAlias',
+        keyType: 'ec256',
+        biometricStrength: Biometrics.BiometricStrength.Strong,
+        allowDeviceCredentials: true,
+        failIfExists: true,
+      });
+      expect(NativeBiometrics.createKeysWithOptions).toHaveBeenLastCalledWith({
+        keyAlias: 'testAlias',
+        keyType: 'ec256',
+        requireAuthentication: true,
+        biometricStrength: 'strong',
+        allowDeviceCredentials: true,
+        failIfExists: true,
+      });
+    });
+
+    it('strips auth-only options when requireAuthentication is false', async () => {
+      await Biometrics.createKeysWithOptions({
+        keyAlias: 'noauth',
+        keyType: 'rsa2048',
+        requireAuthentication: false,
+        biometricStrength: Biometrics.BiometricStrength.Strong,
+        allowDeviceCredentials: true,
+      });
+      expect(NativeBiometrics.createKeysWithOptions).toHaveBeenLastCalledWith({
+        keyAlias: 'noauth',
+        keyType: 'rsa2048',
+        requireAuthentication: false,
+        biometricStrength: undefined,
+        allowDeviceCredentials: false,
+        failIfExists: false,
+      });
+    });
+
+    it('normalizes an empty-string alias to undefined', async () => {
+      await Biometrics.createKeysWithOptions({ keyAlias: '' });
+      expect(NativeBiometrics.createKeysWithOptions).toHaveBeenLastCalledWith(
+        expect.objectContaining({ keyAlias: undefined })
+      );
+    });
+
+    it('propagates native rejections', async () => {
+      NativeBiometrics.createKeysWithOptions.mockRejectedValueOnce(
+        new Error('Key generation failed')
+      );
+      await expect(Biometrics.createKeysWithOptions()).rejects.toThrow(
+        'Key generation failed'
+      );
+    });
+  });
+
+  describe('keyExists', () => {
+    it('resolves true when the key exists', async () => {
+      NativeBiometrics.getKeyAttributes.mockResolvedValueOnce({
+        exists: true,
+        attributes: { algorithm: 'RSA' },
+      });
+      await expect(Biometrics.keyExists('testAlias')).resolves.toBe(true);
+      expect(NativeBiometrics.getKeyAttributes).toHaveBeenLastCalledWith(
+        'testAlias'
+      );
+    });
+
+    it('resolves false when the key does not exist', async () => {
+      NativeBiometrics.getKeyAttributes.mockResolvedValueOnce({
+        exists: false,
+      });
+      await expect(Biometrics.keyExists('missing')).resolves.toBe(false);
+    });
+
+    it('normalizes an empty-string alias to undefined', async () => {
+      await Biometrics.keyExists('');
+      expect(NativeBiometrics.getKeyAttributes).toHaveBeenLastCalledWith(
+        undefined
+      );
+    });
+
+    it('propagates native rejections', async () => {
+      NativeBiometrics.getKeyAttributes.mockRejectedValueOnce(
+        new Error('Keystore unavailable')
+      );
+      await expect(Biometrics.keyExists()).rejects.toThrow(
+        'Keystore unavailable'
+      );
+    });
+  });
+
+  describe('getPublicKey', () => {
+    it('returns the public key for an alias', async () => {
+      const result = await Biometrics.getPublicKey('testAlias');
+      expect(result).toEqual({
+        publicKey: 'mockSpkiKey',
+        keyType: 'rsa2048',
+      });
+      expect(NativeBiometrics.getPublicKey).toHaveBeenLastCalledWith(
+        'testAlias'
+      );
+    });
+
+    it('uses the default alias when none is given', async () => {
+      await Biometrics.getPublicKey();
+      expect(NativeBiometrics.getPublicKey).toHaveBeenLastCalledWith(undefined);
+    });
+
+    it('propagates KEY_NOT_FOUND rejections', async () => {
+      NativeBiometrics.getPublicKey.mockRejectedValueOnce(
+        new Error('Key not found')
+      );
+      await expect(Biometrics.getPublicKey('missing')).rejects.toThrow(
+        'Key not found'
+      );
+    });
+  });
+
+  describe('sign', () => {
+    it('signs with the default utf8 encoding and no explicit algorithm', async () => {
+      const result = await Biometrics.sign({ data: 'payload' });
+      expect(result).toEqual({ success: true, signature: 'mockSig' });
+      expect(NativeBiometrics.signData).toHaveBeenLastCalledWith({
+        keyAlias: undefined,
+        data: 'payload',
+        inputEncoding: 'utf8',
+        algorithm: undefined,
+      });
+    });
+
+    it('forwards alias, encoding and algorithm', async () => {
+      await Biometrics.sign({
+        keyAlias: 'noauth',
+        data: 'cGF5bG9hZA==',
+        inputEncoding: Biometrics.InputEncoding.Base64,
+        algorithm: Biometrics.SignatureAlgorithm.SHA512withRSA,
+      });
+      expect(NativeBiometrics.signData).toHaveBeenLastCalledWith({
+        keyAlias: 'noauth',
+        data: 'cGF5bG9hZA==',
+        inputEncoding: 'base64',
+        algorithm: 'SHA512withRSA',
+      });
+    });
+
+    it('passes through KEY_REQUIRES_AUTHENTICATION results unmodified', async () => {
+      NativeBiometrics.signData.mockResolvedValueOnce({
+        success: false,
+        error:
+          'Key requires user authentication. Use signWithOptions() instead.',
+        errorCode: 'KEY_REQUIRES_AUTHENTICATION',
+      });
+      const result = await Biometrics.sign({
+        keyAlias: 'biometric-key',
+        data: 'payload',
+      });
+      expect(result.success).toBe(false);
+      expect(result.errorCode).toBe('KEY_REQUIRES_AUTHENTICATION');
+    });
+
+    it('propagates native rejections', async () => {
+      NativeBiometrics.signData.mockRejectedValueOnce(
+        new Error('Native failure')
+      );
+      await expect(Biometrics.sign({ data: 'payload' })).rejects.toThrow(
+        'Native failure'
+      );
     });
   });
 });

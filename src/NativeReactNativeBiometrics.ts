@@ -54,6 +54,31 @@ export interface Spec extends TurboModule {
   ): Promise<{
     publicKey: string;
   }>;
+  createKeysWithOptions(options: {
+    keyAlias?: string;
+    keyType?: string;
+    requireAuthentication?: boolean;
+    biometricStrength?: 'weak' | 'strong';
+    allowDeviceCredentials?: boolean;
+    failIfExists?: boolean;
+  }): Promise<{
+    publicKey: string;
+  }>;
+  getPublicKey(keyAlias?: string | null): Promise<{
+    publicKey: string;
+    keyType?: string;
+  }>;
+  signData(options: {
+    keyAlias?: string;
+    data: string;
+    inputEncoding?: 'utf8' | 'base64';
+    algorithm?: string;
+  }): Promise<{
+    success: boolean;
+    signature?: string;
+    error?: string;
+    errorCode?: string;
+  }>;
   deleteKeys(keyAlias?: string | null): Promise<{
     success: boolean;
   }>;

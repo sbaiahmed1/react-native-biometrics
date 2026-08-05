@@ -216,6 +216,83 @@ export function createKeys(
     });
 }
 
+/**
+ * Creates a key pair using an options object, with control over whether the
+ * key requires user authentication.
+ *
+ * With `requireAuthentication: false` the key can sign without any biometric
+ * or device-credential prompt (see {@link sign}), while the private key still
+ * never leaves the Android Keystore / iOS Keychain (Secure Enclave for EC
+ * keys on device). Defaults preserve the behavior of {@link createKeys}:
+ * keys are biometric-gated.
+ *
+ * @example
+ * // Hardware-backed key usable without a biometric prompt
+ * const { publicKey } = await createKeysWithOptions({
+ *   keyAlias: 'server-auth-key',
+ *   keyType: 'rsa2048',
+ *   requireAuthentication: false,
+ * });
+ */
+export function createKeysWithOptions(
+  options: CreateKeysOptions = {}
+): Promise<KeyCreationResult> {
+  const {
+    keyAlias,
+    keyType,
+    requireAuthentication = true,
+    biometricStrength,
+    allowDeviceCredentials = false,
+    failIfExists = false,
+  } = options;
+
+  if (
+    !requireAuthentication &&
+    (biometricStrength !== undefined || allowDeviceCredentials)
+  ) {
+    logger.debug(
+      'biometricStrength and allowDeviceCredentials are ignored when requireAuthentication is false',
+      'createKeysWithOptions'
+    );
+  }
+
+  logger.debug('Creating keys with options', 'createKeysWithOptions', {
+    keyAlias,
+    keyType,
+    requireAuthentication,
+    biometricStrength,
+    allowDeviceCredentials,
+    failIfExists,
+  });
+  return ReactNativeBiometrics.createKeysWithOptions({
+    keyAlias: keyAlias || undefined,
+    keyType,
+    requireAuthentication,
+    biometricStrength: requireAuthentication ? biometricStrength : undefined,
+    allowDeviceCredentials: requireAuthentication
+      ? allowDeviceCredentials
+      : false,
+    failIfExists,
+  })
+    .then((result) => {
+      logger.info('Keys created successfully', 'createKeysWithOptions', {
+        keyAlias,
+        keyType,
+        requireAuthentication,
+        publicKeyLength: result.publicKey?.length,
+      });
+      return result;
+    })
+    .catch((error) => {
+      logger.error('Key creation failed', 'createKeysWithOptions', error, {
+        keyAlias,
+        keyType,
+        requireAuthentication,
+      });
+      throw error;
+    });
+}
+
 export function deleteKeys(keyAlias?: string): Promise<KeyDeletionResult> {
   logger.debug('Deleting biometric keys', 'deleteKeys', { keyAlias });
   return ReactNativeBiometrics.deleteKeys(keyAlias)
@@ -416,6 +493,52 @@ export function signWithOptions(
     });
 }
 
+/**
+ * Signs data without any biometric or device-credential prompt.
+ *
+ * Only works with keys created via
+ * `createKeysWithOptions({ requireAuthentication: false })`. Calling it on a
+ * biometric-gated key never shows a prompt — it resolves with
+ * `{ success: false, errorCode: 'KEY_REQUIRES_AUTHENTICATION' }`; use
+ * {@link signWithOptions} for those keys instead.
+ *
+ * @example
+ * const result = await sign({
+ *   keyAlias: 'server-auth-key',
+ *   data: payload,
+ *   algorithm: SignatureAlgorithm.SHA512withRSA,
+ * });
+ */
+export function sign(options: SignOptions): Promise<SignatureResult> {
+  const { keyAlias, data, inputEncoding = 'utf8', algorithm } = options;
+
+  logger.debug('Signing data without authentication', 'sign', {
+    keyAlias,
+    dataLength: data.length,
+    inputEncoding,
+    algorithm,
+  });
+  return ReactNativeBiometrics.signData({
+    keyAlias: keyAlias || undefined,
+    data,
+    inputEncoding,
+    algorithm,
+  })
+    .then((result) => {
+      logger.info('Sign completed', 'sign', {
+        keyAlias,
+        success: result.success,
+        hasSignature: !!result.signature,
+        errorCode: result.errorCode,
+      });
+      return result;
+    })
+    .catch((error) => {
+      logger.error('Sign failed', 'sign', error, { keyAlias });
+      throw error;
+    });
+}
+
 export function validateSignature(
   keyAlias: string = '',
   data: string,
@@ -481,6 +604,58 @@ export function getKeyAttributes(
         error,
         { keyAlias }
       );
+      throw error;
+    });
+}
+
+/**
+ * Checks whether a key exists for the given alias without triggering any
+ * biometric prompt.
+ */
+export function keyExists(keyAlias?: string): Promise<boolean> {
+  logger.debug('Checking key existence', 'keyExists', { keyAlias });
+  return ReactNativeBiometrics.getKeyAttributes(keyAlias || undefined)
+    .then((result) => {
+      logger.info('Key existence check completed', 'keyExists', {
+        keyAlias,
+        exists: result.exists,
+      });
+      return result.exists;
+    })
+    .catch((error) => {
+      logger.error('Key existence check failed', 'keyExists', error, {
+        keyAlias,
+      });
+      throw error;
+    });
+}
+
+/**
+ * Retrieves the public key for the given alias without triggering any
+ * biometric prompt.
+ *
+ * Unlike the `publicKey` returned by {@link createKeys}, the result is
+ * base64-encoded X.509 SubjectPublicKeyInfo DER on both platforms and for
+ * both key types, so it can be consumed directly by standard tooling
+ * (e.g. `openssl pkey -pubin -inform DER`).
+ *
+ * Rejects with code `KEY_NOT_FOUND` if no key exists for the alias.
+ */
+export function getPublicKey(keyAlias?: string): Promise<PublicKeyResult> {
+  logger.debug('Getting public key', 'getPublicKey', { keyAlias });
+  return ReactNativeBiometrics.getPublicKey(keyAlias || undefined)
+    .then((result) => {
+      logger.info('Public key retrieved', 'getPublicKey', {
+        keyAlias,
+        keyType: result.keyType,
+        publicKeyLength: result.publicKey?.length,
+      });
+      return result;
+    })
+    .catch((error) => {
+      logger.error('Public key retrieval failed', 'getPublicKey', error, {
+        keyAlias,
+      });
       throw error;
     });
 }
@@ -701,6 +876,36 @@ export type KeyCreationResult = {
   publicKey: string;
 };
 
+/**
+ * Options for {@link createKeysWithOptions}.
+ */
+export type CreateKeysOptions = {
+  /** The key alias. Defaults to the configured alias. */
+  keyAlias?: string;
+  /** Key type: 'rsa2048' or 'ec256'. Platform default applies when omitted. */
+  keyType?: 'rsa2048' | 'ec256';
+  /**
+   * When true (default), using the private key requires user authentication —
+   * the existing biometric-gated behavior. When false, the key is created
+   * without any user-authentication requirement so {@link sign} works without
+   * a prompt. The private key remains hardware-backed and non-exportable.
+   */
+  requireAuthentication?: boolean;
+  /** Ignored when requireAuthentication is false. (Android only) */
+  biometricStrength?: BiometricStrength;
+  /** Ignored when requireAuthentication is false. */
+  allowDeviceCredentials?: boolean;
+  /** When true, rejects with KEY_ALREADY_EXISTS instead of replacing the key. */
+  failIfExists?: boolean;
+};
+
+export type PublicKeyResult = {
+  /** Base64-encoded X.509 SubjectPublicKeyInfo DER. */
+  publicKey: string;
+  /** 'rsa2048' or 'ec256' when the platform can determine it. */
+  keyType?: string;
+};
+
 export type KeyDeletionResult = {
   success: boolean;
 };
@@ -742,6 +947,40 @@ export enum InputEncoding {
   /** Data is base64-encoded binary - use for WebAuthn challenges or other binary data */
   Base64 = 'base64',
 }
+
+/**
+ * Signature algorithm for prompt-free signing via {@link sign}.
+ *
+ * Note: on Android, keys created before SHA-512 support was added (and keys
+ * generated inside StrongBox) only permit SHA-256 — requesting a SHA-512
+ * variant on such a key fails with UNSUPPORTED_ALGORITHM. On iOS the
+ * algorithm is chosen per call and works with existing keys.
+ */
+export enum SignatureAlgorithm {
+  SHA256withRSA = 'SHA256withRSA',
+  SHA512withRSA = 'SHA512withRSA',
+  SHA256withECDSA = 'SHA256withECDSA',
+  SHA512withECDSA = 'SHA512withECDSA',
+}
+
+/**
+ * Options for {@link sign} (prompt-free signing).
+ */
+export type SignOptions = {
+  /** The key alias to use for signing. Defaults to the configured alias. */
+  keyAlias?: string;
+  /** The data to sign */
+  data: string;
+  /** Encoding of the input data. Defaults to InputEncoding.UTF8. */
+  inputEncoding?: InputEncoding;
+  /**
+   * Signature algorithm. Defaults to the SHA-256 variant matching the key
+   * type (SHA256withRSA for RSA keys, SHA256withECDSA for EC keys). Must
+   * match the key type: requesting an RSA algorithm on an EC key (or vice
+   * versa) fails with INVALID_ALGORITHM.
+   */
+  algorithm?: SignatureAlgorithm;
+};
 
 /**
  * Options for signing data with advanced security controls.
