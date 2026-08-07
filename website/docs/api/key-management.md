@@ -191,7 +191,7 @@ try {
 
 ## `getAllKeys()`
 
-Retrieves all stored cryptographic keys, optionally filtered by a custom alias.
+Retrieves the library's stored key(s): with no argument it returns the key(s) under the default (configured) alias; pass a custom alias to look up that alias instead.
 
 ```typescript
 const getAllKeys = (customAlias?: string): Promise<GetAllKeysResult> => {
@@ -208,15 +208,11 @@ type GetAllKeysResult = {
 **Usage Examples:**
 
 ```typescript
-// Get all keys
-const allKeys = await getAllKeys();
-console.log(`Found ${allKeys.keys.length} keys`);
+// With no alias, returns the key(s) stored under the default (configured) alias
+const defaultKeys = await getAllKeys();
+console.log(`Found ${defaultKeys.keys.length} keys`);
 
-// Get keys for a specific custom alias
+// Look up a specific custom alias instead
 const customKeys = await getAllKeys('my-custom-alias');
 console.log(`Found ${customKeys.keys.length} keys with custom alias`);
-
-// Omitting the alias retrieves keys for the default (configured) alias
-const defaultKeys = await getAllKeys();
-console.log(`Found ${defaultKeys.keys.length} keys with default alias`);
 ```

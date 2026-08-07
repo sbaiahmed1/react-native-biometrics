@@ -108,8 +108,8 @@ import {
   unsubscribeFromBiometricChanges,
   startBiometricChangeDetection,
   stopBiometricChangeDetection,
-  BiometricChangeEvent,
 } from '@sbaiahmed1/react-native-biometrics';
+import type { BiometricChangeEvent } from '@sbaiahmed1/react-native-biometrics';
 import type { EventSubscription } from 'react-native';
 
 const MyComponent = () => {
