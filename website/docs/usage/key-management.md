@@ -5,14 +5,21 @@ title: Key Management
 Manage cryptographic keys for secure biometric operations.
 
 ```typescript
-import { createKeys, deleteKeys, getAllKeys } from '@sbaiahmed1/react-native-biometrics';
+import {
+  createKeys,
+  deleteKeys,
+  getAllKeys,
+  isSensorAvailable,
+  authenticateWithOptions,
+} from '@sbaiahmed1/react-native-biometrics';
 
 // Create biometric keys for secure operations
 const createBiometricKeys = async () => {
   try {
-    // Create EC256 keys (default, recommended)
+    // Create keys with the platform default type
+    // (EC256 on iOS, RSA2048 on Android — pass 'ec256' explicitly if you need it everywhere)
     const result = await createKeys();
-    console.log('✅ EC256 keys created successfully');
+    console.log('✅ Keys created successfully');
     console.log('🔑 Public key:', result.publicKey);
 
     // Store the public key for server-side verification
@@ -62,9 +69,7 @@ const getAllBiometricKeys = async () => {
       console.log(`🔑 Key ${index + 1}:`);
       console.log(`   Alias: ${key.alias}`);
       console.log(`   Public Key: ${key.publicKey.substring(0, 50)}...`);
-      if (key.creationDate) {
-        console.log(`   Created: ${key.creationDate}`);
-      }
+      // For metadata such as creation date, use getKeyAttributes(key.alias)
     });
 
     return result.keys;
@@ -83,9 +88,9 @@ const keyLifecycleExample = async () => {
       throw new Error('Biometric authentication not available');
     }
 
-    // 2. Create keys for the user (EC256 by default)
+    // 2. Create keys for the user (platform default key type)
     const keyResult = await createKeys();
-    console.log('🔐 EC256 biometric keys created for user');
+    console.log('🔐 Biometric keys created for user');
 
     // 3. Perform authenticated operations
     const authResult = await authenticateWithOptions({

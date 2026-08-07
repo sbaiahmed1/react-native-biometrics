@@ -98,7 +98,7 @@ console.log('Stopped monitoring');
 
 ```typescript
 interface BiometricChangeEvent {
-  timestamp: number;        // Unix timestamp when change occurred
+  timestamp: number;        // Unix epoch milliseconds when the change occurred
   changeType: string;       // Type of change (see below)
   biometryType: string;     // Current biometry type
   available: boolean;       // Whether biometrics are available

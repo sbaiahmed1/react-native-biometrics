@@ -13,7 +13,7 @@ title: Troubleshooting
 ### Android
 
 - **"No biometric features available"**: Check if device has fingerprint sensor and it's enrolled
-- **"BiometricPrompt not available"**: Ensure Android API level 23+ and androidx.biometric dependency
+- **"BiometricPrompt not available"**: Ensure Android API level 24+ (the library's default `minSdkVersion`) and the androidx.biometric dependency
 - **Permission denied**: Verify `USE_FINGERPRINT` and `USE_BIOMETRIC` permissions are added
 
 ### Native crash on 32-bit Android (armeabi-v7a) release builds

@@ -201,7 +201,6 @@ type GetAllKeysResult = {
   keys: Array<{
     alias: string;           // Key identifier/alias
     publicKey: string;       // Base64 encoded public key
-    creationDate?: string;   // Key creation date (if available)
   }>;
 }
 ```
@@ -217,9 +216,7 @@ console.log(`Found ${allKeys.keys.length} keys`);
 const customKeys = await getAllKeys('my-custom-alias');
 console.log(`Found ${customKeys.keys.length} keys with custom alias`);
 
-/**
- * Passing null as the alias retrieves keys for the default alias.
- */
-const defaultKeys = await getAllKeys(null);
+// Omitting the alias retrieves keys for the default (configured) alias
+const defaultKeys = await getAllKeys();
 console.log(`Found ${defaultKeys.keys.length} keys with default alias`);
 ```

@@ -5,18 +5,24 @@ on:
     branches: [main]
     paths:
       - 'website/**'
+      - 'package.json'
+      - 'yarn.lock'
+      - '.yarnrc.yml'
+      - '.github/actions/setup/**'
       - '.github/workflows/deploy-docs.yml'
   pull_request:
     branches: [main]
     paths:
       - 'website/**'
+      - 'package.json'
+      - 'yarn.lock'
+      - '.yarnrc.yml'
+      - '.github/actions/setup/**'
       - '.github/workflows/deploy-docs.yml'
   workflow_dispatch:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
 concurrency:
   group: pages-${{ github.ref }}
@@ -36,15 +42,18 @@ jobs:
         run: yarn docs:build
 
       - name: Upload Pages artifact
-        if: github.event_name != 'pull_request'
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
         uses: actions/upload-pages-artifact@v3
         with:
           path: website/build
 
   deploy:
-    if: github.event_name != 'pull_request'
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     needs: build
     runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}

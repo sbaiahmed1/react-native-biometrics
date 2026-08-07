@@ -6,42 +6,39 @@ title: Quick Start
 import {
   isSensorAvailable,
   simplePrompt,
-  authenticateWithOptions,
   setDebugMode
 } from '@sbaiahmed1/react-native-biometrics';
 
-const BiometricAuth = () => {
-  const authenticate = async () => {
-    try {
-      // Enable debug mode for development
-      await setDebugMode(true);
+const authenticate = async () => {
+  try {
+    // Enable debug mode for development
+    await setDebugMode(true);
 
-      // Check if biometric authentication is available
-      const sensorInfo = await isSensorAvailable();
+    // Check if biometric authentication is available
+    const sensorInfo = await isSensorAvailable();
 
-      if (sensorInfo.available) {
-        console.log(`✅ ${sensorInfo.biometryType} available`);
+    if (sensorInfo.available) {
+      console.log(`✅ ${sensorInfo.biometryType} available`);
 
-        // Perform authentication
-        const result = await simplePrompt('Please authenticate to continue');
+      // Perform authentication
+      const result = await simplePrompt('Please authenticate to continue');
 
-        if (result) {
-          console.log('🎉 Authentication successful!');
-          // Navigate to secure content
-        } else {
-          console.log('❌ Authentication failed');
-        }
+      if (result.success) {
+        console.log('🎉 Authentication successful!');
+        // Navigate to secure content
       } else {
-        console.log('❌ Biometric authentication not available:', sensorInfo.error);
-        // Show alternative authentication method
+        console.log('❌ Authentication failed');
       }
-    } catch (error) {
-      console.error('💥 Authentication error:', error);
+    } else {
+      console.log('❌ Biometric authentication not available:', sensorInfo.error);
+      // Show alternative authentication method
     }
-  };
-
-  return authenticate;
+  } catch (error) {
+    console.error('💥 Authentication error:', error);
+  }
 };
+
+// Call it from a button press, a screen mount, etc.
 ```
 
 ## Next steps

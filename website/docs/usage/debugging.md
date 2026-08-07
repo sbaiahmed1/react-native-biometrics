@@ -8,7 +8,9 @@ Comprehensive debugging tools to help troubleshoot biometric authentication issu
 import {
   getDiagnosticInfo,
   runBiometricTest,
-  setDebugMode
+  setDebugMode,
+  isSensorAvailable,
+  simplePrompt
 } from '@sbaiahmed1/react-native-biometrics';
 
 // 🔍 Get comprehensive diagnostic information
@@ -45,11 +47,12 @@ const testBiometrics = async () => {
     } else {
       console.log('❌ Test failures detected:');
       testResult.errors.forEach(error => console.log('  🚫', error));
+    }
 
-      if (testResult.warnings.length > 0) {
-        console.log('⚠️ Test warnings:');
-        testResult.warnings.forEach(warning => console.log('  ⚠️', warning));
-      }
+    // Warnings are reported independently of success/failure
+    if (testResult.warnings.length > 0) {
+      console.log('⚠️ Test warnings:');
+      testResult.warnings.forEach(warning => console.log('  ⚠️', warning));
     }
 
     // Detailed test results

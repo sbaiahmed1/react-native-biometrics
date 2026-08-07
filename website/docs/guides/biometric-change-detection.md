@@ -95,7 +95,7 @@ interface BiometricChangeEvent {
 - `BIOMETRIC_ENABLED`: Biometrics became available
 - `BIOMETRIC_DISABLED`: Biometrics became unavailable
 - `ENROLLMENT_CHANGED`: Biometric enrollments were added or removed
-- `HARDWARE_CHANGED`: Biometric hardware type changed
+- `HARDWARE_UNAVAILABLE`: Biometric hardware became unavailable
 - `STATE_CHANGED`: General state change
 
 ## Usage Example
@@ -111,7 +111,7 @@ import {
   startBiometricChangeDetection,
   stopBiometricChangeDetection,
   BiometricChangeEvent,
-} from 'react-native-biometrics';
+} from '@sbaiahmed1/react-native-biometrics';
 import type { EventSubscription } from 'react-native';
 
 const MyComponent = () => {
@@ -138,8 +138,8 @@ const MyComponent = () => {
       case 'ENROLLMENT_CHANGED':
         Alert.alert('Enrollment Changed', 'Biometric enrollments have been modified');
         break;
-      case 'STATUS_CHANGED':
-        console.log('Biometric status changed');
+      case 'STATE_CHANGED':
+        console.log('Biometric state changed');
         break;
     }
   }, []);
@@ -274,9 +274,9 @@ The implementation tracks multiple state indicators to maximize change detection
 **Change Type Detection:**
 - `BIOMETRIC_ENABLED`: Device transitions from no biometrics to having biometrics available
 - `BIOMETRIC_DISABLED`: Device transitions from biometrics available to unavailable
+- `HARDWARE_UNAVAILABLE`: Biometric hardware became unavailable
 - `ENROLLMENT_CHANGED`: KeyStore biometric key count changes
-- `STATUS_CHANGED`: BiometricManager status code changes
-- `UNKNOWN_CHANGE`: Other state changes detected
+- `STATE_CHANGED`: Other state changes (e.g. BiometricManager status code changes)
 
 **Platform Limitations:**
 Android's `BiometricManager.canAuthenticate()` has limitations:
@@ -286,6 +286,7 @@ Android's `BiometricManager.canAuthenticate()` has limitations:
   - First enrollment (None → Enrolled)
   - Complete removal of all enrollments (Enrolled → None)
   - Biometric enable/disable state changes
+- `enrolled` is inferred as `canAuthenticate() != BIOMETRIC_ERROR_NONE_ENROLLED`, so it can read `true` when no biometric hardware exists or the hardware is temporarily unavailable — only `BIOMETRIC_ERROR_NONE_ENROLLED` proves non-enrollment
 
 To work around these limitations, we track additional state like KeyStore key counts, but some enrollment changes may still not be detectable.
 

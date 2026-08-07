@@ -51,6 +51,7 @@ function HomepageDemo() {
               loop
               muted
               playsInline
+              controls
               width={300}
             />
             <figcaption>iOS — Face ID / Touch ID</figcaption>
@@ -63,6 +64,7 @@ function HomepageDemo() {
               loop
               muted
               playsInline
+              controls
               width={300}
             />
             <figcaption>Android — Fingerprint / Face</figcaption>

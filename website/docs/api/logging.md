@@ -49,7 +49,7 @@ const configureLogger = (config: Partial<LoggerConfig>): void => {
 };
 ```
 
-## `getStoredLogs()`
+## `getLogs()`
 
 Retrieves stored log entries for analysis.
 
@@ -59,18 +59,20 @@ type LogEntry = {
   level: LogLevel;
   message: string;
   context?: string;
+  data?: any;
+  error?: Error;
 };
 
-const getStoredLogs = (): LogEntry[] => {
+const getLogs = (): LogEntry[] => {
 };
 ```
 
-## `clearStoredLogs()`
+## `clearLogs()`
 
 Clears all stored log entries.
 
 ```typescript
-const clearStoredLogs = (): void => {
+const clearLogs = (): void => {
 };
 ```
 
@@ -82,7 +84,8 @@ import {
   setLogLevel,
   LogLevel,
   configureLogger,
-  getStoredLogs
+  getLogs,
+  isSensorAvailable
 } from '@sbaiahmed1/react-native-biometrics';
 
 // Enable logging with INFO level
@@ -102,7 +105,7 @@ configureLogger({
 const sensorInfo = await isSensorAvailable();
 
 // Retrieve logs for analysis
-const logs = getStoredLogs();
+const logs = getLogs();
 console.log('Recent logs:', logs);
 ```
 
