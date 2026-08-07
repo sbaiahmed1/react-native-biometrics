@@ -89,6 +89,10 @@ jobs:
         run: |
           /bin/bash -c "yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses > /dev/null"
 
+      - name: Build config plugin
+        if: env.turbo_cache_hit != 1
+        run: yarn build:plugin
+
       - name: Prebuild Expo app for Android
         if: env.turbo_cache_hit != 1
         run: |
@@ -151,6 +155,10 @@ jobs:
         run: |
           rm -rf example/ios example/android example/.expo
           rm -rf ~/Library/Developer/Xcode/DerivedData
+
+      - name: Build config plugin
+        if: env.turbo_cache_hit != 1
+        run: yarn build:plugin
 
       - name: Prebuild Expo app for iOS
         if: env.turbo_cache_hit != 1

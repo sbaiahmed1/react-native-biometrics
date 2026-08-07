@@ -8,19 +8,20 @@
     "ios": {
       "bundleIdentifier": "sbaiahmed1.reactnativebiometrics.example",
       "newArchEnabled": true,
-      "supportsTablet": true,
-      "infoPlist": {
-        "NSFaceIDUsageDescription": "FaceID used"
-      }
+      "supportsTablet": true
     },
     "android": {
       "package": "sbaiahmed1.reactnativebiometrics.example",
       "newArchEnabled": false,
-      "edgeToEdgeEnabled": true,
-      "permissions": [
-        "android.permission.USE_BIOMETRIC",
-        "android.permission.USE_FINGERPRINT"
+      "edgeToEdgeEnabled": true
+    },
+    "plugins": [
+      [
+        "../app.plugin.js",
+        {
+          "faceIDPermission": "FaceID used"
+        }
       ]
-    }
+    ]
   }
 }

@@ -1,6 +1,8 @@
-# Key Alias Security Enhancement
+---
+sidebar_label: Key Alias Security
+---
 
-> 📖 This guide is also published at https://sbaiahmed1.github.io/react-native-biometrics/docs/guides/key-alias-security
+# Key Alias Security Enhancement
 
 ## Overview
 

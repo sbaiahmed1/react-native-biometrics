@@ -15,6 +15,10 @@
     <img src="https://img.shields.io/badge/Android-Fingerprint%20%7C%20Face-green?style=for-the-badge&logo=android" alt="Android Support" />
     <img src="https://img.shields.io/badge/New%20Architecture-Ready-purple?style=for-the-badge" alt="New Architecture" />
   </p>
+
+  <p>
+    <strong>📖 Documentation: <a href="https://sbaiahmed1.github.io/react-native-biometrics/">sbaiahmed1.github.io/react-native-biometrics</a></strong>
+  </p>
 </div>
 
 ## 🎬 Demo
@@ -261,12 +265,37 @@ const authenticate = async () => {
 authenticate();
 ```
 
-</details>
-
 ### Yarn
 ```bash
 yarn add @sbaiahmed1/react-native-biometrics
 ```
+
+### Expo
+
+The library ships with an Expo config plugin. Instead of editing native files manually, add it to your app config — it sets `NSFaceIDUsageDescription` on iOS and adds the `USE_BIOMETRIC` / `USE_FINGERPRINT` permissions on Android during prebuild:
+
+```json
+{
+  "expo": {
+    "plugins": [
+      [
+        "@sbaiahmed1/react-native-biometrics",
+        {
+          "faceIDPermission": "Allow $(PRODUCT_NAME) to use Face ID for secure authentication"
+        }
+      ]
+    ]
+  }
+}
+```
+
+Then regenerate the native projects with `npx expo prebuild --clean` (or simply run `npx expo run:ios` / `npx expo run:android`).
+
+| Option | Type | Default | Description |
+|---|---|---|---|
+| `faceIDPermission` | `string \| false` | A generic Face ID message | The iOS `NSFaceIDUsageDescription` text. Pass `false` to leave `Info.plist` untouched (e.g. when you manage it via `ios.infoPlist`). |
+
+With the plugin in place, the manual **iOS Setup** and **Android Setup** permission steps below are handled for you (Expo projects only).
 
 ### iOS Setup
 
@@ -916,7 +945,6 @@ console.log('Keys created:', result.publicKey);
 const rsaKeys = await createKeys(undefined, 'rsa2048');
 const ecKeys = await createKeys(undefined, 'ec256');
 ```
-```
 
 #### `createKeysWithOptions(options?)`
 
@@ -1463,7 +1491,7 @@ console.log('StrongBox backed:', integrityResult.integrityChecks.strongBoxBacked
 
 // Generate and validate signature
 const data = 'Hello, secure world!';
-const signatureResult = await verifyKeySignature(data, 'my-key');
+const signatureResult = await verifyKeySignature('my-key', data);
 if (signatureResult.success) {
   const validationResult = await validateSignature(data, signatureResult.signature, 'my-key');
   console.log('Signature valid:', validationResult.valid);

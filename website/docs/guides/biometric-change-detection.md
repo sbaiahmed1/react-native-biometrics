@@ -1,6 +1,8 @@
-# Biometric Change Detection
+---
+sidebar_label: Biometric Change Detection
+---
 
-> 📖 This guide is also published at https://sbaiahmed1.github.io/react-native-biometrics/docs/guides/biometric-change-detection
+# Biometric Change Detection
 
 This feature allows you to subscribe to biometric changes on the device, such as when biometrics are enabled/disabled, enrolled/unenrolled, or when hardware availability changes.
 

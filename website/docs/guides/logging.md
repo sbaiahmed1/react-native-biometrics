@@ -1,6 +1,8 @@
-# Centralized Logging
+---
+sidebar_label: Logging
+---
 
-> 📖 This guide is also published at https://sbaiahmed1.github.io/react-native-biometrics/docs/guides/logging
+# Centralized Logging
 
 The React Native Biometrics library includes a comprehensive centralized logging system that helps developers debug issues, monitor performance, and track biometric operations in their applications.
 

@@ -87,3 +87,11 @@ nitrogen/
 
 # Tests and coverage
 coverage/
+
+# Docusaurus website
+website/build/
+website/.docusaurus/
+
+# Expo config plugin build output
+plugin/build/
+plugin/tsconfig.tsbuildinfo
