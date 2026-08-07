@@ -76,10 +76,10 @@ Each platform uses the key type that best leverages its security capabilities:
 import { createKeys } from '@sbaiahmed1/react-native-biometrics';
 
 // Force EC256 on both platforms (recommended for new apps)
-const result = await createKeys(undefined, 'ec256');
+const ecResult = await createKeys(undefined, 'ec256');
 
 // Force RSA2048 on both platforms (for legacy compatibility)
-const result = await createKeys(undefined, 'rsa2048');
+const rsaResult = await createKeys(undefined, 'rsa2048');
 ```
 
 ### Platform-Specific Key Selection

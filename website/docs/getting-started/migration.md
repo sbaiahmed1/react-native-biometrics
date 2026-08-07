@@ -96,7 +96,7 @@ import { simplePrompt } from '@sbaiahmed1/react-native-biometrics';
 
 simplePrompt('Authenticate')
   .then((result) => {
-    if (result) {
+    if (result.success) {
       // ...
     }
   });
@@ -136,7 +136,7 @@ const rnBiometrics = new ReactNativeBiometrics({ allowDeviceCredentials: true })
 import { authenticateWithOptions } from '@sbaiahmed1/react-native-biometrics';
 
 authenticateWithOptions({
-  promptMessage: 'Authenticate',
+  title: 'Authenticate',
   allowDeviceCredentials: true,
 }).then(...);
 ```
@@ -188,15 +188,15 @@ rnBiometrics.isSensorAvailable()
 **After (`@sbaiahmed1/react-native-biometrics`):**
 
 ```javascript
-import { isSensorAvailable, simplePrompt, BiometryType } from '@sbaiahmed1/react-native-biometrics';
+import { isSensorAvailable, simplePrompt } from '@sbaiahmed1/react-native-biometrics';
 
 const authenticate = async () => {
   try {
     const sensorInfo = await isSensorAvailable();
-    if (sensorInfo.available && sensorInfo.biometryType === BiometryType.TouchID) {
+    if (sensorInfo.available && sensorInfo.biometryType === 'TouchID') {
       console.log('TouchID is supported');
       const result = await simplePrompt('Confirm fingerprint');
-      if (result) {
+      if (result.success) {
         console.log('Successful authentication');
       } else {
         console.log('User cancelled or authentication failed');

@@ -53,8 +53,8 @@ Complete reference for every function exported by `@sbaiahmed1/react-native-biom
 | [`enableLogging()`](./logging.md#enablelogging) | Enable/disable the centralized logging system |
 | [`setLogLevel()`](./logging.md#setloglevel) | Set the minimum log level |
 | [`configureLogger()`](./logging.md#configurelogger) | Configure the logger with advanced options |
-| [`getStoredLogs()`](./logging.md#getstoredlogs) | Retrieve stored log entries |
-| [`clearStoredLogs()`](./logging.md#clearstoredlogs) | Clear stored log entries |
+| [`getLogs()`](./logging.md#getlogs) | Retrieve stored log entries |
+| [`clearLogs()`](./logging.md#clearlogs) | Clear stored log entries |
 
 ## Key Integrity Validation
 

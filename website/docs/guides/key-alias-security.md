@@ -138,7 +138,7 @@ const data = 'sensitive transaction data';
 
 // Generate signature
 const signatureResult = await verifyKeySignature('com.myapp.biometric.main', data);
-if (signatureResult.success) {
+if (signatureResult.success && signatureResult.signature) {
   const signature = signatureResult.signature;
   
   // Later, validate the signature
@@ -162,7 +162,7 @@ if (signatureResult.success) {
 // Get detailed key attributes for security assessment
 const keyAttributes = await getKeyAttributes('com.myapp.biometric.main');
 
-if (keyAttributes.exists) {
+if (keyAttributes.exists && keyAttributes.attributes) {
   const attrs = keyAttributes.attributes;
   console.log('Algorithm:', attrs.algorithm);
   console.log('Key size:', attrs.keySize);
@@ -215,9 +215,6 @@ const rotateKeys = async () => {
       throw new Error('New key integrity validation failed');
     }
     
-    // Update configuration
-    await configureKeyAlias(newAlias);
-    
     // Test signature with new key
     const testData = 'key rotation test';
     const signatureTest = await verifyKeySignature(newAlias, testData);
@@ -225,13 +222,16 @@ const rotateKeys = async () => {
       throw new Error('New key signature test failed');
     }
     
+    // Persist the new alias only after all validation succeeded
+    await configureKeyAlias(newAlias);
+    
     // Delete old keys after successful validation
     await deleteKeys(oldAlias);
     
     console.log('Key rotation completed successfully');
   } catch (error) {
     console.error('Key rotation failed:', error);
-    // Rollback if necessary
+    // Rollback: remove the new keys — the configured alias still points at the old keys
     await deleteKeys(newAlias);
     throw error;
   }
@@ -301,9 +301,9 @@ const monitorSecurityEvents = async () => {
     // Get security logs for analysis
     const logs = getLogs();
     const securityLogs = logs.filter(log => 
-      log.context.includes('security') || 
-      log.context.includes('integrity') ||
-      log.context.includes('signature')
+      log.context?.includes('security') || 
+      log.context?.includes('integrity') ||
+      log.context?.includes('signature')
     );
     
     // Send to security monitoring system
@@ -429,14 +429,20 @@ const generateSecurityAudit = async () => {
       log.level === 'error' || log.level === 'warn'
     );
     
-    // Determine overall compliance status
-    const allCompliant = audit.keys.every(key => 
+    // Determine overall compliance status.
+    // Note: every() returns true for an empty array, so treat "no keys" as its own status.
+    const allCompliant = audit.keys.length > 0 && audit.keys.every(key => 
       key.compliance.keyExists && 
       key.compliance.hardwareBacked && 
       key.compliance.integrityValid
     );
     
-    audit.complianceStatus = allCompliant ? 'compliant' : 'non-compliant';
+    audit.complianceStatus =
+      audit.keys.length === 0
+        ? 'no-keys-audited'
+        : allCompliant
+          ? 'compliant'
+          : 'non-compliant';
     
     return audit;
   } catch (error) {

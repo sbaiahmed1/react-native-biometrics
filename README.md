@@ -155,7 +155,7 @@ import { simplePrompt } from '@sbaiahmed1/react-native-biometrics';
 
 simplePrompt('Authenticate')
   .then((result) => {
-    if (result) {
+    if (result.success) {
       // ...
     }
   });
@@ -192,7 +192,7 @@ const rnBiometrics = new ReactNativeBiometrics({ allowDeviceCredentials: true })
 import { authenticateWithOptions } from '@sbaiahmed1/react-native-biometrics';
 
 authenticateWithOptions({
-  promptMessage: 'Authenticate',
+  title: 'Authenticate',
   allowDeviceCredentials: true,
 }).then(...);
 ```
@@ -242,15 +242,15 @@ rnBiometrics.isSensorAvailable()
 
 **After (`@sbaiahmed1/react-native-biometrics`):**
 ```javascript
-import { isSensorAvailable, simplePrompt, BiometryType } from '@sbaiahmed1/react-native-biometrics';
+import { isSensorAvailable, simplePrompt } from '@sbaiahmed1/react-native-biometrics';
 
 const authenticate = async () => {
   try {
     const sensorInfo = await isSensorAvailable();
-    if (sensorInfo.available && sensorInfo.biometryType === BiometryType.TouchID) {
+    if (sensorInfo.available && sensorInfo.biometryType === 'TouchID') {
       console.log('TouchID is supported');
       const result = await simplePrompt('Confirm fingerprint');
-      if (result) {
+      if (result.success) {
         console.log('Successful authentication');
       } else {
         console.log('User cancelled or authentication failed');
@@ -289,7 +289,7 @@ The library ships with an Expo config plugin. Instead of editing native files ma
 }
 ```
 
-Then regenerate the native projects with `npx expo prebuild --clean` (or simply run `npx expo run:ios` / `npx expo run:android`).
+Then regenerate the native projects with `npx expo prebuild --clean`. Note that `npx expo run:ios` / `run:android` only run prebuild when the native directories are missing — after changing plugin config on an existing project, use `prebuild --clean` so the changes are applied.
 
 | Option | Type | Default | Description |
 |---|---|---|---|
@@ -370,7 +370,7 @@ const BiometricAuth = () => {
         // Perform authentication
         const result = await simplePrompt('Please authenticate to continue');
 
-        if (result) {
+        if (result.success) {
           console.log('🎉 Authentication successful!');
           // Navigate to secure content
         } else {
@@ -425,7 +425,7 @@ const authenticate = async () => {
   try {
     const result = await simplePrompt('Please authenticate to continue');
 
-    if (result) {
+    if (result.success) {
       console.log('✅ Authentication successful!');
       // Proceed with authenticated action
     } else {
@@ -521,7 +521,8 @@ import { createKeys, deleteKeys, getAllKeys } from '@sbaiahmed1/react-native-bio
 // Create biometric keys for secure operations
 const createBiometricKeys = async () => {
   try {
-    // Create EC256 keys (default, recommended)
+    // Create keys with the platform default type
+    // (EC256 on iOS, RSA2048 on Android — pass 'ec256' explicitly if you need it everywhere)
     const result = await createKeys();
     console.log('✅ EC256 keys created successfully');
     console.log('🔑 Public key:', result.publicKey);
@@ -573,9 +574,7 @@ const getAllBiometricKeys = async () => {
       console.log(`🔑 Key ${index + 1}:`);
       console.log(`   Alias: ${key.alias}`);
       console.log(`   Public Key: ${key.publicKey.substring(0, 50)}...`);
-      if (key.creationDate) {
-        console.log(`   Created: ${key.creationDate}`);
-      }
+      // For metadata such as creation date, use getKeyAttributes(key.alias)
     });
 
     return result.keys;
@@ -671,7 +670,9 @@ Comprehensive debugging tools to help troubleshoot biometric authentication issu
 import {
   getDiagnosticInfo,
   runBiometricTest,
-  setDebugMode
+  setDebugMode,
+  isSensorAvailable,
+  simplePrompt
 } from '@sbaiahmed1/react-native-biometrics';
 
 // 🔍 Get comprehensive diagnostic information
@@ -708,11 +709,12 @@ const testBiometrics = async () => {
     } else {
       console.log('❌ Test failures detected:');
       testResult.errors.forEach(error => console.log('  🚫', error));
+    }
 
-      if (testResult.warnings.length > 0) {
-        console.log('⚠️ Test warnings:');
-        testResult.warnings.forEach(warning => console.log('  ⚠️', warning));
-      }
+    // Warnings are reported independently of success/failure
+    if (testResult.warnings.length > 0) {
+      console.log('⚠️ Test warnings:');
+      testResult.warnings.forEach(warning => console.log('  ⚠️', warning));
     }
 
     // Detailed test results
@@ -842,19 +844,23 @@ type SensorInfo = {
 - Android returns descriptive error codes like `"BiometricErrorNoHardware"`, `"BiometricErrorNoneEnrolled"`, etc.
 - The `error` property provides human-readable messages on both platforms
 
-#### `simplePrompt(reason: string)`
+#### `simplePrompt(promptMessage, options?)`
 
 Performs basic biometric authentication with a custom message.
 
 ```typescript
-const simplePrompt = (reason: string): Promise<boolean> => {
+const simplePrompt = (
+  promptMessage: string,
+  options?: { biometricStrength?: BiometricStrength }  // Android only
+): Promise<BiometricAuthResult> => {
 };
 ```
 
 **Parameters:**
-- `reason` (string): Message to display to the user
+- `promptMessage` (string): Message to display to the user
+- `options.biometricStrength` (optional, Android only): `BiometricStrength.Strong` or `BiometricStrength.Weak`
 
-**Returns:** `Promise<boolean>` - `true` if authentication succeeded, `false` otherwise
+**Returns:** `Promise<BiometricAuthResult>` - check `result.success` for the outcome
 
 #### `authenticateWithOptions(options)`
 
@@ -1077,7 +1083,6 @@ type GetAllKeysResult = {
   keys: Array<{
     alias: string;           // Key identifier/alias
     publicKey: string;       // Base64 encoded public key
-    creationDate?: string;   // Key creation date (if available)
   }>;
 }
 ```
@@ -1093,10 +1098,8 @@ console.log(`Found ${allKeys.keys.length} keys`);
 const customKeys = await getAllKeys('my-custom-alias');
 console.log(`Found ${customKeys.keys.length} keys with custom alias`);
 
-/**
- * Passing null as the alias retrieves keys for the default alias.
- */
-const defaultKeys = await getAllKeys(null);
+// Omitting the alias retrieves keys for the default (configured) alias
+const defaultKeys = await getAllKeys();
 console.log(`Found ${defaultKeys.keys.length} keys with default alias`);
 ```
 
@@ -1303,7 +1306,7 @@ const configureLogger = (config: Partial<LoggerConfig>): void => {
 };
 ```
 
-#### `getStoredLogs()`
+#### `getLogs()`
 
 Retrieves stored log entries for analysis.
 
@@ -1315,16 +1318,16 @@ type LogEntry = {
   context?: string;
 };
 
-const getStoredLogs = (): LogEntry[] => {
+const getLogs = (): LogEntry[] => {
 };
 ```
 
-#### `clearStoredLogs()`
+#### `clearLogs()`
 
 Clears all stored log entries.
 
 ```typescript
-const clearStoredLogs = (): void => {
+const clearLogs = (): void => {
 };
 ```
 
@@ -1335,7 +1338,8 @@ import {
   setLogLevel,
   LogLevel,
   configureLogger,
-  getStoredLogs
+  getLogs,
+  isSensorAvailable
 } from '@sbaiahmed1/react-native-biometrics';
 
 // Enable logging with INFO level
@@ -1355,7 +1359,7 @@ configureLogger({
 const sensorInfo = await isSensorAvailable();
 
 // Retrieve logs for analysis
-const logs = getStoredLogs();
+const logs = getLogs();
 console.log('Recent logs:', logs);
 ```
 
@@ -1445,7 +1449,7 @@ const result = await signWithOptions({
 
 This avoids double-encoding issues when working with WebAuthn challenges or other binary data that's already base64-encoded.
 
-#### `validateSignature(data: string, signature: string, keyAlias?: string): Promise<SignatureValidationResult>`
+#### `validateSignature(keyAlias?: string, data: string, signature: string): Promise<SignatureValidationResult>`
 Validates a signature against the original data using the public key.
 
 #### `sha256(data: string, inputEncoding?: 'utf8' | 'base64'): Promise<Sha256Result>`
@@ -1493,7 +1497,7 @@ console.log('StrongBox backed:', integrityResult.integrityChecks.strongBoxBacked
 const data = 'Hello, secure world!';
 const signatureResult = await verifyKeySignature('my-key', data);
 if (signatureResult.success) {
-  const validationResult = await validateSignature(data, signatureResult.signature, 'my-key');
+  const validationResult = await validateSignature('my-key', data, signatureResult.signature);
   console.log('Signature valid:', validationResult.valid);
 }
 
@@ -1576,7 +1580,7 @@ console.log('Stopped monitoring');
 
 ```typescript
 interface BiometricChangeEvent {
-  timestamp: number;        // Unix timestamp when change occurred
+  timestamp: number;        // Unix epoch milliseconds when the change occurred
   changeType: string;       // Type of change (see below)
   biometryType: string;     // Current biometry type
   available: boolean;       // Whether biometrics are available
@@ -1759,7 +1763,7 @@ The example app provides hands-on experience with all library features and serve
 
 #### Android
 - **"No biometric features available"**: Check if device has fingerprint sensor and it's enrolled
-- **"BiometricPrompt not available"**: Ensure Android API level 23+ and androidx.biometric dependency
+- **"BiometricPrompt not available"**: Ensure Android API level 24+ (the library's default `minSdkVersion`) and the androidx.biometric dependency
 - **Permission denied**: Verify `USE_FINGERPRINT` and `USE_BIOMETRIC` permissions are added
 
 #### Native crash on 32-bit Android (armeabi-v7a) release builds
@@ -1845,10 +1849,10 @@ We welcome contributions! Here's how you can help:
 
 This library implements several security measures:
 
-- **Hardware-backed keys**: Uses the device's secure hardware when available
+- **Hardware-backed keys**: Uses the device's secure hardware where the platform and key type support it (Android TEE/StrongBox for both key types, iOS Secure Enclave for EC keys; iOS RSA keys live in the regular Keychain)
 - **Biometric validation**: Requires actual biometric authentication
-- **Key isolation**: Keys are stored in the device's secure keystore
-- **No key export**: Private keys never leave the secure hardware
+- **Key isolation**: Keys are stored in the Android Keystore / iOS Keychain
+- **No key export**: Private keys are non-exportable from the Keystore/Keychain on all paths; hardware residency depends on platform and key type
 - **App-specific key aliases**: Each app uses unique key aliases to prevent cross-app key access
 
 ### Key Alias Security Enhancement
@@ -1863,12 +1867,13 @@ This library implements several security measures:
 - **Key isolation** ensures each app's biometric keys are properly separated
 
 ```javascript
-// Configure app-specific key alias
-await configureKeyAlias('com.myapp.biometric.main');
-
-// Get current default alias (auto-generated if not configured)
+// Without configuration, the default alias is auto-generated from the
+// bundle ID (iOS) or package name (Android):
 const alias = await getDefaultKeyAlias();
-// Returns: "com.myapp.ReactNativeBiometrics"
+// e.g. "com.myapp.ReactNativeBiometrics"
+
+// Configure an app-specific key alias — subsequent operations use it
+await configureKeyAlias('com.myapp.biometric.main');
 ```
 
 For detailed security information, see [KEY_ALIAS_SECURITY.md](./KEY_ALIAS_SECURITY.md).

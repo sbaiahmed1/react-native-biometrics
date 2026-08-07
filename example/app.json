@@ -19,7 +19,7 @@
       [
         "../app.plugin.js",
         {
-          "faceIDPermission": "FaceID used"
+          "faceIDPermission": "This app uses Face ID to demonstrate secure biometric authentication."
         }
       ]
     ]

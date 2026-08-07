@@ -16,7 +16,7 @@ const checkBiometrics = async () => {
     if (sensorInfo.available) {
       console.log('✅ Biometric authentication available');
       console.log('📱 Type:', sensorInfo.biometryType);
-      // Possible values: 'FaceID', 'TouchID', 'Fingerprint', 'Biometrics'
+      // Possible values: 'Biometrics' (Android), 'FaceID', 'TouchID' (iOS), 'None', 'Unknown'
     } else {
       console.log('❌ Biometric authentication not available');
       console.log('🚫 Reason:', sensorInfo.error);
@@ -38,7 +38,7 @@ const authenticate = async () => {
   try {
     const result = await simplePrompt('Please authenticate to continue');
 
-    if (result) {
+    if (result.success) {
       console.log('✅ Authentication successful!');
       // Proceed with authenticated action
     } else {

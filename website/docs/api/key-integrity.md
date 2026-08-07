@@ -111,9 +111,9 @@ This avoids double-encoding issues when working with WebAuthn challenges or othe
 
 ```typescript
 const validateSignature = (
+  keyAlias: string = '',   // pass '' to use the default (configured) alias
   data: string,
-  signature: string,
-  keyAlias?: string
+  signature: string
 ): Promise<SignatureValidationResult> => {
 };
 ```
@@ -180,7 +180,7 @@ console.log('StrongBox backed:', integrityResult.integrityChecks.strongBoxBacked
 const data = 'Hello, secure world!';
 const signatureResult = await verifyKeySignature('my-key', data);
 if (signatureResult.success) {
-  const validationResult = await validateSignature(data, signatureResult.signature, 'my-key');
+  const validationResult = await validateSignature('my-key', data, signatureResult.signature);
   console.log('Signature valid:', validationResult.valid);
 }
 

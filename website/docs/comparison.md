@@ -7,7 +7,7 @@ sidebar_label: Comparison
 |---------|-----------------------------------|------------------------|----------------------|
 | **TypeScript Support** | ✅ Full support | ❌ Limited | ❌ No |
 | **New Architecture** | ✅ TurboModules | ❌ No | ❌ No |
-| **Expo Compatibility** | ✅ Yes | ❌ No | ❌ No |
+| **Expo Compatibility** | ✅ Prebuild / dev builds (not Expo Go) | ❌ No | ❌ No |
 | **Key Management** | ✅ Advanced | ✅ Basic | ❌ No |
 | **Debug Tools** | ✅ Comprehensive | ❌ Limited | ❌ No |
 | **Active Maintenance** | ✅ Yes | ❌ Outdated | ❌ Outdated |
@@ -17,18 +17,22 @@ sidebar_label: Comparison
 
 ## Use Cases
 
+:::note
+Biometric authentication is one technical control among many. Regulatory compliance (HIPAA, PCI DSS, etc.) covers organization-wide administrative, physical, and technical safeguards — using this library does not by itself make an application compliant.
+:::
+
 ### Mobile Banking & Finance
 
 - Secure login for banking applications
 - Transaction authentication
 - Account access protection
-- Compliance with financial security standards
+- Authentication controls that support financial security requirements
 
 ### Healthcare Applications
 
 - Patient data access control
 - Medical record security
-- HIPAA compliance support
+- Access controls that support HIPAA-aligned safeguards
 - Secure prescription management
 
 ### Enterprise & Business

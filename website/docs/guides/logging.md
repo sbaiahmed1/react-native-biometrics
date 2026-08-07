@@ -97,7 +97,7 @@ enum LogLevel {
 ### Retrieving Logs
 
 ```typescript
-import { getLogs, LogEntry } from '@sbaiahmed1/react-native-biometrics';
+import { getLogs, LogLevel, LogEntry } from '@sbaiahmed1/react-native-biometrics';
 
 // Get all stored logs
 const allLogs: LogEntry[] = getLogs();
@@ -151,7 +151,8 @@ configureLogger({ useColors: true });
 // Disable colors for production or unsupported terminals
 configureLogger({ useColors: false });
 
-// Colors are automatically disabled in environments that don't support ANSI codes
+// Note: colors are not auto-detected — set useColors: false in environments
+// that don't support ANSI codes
 ```
 
 ### Custom Log Analysis
@@ -219,6 +220,7 @@ function checkForCriticalIssues() {
 
 ```typescript
 import React, { useEffect, useState } from 'react';
+import { View, Text, Button, ScrollView } from 'react-native';
 import { 
   isSensorAvailable, 
   enableLogging, 
@@ -364,7 +366,7 @@ setInterval(() => {
 
 ```typescript
 // Check current logger configuration
-import { logger } from '@sbaiahmed1/react-native-biometrics';
+import { logger, getLogs, LogLevel } from '@sbaiahmed1/react-native-biometrics';
 console.log('Logger config:', logger.getConfig());
 
 // Get log statistics

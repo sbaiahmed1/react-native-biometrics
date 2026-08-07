@@ -7,7 +7,7 @@ title: Roadmap
 - [x] **Code Quality Improvements**: Improved type safety, error handling, and code documentation
 - [x] **Type Safety**: Fixed conditional casting warnings and type conversion issues
 - [x] **Code Organization**: Added MARK comments and improved code structure
-- [x] **Enhanced Testing**: Expand unit test coverage and add integration tests
+- [x] **Enhanced Testing**: Expanded unit test coverage and added integration tests
 - [x] **Centralized Logging**: Implemented comprehensive logging and error reporting system
 - [x] **Advanced Security Features**: Enhanced security measures and validation
 - [x] **Key Type Support**: Added support for EC256 and RSA2048 key types in createKeys function
