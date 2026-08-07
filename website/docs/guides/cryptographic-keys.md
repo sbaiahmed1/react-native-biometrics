@@ -1,6 +1,8 @@
-# Cryptographic Key Management Guide
+---
+sidebar_label: Cryptographic Keys
+---
 
-> 📖 This guide is also published at https://sbaiahmed1.github.io/react-native-biometrics/docs/guides/cryptographic-keys
+# Cryptographic Key Management Guide
 
 This guide provides comprehensive information about cryptographic key management in React Native Biometrics, including detailed comparisons, platform-specific behaviors, and advanced usage patterns.
 
@@ -361,6 +363,6 @@ If you're upgrading from an older version that only supported RSA:
 
 ## Related Documentation
 
-- [Main README](../README.md) - Basic usage and API reference
-- [Key Alias Security](../KEY_ALIAS_SECURITY.md) - Security considerations for key aliases
-- [Logging Guide](./LOGGING.md) - Debugging and troubleshooting
+- [API Reference](../api/index.md) - Basic usage and API reference
+- [Key Alias Security](./key-alias-security.md) - Security considerations for key aliases
+- [Logging Guide](./logging.md) - Debugging and troubleshooting
