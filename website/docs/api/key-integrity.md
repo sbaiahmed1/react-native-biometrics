@@ -179,7 +179,7 @@ console.log('StrongBox backed:', integrityResult.integrityChecks.strongBoxBacked
 // Generate and validate signature
 const data = 'Hello, secure world!';
 const signatureResult = await verifyKeySignature('my-key', data);
-if (signatureResult.success) {
+if (signatureResult.success && signatureResult.signature) {
   const validationResult = await validateSignature('my-key', data, signatureResult.signature);
   console.log('Signature valid:', validationResult.valid);
 }

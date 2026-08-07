@@ -289,7 +289,7 @@ The library ships with an Expo config plugin. Instead of editing native files ma
 }
 ```
 
-Then regenerate the native projects with `npx expo prebuild --clean`. Note that `npx expo run:ios` / `run:android` only run prebuild when the native directories are missing — after changing plugin config on an existing project, use `prebuild --clean` so the changes are applied.
+Then apply the changes by regenerating the native projects with `npx expo prebuild`. For a full regeneration use `npx expo prebuild --clean` — but note it deletes the `ios/` and `android/` directories, including any manual native edits. `npx expo run:ios` / `run:android` only run prebuild when the native directories are missing, so they won't pick up plugin changes on an existing project by themselves.
 
 | Option | Type | Default | Description |
 |---|---|---|---|
@@ -562,10 +562,10 @@ const deleteBiometricKeys = async () => {
   }
 };
 
-// Retrieve all stored biometric keys
+// Retrieve the library's stored biometric keys
 const getAllBiometricKeys = async () => {
   try {
-    // Get all keys (no filter)
+    // With no alias, returns the key(s) under the default (configured) alias
     const result = await getAllKeys();
 
     console.log(`📋 Found ${result.keys.length} stored keys`);
@@ -1073,7 +1073,7 @@ try {
 
 #### `getAllKeys(customAlias?)`
 
-Retrieves all stored cryptographic keys, optionally filtered by a custom alias.
+Retrieves the library's stored key(s): with no argument it returns the key(s) under the default (configured) alias; pass a custom alias to look up that alias instead.
 
 ```typescript
 const getAllKeys = (customAlias?: string): Promise<GetAllKeysResult> => {
@@ -1090,17 +1090,13 @@ type GetAllKeysResult = {
 **Usage Examples:**
 
 ```typescript
-// Get all keys
-const allKeys = await getAllKeys();
-console.log(`Found ${allKeys.keys.length} keys`);
+// With no alias, returns the key(s) stored under the default (configured) alias
+const defaultKeys = await getAllKeys();
+console.log(`Found ${defaultKeys.keys.length} keys`);
 
-// Get keys for a specific custom alias
+// Look up a specific custom alias instead
 const customKeys = await getAllKeys('my-custom-alias');
 console.log(`Found ${customKeys.keys.length} keys with custom alias`);
-
-// Omitting the alias retrieves keys for the default (configured) alias
-const defaultKeys = await getAllKeys();
-console.log(`Found ${defaultKeys.keys.length} keys with default alias`);
 ```
 
 ### Device Security
@@ -1449,8 +1445,17 @@ const result = await signWithOptions({
 
 This avoids double-encoding issues when working with WebAuthn challenges or other binary data that's already base64-encoded.
 
-#### `validateSignature(keyAlias?: string, data: string, signature: string): Promise<SignatureValidationResult>`
+#### `validateSignature(keyAlias, data, signature): Promise<SignatureValidationResult>`
 Validates a signature against the original data using the public key.
+
+```typescript
+const validateSignature = (
+  keyAlias: string = '',   // pass '' to use the default (configured) alias
+  data: string,
+  signature: string
+): Promise<SignatureValidationResult> => {
+};
+```
 
 #### `sha256(data: string, inputEncoding?: 'utf8' | 'base64'): Promise<Sha256Result>`
 
@@ -1496,7 +1501,7 @@ console.log('StrongBox backed:', integrityResult.integrityChecks.strongBoxBacked
 // Generate and validate signature
 const data = 'Hello, secure world!';
 const signatureResult = await verifyKeySignature('my-key', data);
-if (signatureResult.success) {
+if (signatureResult.success && signatureResult.signature) {
   const validationResult = await validateSignature('my-key', data, signatureResult.signature);
   console.log('Signature valid:', validationResult.valid);
 }
@@ -1850,7 +1855,7 @@ We welcome contributions! Here's how you can help:
 This library implements several security measures:
 
 - **Hardware-backed keys**: Uses the device's secure hardware where the platform and key type support it (Android TEE/StrongBox for both key types, iOS Secure Enclave for EC keys; iOS RSA keys live in the regular Keychain)
-- **Biometric validation**: Requires actual biometric authentication
+- **Biometric validation**: Requires user authentication to use keys — biometric-only when device-credential fallback is disabled (`allowDeviceCredentials: false` / `disableDeviceFallback: true`)
 - **Key isolation**: Keys are stored in the Android Keystore / iOS Keychain
 - **No key export**: Private keys are non-exportable from the Keystore/Keychain on all paths; hardware residency depends on platform and key type
 - **App-specific key aliases**: Each app uses unique key aliases to prevent cross-app key access

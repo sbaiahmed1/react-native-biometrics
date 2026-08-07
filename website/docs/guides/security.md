@@ -5,7 +5,7 @@ title: Security
 This library implements several security measures:
 
 - **Hardware-backed keys**: Uses the device's secure hardware where the platform and key type support it (Android TEE/StrongBox for both key types, iOS Secure Enclave for EC keys; iOS RSA keys live in the regular Keychain)
-- **Biometric validation**: Requires actual biometric authentication
+- **Biometric validation**: Requires user authentication to use keys — biometric-only when device-credential fallback is disabled (`allowDeviceCredentials: false` / `disableDeviceFallback: true`)
 - **Key isolation**: Keys are stored in the Android Keystore / iOS Keychain
 - **No key export**: Private keys are non-exportable from the Keystore/Keychain on all paths; hardware residency depends on platform and key type
 - **App-specific key aliases**: Each app uses unique key aliases to prevent cross-app key access

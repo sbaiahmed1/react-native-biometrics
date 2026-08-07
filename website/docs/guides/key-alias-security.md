@@ -231,7 +231,9 @@ const rotateKeys = async () => {
     console.log('Key rotation completed successfully');
   } catch (error) {
     console.error('Key rotation failed:', error);
-    // Rollback: remove the new keys — the configured alias still points at the old keys
+    // Rollback: point the configured alias back at the old keys, then remove the new keys.
+    // (Covers the case where the failure happened after configureKeyAlias(newAlias).)
+    await configureKeyAlias(oldAlias);
     await deleteKeys(newAlias);
     throw error;
   }
@@ -434,7 +436,9 @@ const generateSecurityAudit = async () => {
     const allCompliant = audit.keys.length > 0 && audit.keys.every(key => 
       key.compliance.keyExists && 
       key.compliance.hardwareBacked && 
-      key.compliance.integrityValid
+      key.compliance.integrityValid &&
+      key.compliance.signatureWorking &&
+      key.compliance.userAuthRequired
     );
     
     audit.complianceStatus =

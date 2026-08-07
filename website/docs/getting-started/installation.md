@@ -41,7 +41,7 @@ The library ships with an Expo config plugin. Instead of editing native files ma
 }
 ```
 
-Then regenerate the native projects with `npx expo prebuild --clean`. Note that `npx expo run:ios` / `run:android` only run prebuild when the native directories are missing — after changing plugin config on an existing project, use `prebuild --clean` so the changes are applied.
+Then apply the changes by regenerating the native projects with `npx expo prebuild`. For a full regeneration use `npx expo prebuild --clean` — but note it deletes the `ios/` and `android/` directories, including any manual native edits. `npx expo run:ios` / `run:android` only run prebuild when the native directories are missing, so they won't pick up plugin changes on an existing project by themselves.
 
 | Option | Type | Default | Description |
 |---|---|---|---|

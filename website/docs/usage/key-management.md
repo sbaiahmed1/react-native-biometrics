@@ -57,10 +57,10 @@ const deleteBiometricKeys = async () => {
   }
 };
 
-// Retrieve all stored biometric keys
+// Retrieve the library's stored biometric keys
 const getAllBiometricKeys = async () => {
   try {
-    // Get all keys (no filter)
+    // With no alias, returns the key(s) under the default (configured) alias
     const result = await getAllKeys();
 
     console.log(`📋 Found ${result.keys.length} stored keys`);
