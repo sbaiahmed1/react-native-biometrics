@@ -908,7 +908,7 @@ const createKeys = (
 };
 
 type KeyResult = {
-  publicKey: string;         // Generated public key
+  publicKey: string;         // Base64 X.509 SPKI DER
 }
 ```
 
@@ -992,7 +992,7 @@ const keyExists = (keyAlias?: string): Promise<boolean> => {
 
 #### `getPublicKey(keyAlias?)`
 
-Retrieves the public key without triggering any biometric prompt. Unlike the `publicKey` returned by `createKeys`, the result is base64-encoded **X.509 SubjectPublicKeyInfo DER on both platforms and for both key types**, so it can be consumed directly by standard tooling (`openssl pkey -pubin -inform DER`). Rejects with `KEY_NOT_FOUND` if no key exists. On iOS, a biometric-gated key may reject with `KEY_REQUIRES_AUTHENTICATION` — the Keychain can refuse even a non-interactive lookup of an auth-bound key — so for those keys capture the `publicKey` returned by `createKeys` at creation time instead (Android is unaffected).
+Retrieves the public key without triggering any biometric prompt. Like the `publicKey` returned by `createKeys`, the result is base64-encoded **X.509 SubjectPublicKeyInfo DER on both platforms and for both key types**, so it can be consumed directly by standard tooling (`openssl pkey -pubin -inform DER`). Rejects with `KEY_NOT_FOUND` if no key exists. On iOS, a biometric-gated key may reject with `KEY_REQUIRES_AUTHENTICATION` — the Keychain can refuse even a non-interactive lookup of an auth-bound key — so for those keys capture the `publicKey` returned by `createKeys` at creation time instead (Android is unaffected).
 
 ```typescript
 const getPublicKey = (keyAlias?: string): Promise<{
@@ -1082,7 +1082,7 @@ const getAllKeys = (customAlias?: string): Promise<GetAllKeysResult> => {
 type GetAllKeysResult = {
   keys: Array<{
     alias: string;           // Key identifier/alias
-    publicKey: string;       // Base64 encoded public key
+    publicKey: string;       // Base64 X.509 SPKI DER
   }>;
 }
 ```

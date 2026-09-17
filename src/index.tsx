@@ -634,7 +634,7 @@ export function keyExists(keyAlias?: string): Promise<boolean> {
  * Retrieves the public key for the given alias without triggering any
  * biometric prompt.
  *
- * Unlike the `publicKey` returned by {@link createKeys}, the result is
+ * Like the `publicKey` returned by {@link createKeys}, the result is
  * base64-encoded X.509 SubjectPublicKeyInfo DER on both platforms and for
  * both key types, so it can be consumed directly by standard tooling
  * (e.g. `openssl pkey -pubin -inform DER`).
@@ -878,6 +878,7 @@ export type BiometricAuthResult = {
 };
 
 export type KeyCreationResult = {
+  /** Base64-encoded X.509 SubjectPublicKeyInfo DER. */
   publicKey: string;
 };
 
@@ -1068,6 +1069,7 @@ export type KeyAttributesResult = {
 export type GetAllKeysResult = {
   keys: Array<{
     alias: string;
+    /** Base64-encoded X.509 SubjectPublicKeyInfo DER. */
     publicKey: string;
   }>;
 };
