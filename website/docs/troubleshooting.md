@@ -15,6 +15,7 @@ title: Troubleshooting
 - **"No biometric features available"**: Check if device has fingerprint sensor and it's enrolled
 - **"BiometricPrompt not available"**: Ensure Android API level 24+ (the library's default `minSdkVersion`) and the androidx.biometric dependency
 - **Permission denied**: Verify `USE_FINGERPRINT` and `USE_BIOMETRIC` permissions are added
+- **Face unlock is not offered when signing**: Android only lets Class 3 (strong) biometrics or the device credential unlock a Keystore key, and a `BiometricPrompt` carrying a `CryptoObject` rejects Class 2 (weak) biometrics. Camera-based face unlock is Class 2 on most phones, so `signWithOptions()` shows fingerprint only, whatever `biometricStrength` you pass. See [`signWithOptions()`](./api/key-integrity.md#signwithoptions) for the prompt-then-sign alternative.
 
 ### Native crash on 32-bit Android (armeabi-v7a) release builds
 

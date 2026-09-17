@@ -1,4 +1,6 @@
+import { Platform } from 'react-native';
 import * as Biometrics from '../index';
+import { logger } from '../logger';
 
 // Mock data constants
 const MOCK_RESPONSES = {
@@ -1132,6 +1134,65 @@ describe('ReactNativeBiometrics', () => {
       expect(result.success).toBe(true);
       expect(result).toHaveProperty('authType');
       expect(result.authType).toBe(3);
+    });
+  });
+
+  describe('signWithOptions biometricStrength', () => {
+    const NativeBiometrics: any = jest.requireMock(
+      '../NativeReactNativeBiometrics'
+    );
+    const originalOS = Platform.OS;
+    let warnSpy: jest.SpyInstance;
+
+    beforeEach(() => {
+      warnSpy = jest.spyOn(logger, 'warn');
+    });
+
+    afterEach(() => {
+      Platform.OS = originalOS;
+      warnSpy.mockRestore();
+    });
+
+    it('warns on Android that Weak cannot change the signing prompt', async () => {
+      Platform.OS = 'android';
+      await Biometrics.signWithOptions({
+        keyAlias: 'testAlias',
+        data: 'testData',
+        biometricStrength: Biometrics.BiometricStrength.Weak,
+      });
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining('Class 3'),
+        'signWithOptions'
+      );
+      // The option still reaches native unchanged.
+      expect(
+        NativeBiometrics.verifyKeySignatureWithOptions
+      ).toHaveBeenLastCalledWith(
+        'testAlias',
+        'testData',
+        undefined,
+        undefined,
+        undefined,
+        'weak',
+        false,
+        'utf8'
+      );
+    });
+
+    it('does not warn for Strong on Android or for Weak on iOS', async () => {
+      Platform.OS = 'android';
+      await Biometrics.signWithOptions({
+        keyAlias: 'testAlias',
+        data: 'testData',
+        biometricStrength: Biometrics.BiometricStrength.Strong,
+      });
+      Platform.OS = 'ios';
+      await Biometrics.signWithOptions({
+        keyAlias: 'testAlias',
+        data: 'testData',
+        biometricStrength: Biometrics.BiometricStrength.Weak,
+      });
+      expect(warnSpy).not.toHaveBeenCalled();
     });
   });
 });
