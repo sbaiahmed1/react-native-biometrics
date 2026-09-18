@@ -205,15 +205,17 @@ await deleteKeys('server-auth-key');
 
 `createKeys`, `createKeysWithOptions`, `getAllKeys` and `getPublicKey` all
 return the public key as base64-encoded X.509 SubjectPublicKeyInfo (SPKI)
-DER, on both platforms and for both key types. The value is directly
-consumable by standard tooling (`openssl pkey -pubin -inform DER`).
+DER, on both platforms and for both key types. Once base64-decoded, the
+value can be fed straight to standard tooling
+(`openssl pkey -pubin -inform DER`).
 
 Releases up to 0.16.x returned iOS RSA keys from `createKeys`,
 `createKeysWithOptions` and `getAllKeys` as raw PKCS#1 `RSAPublicKey` DER
 (the output of `SecKeyCopyExternalRepresentation`), while `getPublicKey`
 and Android already used SPKI. If your app prepends an SPKI header to the
-iOS `createKeys` result itself, remove that workaround when upgrading, or
-the key will be wrapped twice. EC keys and Android are not affected.
+result of any of those three calls on iOS, remove that workaround when
+upgrading, or the key will be wrapped twice. EC keys and Android are not
+affected.
 
 ## Performance Considerations
 
