@@ -415,8 +415,9 @@ private func derLength(_ length: Int) -> [UInt8] {
  *     SEQUENCE { OID 1.2.840.113549.1.1.1 (rsaEncryption), NULL }
  *     BIT STRING { PKCS#1 RSAPublicKey }
  *   }
- * The result is directly consumable by standard tooling
+ * Once base64-decoded, the result is directly consumable by standard tooling
  * (openssl pkey -pubin -inform DER) and matches PublicKey.getEncoded() on Android.
+ * Returns nil for key types this library does not create (non-P-256 EC, non-RSA).
  */
 public func exportPublicKeyToSPKIBase64(_ publicKey: SecKey) -> String? {
   var error: Unmanaged<CFError>?
@@ -428,12 +429,24 @@ public func exportPublicKeyToSPKIBase64(_ publicKey: SecKey) -> String? {
   }
 
   let rawKeyData = publicKeyData as Data
+  let keyAttributes = SecKeyCopyAttributes(publicKey) as? [String: Any] ?? [:]
+  let keyType = keyAttributes[kSecAttrKeyType as String] as? String ?? ""
 
-  if rawKeyData.count == 65 && rawKeyData[0] == 0x04 {
+  if keyType == kSecAttrKeyTypeECSECPrimeRandom as String {
+    // Uncompressed P-256 point: 0x04 + 32-byte X + 32-byte Y
+    guard rawKeyData.count == 65 && rawKeyData[0] == 0x04 else {
+      ReactNativeBiometricDebug.debugLog("Public key export error: unsupported EC key (\(rawKeyData.count) bytes)")
+      return nil
+    }
     var spkiData = Data(ecP256SPKIHeader)
     spkiData.append(rawKeyData)
     ReactNativeBiometricDebug.debugLog("Exported EC P-256 public key as SPKI (\(spkiData.count) bytes)")
     return spkiData.base64EncodedString()
+  }
+
+  guard keyType == kSecAttrKeyTypeRSA as String else {
+    ReactNativeBiometricDebug.debugLog("Public key export error: unsupported key type \(keyType)")
+    return nil
   }
 
   let rsaAlgorithmIdentifier: [UInt8] = [
