@@ -423,6 +423,16 @@ export function signWithOptions(
 
   const resolvedKeyAlias = keyAlias || null;
 
+  if (
+    Platform.OS === 'android' &&
+    biometricStrength === BiometricStrength.Weak
+  ) {
+    logger.warn(
+      'biometricStrength "weak" has no effect when signing on Android: Keystore keys can only be unlocked by Class 3 (strong) biometrics or device credentials, so the prompt offers whatever the key was created with',
+      'signWithOptions'
+    );
+  }
+
   logger.debug('Signing with options', 'signWithOptions', {
     keyAlias,
     dataLength: data.length,
@@ -1021,8 +1031,15 @@ export type SignatureOptions = {
   cancelButtonText?: string;
   /**
    * Biometric strength requirement (Android only).
-   * - 'strong': Requires Class 3 biometrics (fingerprint, iris)
-   * - 'weak': Allows Class 2 biometrics (face unlock on some devices)
+   *
+   * Has no effect on the signing prompt: Android Keystore keys can only be
+   * unlocked by Class 3 (strong) biometrics or device credentials, and a
+   * CryptoObject-bound prompt rejects Class 2 (weak) biometrics, so the
+   * prompt offers the authenticators the key was created with. Camera-based
+   * face unlock is Class 2 on most phones. To accept it, authenticate with
+   * `authenticateWithOptions({ biometricStrength: BiometricStrength.Weak })`
+   * first and sign with a key from
+   * `createKeysWithOptions({ requireAuthentication: false })`.
    */
   biometricStrength?: BiometricStrength;
   /**
