@@ -4,6 +4,8 @@
   "description": "React Native biometric authentication library for iOS and Android. Easy integration of Face ID, Touch ID, and Fingerprint authentication with TypeScript support. Compatible with new architecture (TurboModules) and Expo. Secure mobile login solution.",
   "main": "./lib/commonjs/index.js",
   "module": "./lib/module/index.js",
+  "source": "src/index",
+  "react-native": "src/index",
   "exports": {
     ".": {
       "source": "./src/index.tsx",
