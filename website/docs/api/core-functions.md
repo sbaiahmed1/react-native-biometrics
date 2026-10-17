@@ -29,7 +29,7 @@ type BiometricSensorInfo = {
 - Android reports `'Biometrics'` for available sensors; `'FaceID'`/`'TouchID'`/`'OpticID'` are iOS values
 - The `BiometryType` type and the `BiometryTypes` constants (`BiometryTypes.FaceID`, …) are exported for comparisons
 - `errorCode` is available on both iOS and Android platforms
-- iOS returns specific error codes like `"BiometryNotAvailable"`, `"BiometryNotEnrolled"`, etc.
+- iOS returns error codes like `"BIOMETRY_NOT_AVAILABLE"`, `"BIOMETRY_NOT_ENROLLED"`, etc. (see [Error Codes](./error-codes.md))
 - Android returns descriptive error codes like `"BiometricErrorNoHardware"`, `"BiometricErrorNoneEnrolled"`, etc.
 - The `error` property provides human-readable messages on both platforms
 
