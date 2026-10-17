@@ -50,7 +50,7 @@ type SignatureOptions = {
   promptTitle?: string;                   // Prompt title
   promptSubtitle?: string;                // Prompt subtitle (Android only)
   cancelButtonText?: string;              // Cancel button text
-  biometricStrength?: BiometricStrength;  // Biometric strength (Android only)
+  biometricStrength?: BiometricStrength;  // Android only; no effect on the prompt (see below)
   disableDeviceFallback?: boolean;        // Prevent PIN/pattern fallback (Android only)
   returnAuthType?: boolean;               // Include authType in result (see AuthType enum)
 };
@@ -59,6 +59,8 @@ type SignatureOptions = {
 // - InputEncoding.UTF8: Data is treated as a UTF-8 string (default)
 // - InputEncoding.Base64: Data is decoded from base64 before signing (for WebAuthn/binary data)
 ```
+
+**`biometricStrength` has no effect on the signing prompt.** Android Keystore keys can only be unlocked by Class 3 (strong) biometrics or the device credential (`KeyProperties` has no weak-biometric auth type), and a `BiometricPrompt` that carries a `CryptoObject` throws if Class 2 (weak) biometrics are allowed. `signWithOptions` therefore shows the authenticators the key was created with, whatever you pass here. Camera-based face unlock is Class 2 on most phones, so it does not appear in the signing prompt even with `BiometricStrength.Weak`; fingerprint does, and so does Class 3 face unlock on the few phones that have it. To let face-unlock users sign anyway, authenticate them first with `authenticateWithOptions({ biometricStrength: BiometricStrength.Weak })` and then call `sign()` on a key created with `createKeysWithOptions({ requireAuthentication: false })`. That signature is tied to the biometric only by your app's flow, not by the hardware, so treat it as a weaker guarantee.
 
 **Example - Requiring biometrics only (no PIN fallback):**
 
