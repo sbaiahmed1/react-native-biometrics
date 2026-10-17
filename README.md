@@ -135,6 +135,8 @@ isSensorAvailable()
   });
 ```
 
+`BiometryTypes` and the `BiometryType` type are exported under the same names, so checks like `biometryType === BiometryTypes.FaceID` keep working. This library can also report `'OpticID'` (iOS 17+), `'None'` and `'Unknown'`.
+
 #### `simplePrompt`
 
 The `simplePrompt` function is now more direct.
@@ -242,12 +244,16 @@ rnBiometrics.isSensorAvailable()
 
 **After (`@sbaiahmed1/react-native-biometrics`):**
 ```javascript
-import { isSensorAvailable, simplePrompt } from '@sbaiahmed1/react-native-biometrics';
+import {
+  BiometryTypes,
+  isSensorAvailable,
+  simplePrompt,
+} from '@sbaiahmed1/react-native-biometrics';
 
 const authenticate = async () => {
   try {
     const sensorInfo = await isSensorAvailable();
-    if (sensorInfo.available && sensorInfo.biometryType === 'TouchID') {
+    if (sensorInfo.available && sensorInfo.biometryType === BiometryTypes.TouchID) {
       console.log('TouchID is supported');
       const result = await simplePrompt('Confirm fingerprint');
       if (result.success) {
@@ -403,7 +409,7 @@ const checkBiometrics = async () => {
     if (sensorInfo.available) {
       console.log('✅ Biometric authentication available');
       console.log('📱 Type:', sensorInfo.biometryType);
-      // Possible values: 'FaceID', 'TouchID', 'Fingerprint', 'Biometrics'
+      // Possible values: 'Biometrics' (Android), 'FaceID', 'TouchID', 'OpticID' (iOS), 'None', 'Unknown'
     } else {
       console.log('❌ Biometric authentication not available');
       console.log('🚫 Reason:', sensorInfo.error);
@@ -831,7 +837,7 @@ const isSensorAvailable = (): Promise<SensorInfo> => {
 
 type SensorInfo = {
   available: boolean;        // Whether biometric auth is available
-  biometryType?: string;     // Type of biometry ('FaceID', 'TouchID', 'Fingerprint', etc.)
+  biometryType?: BiometryType; // 'Biometrics' | 'FaceID' | 'TouchID' | 'OpticID' | 'None' | 'Unknown'
   isDeviceSecure: boolean;  // Whether the device has a passcode/PIN/password set
   error?: string;            // Error message if not available
   errorCode?: string;        // Error code if not available (platform-specific)

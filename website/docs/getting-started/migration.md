@@ -74,6 +74,8 @@ isSensorAvailable()
   });
 ```
 
+`BiometryTypes` and the `BiometryType` type are exported under the same names, so checks like `biometryType === BiometryTypes.FaceID` keep working. This library can also report `'OpticID'` (iOS 17+), `'None'` and `'Unknown'`.
+
 ### `simplePrompt`
 
 The `simplePrompt` function is now more direct.
@@ -188,12 +190,16 @@ rnBiometrics.isSensorAvailable()
 **After (`@sbaiahmed1/react-native-biometrics`):**
 
 ```javascript
-import { isSensorAvailable, simplePrompt } from '@sbaiahmed1/react-native-biometrics';
+import {
+  BiometryTypes,
+  isSensorAvailable,
+  simplePrompt,
+} from '@sbaiahmed1/react-native-biometrics';
 
 const authenticate = async () => {
   try {
     const sensorInfo = await isSensorAvailable();
-    if (sensorInfo.available && sensorInfo.biometryType === 'TouchID') {
+    if (sensorInfo.available && sensorInfo.biometryType === BiometryTypes.TouchID) {
       console.log('TouchID is supported');
       const result = await simplePrompt('Confirm fingerprint');
       if (result.success) {

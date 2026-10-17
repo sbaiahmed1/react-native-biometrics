@@ -9,7 +9,7 @@ import {
   NativeModules,
   Platform,
 } from 'react-native';
-import { AuthType, BiometricStrength } from './types';
+import { AuthType, BiometricStrength, type BiometryType } from './types';
 
 export function isSensorAvailable(options?: {
   biometricStrength?: BiometricStrength;
@@ -105,7 +105,8 @@ export function simplePrompt(
     });
 }
 
-export { AuthType, BiometricStrength } from './types';
+export { AuthType, BiometricStrength, BiometryTypes } from './types';
+export type { BiometryType } from './types';
 
 export function authenticateWithOptions(
   options: BiometricAuthOptions
@@ -848,7 +849,7 @@ export function configure(config: BiometricConfig): Promise<void> {
 // Export types for TypeScript users
 export type BiometricSensorInfo = {
   available: boolean;
-  biometryType?: 'Biometrics' | 'FaceID' | 'TouchID' | 'None' | 'Unknown';
+  biometryType?: BiometryType;
   error?: string;
   errorCode?: string;
   fallbackUsed?: boolean;

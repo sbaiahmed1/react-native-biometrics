@@ -18,7 +18,13 @@ export type BiometricChangeEvent = {
 export interface Spec extends TurboModule {
   isSensorAvailable(biometricStrength?: 'weak' | 'strong'): Promise<{
     available: boolean;
-    biometryType?: 'Biometrics' | 'FaceID' | 'TouchID' | 'None' | 'Unknown';
+    biometryType?:
+      | 'Biometrics'
+      | 'FaceID'
+      | 'TouchID'
+      | 'OpticID'
+      | 'None'
+      | 'Unknown';
     error?: string;
     isDeviceSecure: boolean;
   }>;

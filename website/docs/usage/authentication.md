@@ -16,7 +16,7 @@ const checkBiometrics = async () => {
     if (sensorInfo.available) {
       console.log('✅ Biometric authentication available');
       console.log('📱 Type:', sensorInfo.biometryType);
-      // Possible values: 'Biometrics' (Android), 'FaceID', 'TouchID' (iOS), 'None', 'Unknown'
+      // Possible values: 'Biometrics' (Android), 'FaceID', 'TouchID', 'OpticID' (iOS), 'None', 'Unknown'
     } else {
       console.log('❌ Biometric authentication not available');
       console.log('🚫 Reason:', sensorInfo.error);

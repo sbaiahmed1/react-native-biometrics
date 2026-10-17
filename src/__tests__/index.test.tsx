@@ -211,6 +211,21 @@ describe('ReactNativeBiometrics', () => {
       const result = await Biometrics.isSensorAvailable();
       expect(result).toEqual(MOCK_RESPONSES.sensorAvailable);
     });
+
+    it('should export BiometryTypes matching react-native-biometrics', async () => {
+      expect(Biometrics.BiometryTypes).toEqual({
+        Biometrics: 'Biometrics',
+        FaceID: 'FaceID',
+        TouchID: 'TouchID',
+        OpticID: 'OpticID',
+        None: 'None',
+        Unknown: 'Unknown',
+      });
+
+      const { biometryType } = await Biometrics.isSensorAvailable();
+      const expected: Biometrics.BiometryType = Biometrics.BiometryTypes.FaceID;
+      expect(biometryType).toBe(expected);
+    });
   });
 
   describe('Authentication', () => {
