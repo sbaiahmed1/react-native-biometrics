@@ -90,6 +90,12 @@ enum LogLevel {
 - **ERROR**: Error conditions that prevent normal operation
 - **NONE**: Completely disable logging
 
+### Development and Release Builds
+
+The library only logs in development builds (when `__DEV__` is true). Release builds compile all of its logging out to keep the bundle small, so in production the library writes no log entries at all, whatever `enableLogging`, `setLogLevel` or `setDebugMode` say, and it adds nothing to `getLogs()`. To track failures in production, handle the rejections and `errorCode` values the API returns (see [Production Monitoring](#production-monitoring)).
+
+Each API function logs under its own name as `context`, with the messages `<function> started`, `<function> completed` (the native result is attached as `data`) and `<function> failed` (the call's parameters are attached as `data`).
+
 ## Log Management
 
 ### Retrieving Logs
@@ -146,7 +152,7 @@ The logging system supports colored console output to improve readability:
 // Enable colors (default)
 configureLogger({ useColors: true });
 
-// Disable colors for production or unsupported terminals
+// Disable colors for terminals that don't support them
 configureLogger({ useColors: false });
 
 // Note: colors are not auto-detected — set useColors: false in environments
@@ -181,34 +187,18 @@ function analyzePerformance() {
 
 ### Production Monitoring
 
+The library doesn't log in release builds, so monitor failures from the results it returns instead:
+
 ```typescript
-import { configureLogger, LogLevel, getLogs } from '@sbaiahmed1/react-native-biometrics';
+import { signWithOptions } from '@sbaiahmed1/react-native-biometrics';
 
-// Production configuration - only log warnings and errors
-configureLogger({
-  enabled: true,
-  level: LogLevel.WARN,
-  prefix: '[BiometricsSDK]',
-  includeTimestamp: true,
-  includeContext: true,
-  useColors: false // Disable colors in production
-});
-
-// Monitor for critical issues
-function checkForCriticalIssues() {
-  const logs = getLogs();
-  const recentErrors = logs
-    .filter(log => log.level === LogLevel.ERROR)
-    .filter(log => {
-      const logTime = new Date(log.timestamp).getTime();
-      const oneHourAgo = Date.now() - (60 * 60 * 1000);
-      return logTime > oneHourAgo;
-    });
-  
-  if (recentErrors.length > 5) {
-    // Alert: High error rate detected
-    console.warn('High biometric error rate detected:', recentErrors.length);
+try {
+  const result = await signWithOptions({ data: payload });
+  if (!result.success) {
+    reportToMonitoring('signWithOptions', result.errorCode);
   }
+} catch (error) {
+  reportToMonitoring('signWithOptions', (error as { code?: string }).code);
 }
 ```
 
@@ -274,6 +264,8 @@ const BiometricComponent: React.FC = () => {
 
 ### Error Reporting Integration
 
+`getLogs()` is only populated in development builds, so this attaches log context to reports from debug and test builds. In production, report the failed call's `errorCode` instead.
+
 ```typescript
 import { getLogs, LogLevel } from '@sbaiahmed1/react-native-biometrics';
 import crashlytics from '@react-native-firebase/crashlytics';
@@ -315,29 +307,11 @@ if (__DEV__) {
 
 ### Production
 
-1. **Limit Log Levels**: Use `LogLevel.WARN` or `LogLevel.ERROR` only
-2. **Monitor Critical Issues**: Set up alerts for error patterns
-3. **Regular Cleanup**: Clear logs periodically to manage memory
-
-```typescript
-// Production setup
-configureLogger({
-  enabled: true,
-  level: LogLevel.WARN,
-  includeTimestamp: true,
-  includeContext: true,
-  useColors: false // Disable colors in production
-});
-
-// Clear logs daily
-setInterval(() => {
-  clearLogs();
-}, 24 * 60 * 60 * 1000);
-```
+Logging is development-only (see [Development and Release Builds](#development-and-release-builds)), so there is nothing to configure for production. Rely on the rejections and `errorCode` values the API returns.
 
 ### Performance
 
-1. **Disable When Not Needed**: Turn off logging in production if not required
+1. **No Cost in Release Builds**: Logging is compiled out of production bundles
 2. **Use Appropriate Levels**: Higher log levels have less performance impact
 3. **Limit Log Storage**: Logs are stored in memory, so clear them regularly
 
@@ -349,6 +323,7 @@ setInterval(() => {
 - Ensure logging is enabled: `enableLogging(true)`
 - Check log level: `setLogLevel(LogLevel.DEBUG)`
 - Verify console output in your development environment
+- Logs only appear in development builds; release builds don't log at all
 
 **Too Many Logs**
 - Increase log level: `setLogLevel(LogLevel.INFO)` or higher
@@ -356,7 +331,7 @@ setInterval(() => {
 - Clear logs regularly: `clearLogs()`
 
 **Performance Issues**
-- Reduce log level in production
+- Raise the log level: `setLogLevel(LogLevel.WARN)`
 - Disable logging entirely if not needed
 - Clear logs more frequently
 
