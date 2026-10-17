@@ -574,7 +574,7 @@ class ReactNativeBiometrics: RCTEventEmitter {
     }
     
     // Export public key
-    guard let publicKeyBase64 = exportPublicKeyToBase64(publicKey) else {
+    guard let publicKeyBase64 = exportPublicKeyToSPKIBase64(publicKey) else {
       ReactNativeBiometricDebug.debugLog("createKeys failed - Public key export error")
       handleError(.keyExportFailed, reject: reject)
       return
@@ -762,7 +762,7 @@ class ReactNativeBiometrics: RCTEventEmitter {
             // Get the public key from the private key reference
             if let publicKey = SecKeyCopyPublicKey(keyRef) {
               // Export the public key data
-              if let publicKeyString = exportPublicKeyToBase64(publicKey) {
+              if let publicKeyString = exportPublicKeyToSPKIBase64(publicKey) {
                 let keyInfo: [String: Any] = [
                   "alias": keyTagString,
                   "publicKey": publicKeyString
