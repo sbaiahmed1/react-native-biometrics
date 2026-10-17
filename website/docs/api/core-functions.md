@@ -14,7 +14,7 @@ const isSensorAvailable = (options?: {
 
 type BiometricSensorInfo = {
   available: boolean;        // Whether biometric auth is available
-  biometryType?: 'Biometrics' | 'FaceID' | 'TouchID' | 'None' | 'Unknown';
+  biometryType?: BiometryType;  // 'Biometrics' | 'FaceID' | 'TouchID' | 'OpticID' | 'None' | 'Unknown'
   isDeviceSecure: boolean;   // Whether the device has a passcode/PIN/password set
   error?: string;            // Error message if not available
   errorCode?: string;        // Error code if not available (platform-specific)
@@ -26,7 +26,8 @@ type BiometricSensorInfo = {
 **Platform Notes:**
 
 - `biometricStrength` is Android-only; iOS ignores it
-- Android reports `'Biometrics'` for available sensors; `'FaceID'`/`'TouchID'` are iOS values
+- Android reports `'Biometrics'` for available sensors; `'FaceID'`/`'TouchID'`/`'OpticID'` are iOS values
+- The `BiometryType` type and the `BiometryTypes` constants (`BiometryTypes.FaceID`, …) are exported for comparisons
 - `errorCode` is available on both iOS and Android platforms
 - iOS returns specific error codes like `"BiometryNotAvailable"`, `"BiometryNotEnrolled"`, etc.
 - Android returns descriptive error codes like `"BiometricErrorNoHardware"`, `"BiometricErrorNoneEnrolled"`, etc.
