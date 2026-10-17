@@ -883,6 +883,47 @@ describe('ReactNativeBiometrics', () => {
         data: { keyAlias: 'alias1' },
       });
     });
+
+    it('loads and runs with __DEV__ undefined, treating it as a release build', async () => {
+      // react-native itself needs __DEV__ to load, so reuse the instance that
+      // is already loaded and load only the library fresh without it.
+      const reactNative = jest.requireActual('react-native');
+      delete globals.__DEV__;
+      jest.resetModules();
+      jest.doMock('react-native', () => reactNative);
+      try {
+        const lib = await import('../index');
+        lib.configureLogger({ enabled: true, level: lib.LogLevel.DEBUG });
+        // Use the native event emitter path: React Native's own
+        // DeviceEventEmitter fallback also needs __DEV__.
+        jest.requireMock<any>(
+          '../NativeReactNativeBiometrics'
+        ).onBiometricChange = jest.fn(() => ({ remove: jest.fn() }));
+
+        // Every __DEV__ check in the library, none of which may throw.
+        await expect(lib.deleteKeys('alias1')).resolves.toBeDefined();
+        await expect(
+          lib.createKeysWithOptions({
+            requireAuthentication: false,
+            allowDeviceCredentials: true,
+          })
+        ).resolves.toBeDefined();
+        await expect(
+          lib.signWithOptions({
+            data: 'data',
+            biometricStrength: lib.BiometricStrength.Weak,
+          })
+        ).resolves.toBeDefined();
+        await expect(lib.configure({})).resolves.toBeUndefined();
+        lib.unsubscribeFromBiometricChanges(
+          lib.subscribeToBiometricChanges(() => {})
+        );
+
+        expect(lib.getLogs()).toEqual([]);
+      } finally {
+        jest.dontMock('react-native');
+      }
+    });
   });
 
   describe('Device Integrity', () => {

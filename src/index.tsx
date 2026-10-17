@@ -12,6 +12,14 @@ import {
 import { AuthType, BiometricStrength, type BiometryType } from './types';
 
 /**
+ * True in development builds. Bundlers and test setups that don't define
+ * `__DEV__` count as release builds instead of throwing a ReferenceError.
+ */
+function isDev(): boolean {
+  return typeof __DEV__ !== 'undefined' && __DEV__;
+}
+
+/**
  * Runs a native call with the library's standard logging. Logging only
  * happens in development builds, so it compiles out of release bundles,
  * where this is just `call()`.
@@ -21,7 +29,7 @@ function logged<T>(
   data: object | undefined,
   call: () => Promise<T>
 ): Promise<T> {
-  if (!__DEV__) {
+  if (!isDev()) {
     return call();
   }
   logger.debug(`${context} started`, context, data);
@@ -156,7 +164,7 @@ export function createKeysWithOptions(
   } = options;
 
   if (
-    __DEV__ &&
+    isDev() &&
     !requireAuthentication &&
     (biometricStrength !== undefined || allowDeviceCredentials)
   ) {
@@ -264,7 +272,7 @@ export function signWithOptions(
   const resolvedKeyAlias = keyAlias || null;
 
   if (
-    __DEV__ &&
+    isDev() &&
     Platform.OS === 'android' &&
     biometricStrength === BiometricStrength.Weak
   ) {
@@ -470,7 +478,7 @@ export function configure(config: BiometricConfig): Promise<void> {
     return logged('configure', config, () => configureKeyAlias(keyAlias));
   }
 
-  if (__DEV__) {
+  if (isDev()) {
     logger.info('configure completed (no key alias)', 'configure', config);
   }
   return Promise.resolve();
@@ -784,7 +792,7 @@ export type { BiometricChangeEvent };
 export function subscribeToBiometricChanges(
   callback: (event: BiometricChangeEvent) => void
 ): EventSubscription {
-  if (__DEV__) {
+  if (isDev()) {
     logger.debug(
       'Subscribing to biometric changes',
       'subscribeToBiometricChanges'
@@ -819,7 +827,7 @@ export function subscribeToBiometricChanges(
 export function unsubscribeFromBiometricChanges(
   subscription: EventSubscription
 ): void {
-  if (__DEV__) {
+  if (isDev()) {
     logger.debug(
       'Unsubscribing from biometric changes',
       'unsubscribeFromBiometricChanges'
