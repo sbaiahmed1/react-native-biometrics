@@ -79,4 +79,4 @@ Complete reference for every function exported by `@sbaiahmed1/react-native-biom
 
 ## Error Codes
 
-See [Error Codes](./error-codes.md) for the common error codes returned by authentication methods.
+See [Error Codes](./error-codes.md) for the error codes each method returns on iOS and Android.
