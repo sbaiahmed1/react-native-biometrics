@@ -99,6 +99,7 @@ On Android, `isSensorAvailable()` resolves with `available: false` and one of th
 | `ACTIVITY_NOT_AVAILABLE` | `signWithOptions()`: there is no active activity to show the prompt in. | Android |
 | `PROMPT_ERROR` | `signWithOptions()`: the biometric prompt could not be shown. | Android |
 | `KEY_USER_NOT_AUTHENTICATED` | Keystore rejected the signing operation despite successful authentication (OEM auth-token delivery bug; automatically retried before this is returned — prompt the user to try again) | Android |
+| `SIGNATURE_OPERATION_EXPIRED` | Keystore discarded the signing operation after a successful prompt, usually because the prompt was open too long (seen with StrongBox keys). Returned only after an automatic second prompt failed the same way. Prompt the user to try again. | Android |
 | `BIOMETRY_CURRENT_SET_CHANGED` | `signWithOptions()`: biometric enrollment changed since a key created with `biometricStrength: 'strong'` was made, so the key must be recreated. | iOS |
 | `USER_CANCEL` | `signWithOptions()`: the user canceled authentication. | iOS |
 | `AUTHENTICATION_FAILED` | `signWithOptions()`: authentication failed. | iOS |

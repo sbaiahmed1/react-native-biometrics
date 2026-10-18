@@ -62,6 +62,8 @@ type SignatureOptions = {
 
 **`biometricStrength` has no effect on the signing prompt.** Android Keystore keys can only be unlocked by Class 3 (strong) biometrics or the device credential (`KeyProperties` has no weak-biometric auth type), and a `BiometricPrompt` that carries a `CryptoObject` throws if Class 2 (weak) biometrics are allowed. `signWithOptions` therefore shows the authenticators the key was created with, whatever you pass here. Camera-based face unlock is Class 2 on most phones, so it does not appear in the signing prompt even with `BiometricStrength.Weak`; fingerprint does, and so does Class 3 face unlock on the few phones that have it. To let face-unlock users sign anyway, authenticate them first with `authenticateWithOptions({ biometricStrength: BiometricStrength.Weak })` and then call `sign()` on a key created with `createKeysWithOptions({ requireAuthentication: false })`. That signature is tied to the biometric only by your app's flow, not by the hardware, so treat it as a weaker guarantee.
 
+**Android can show a second prompt.** Some devices, StrongBox phones in particular, discard the signing operation when the prompt is open too long, so signing fails even though the user authenticated. `signWithOptions` then shows the prompt once more, with the same title and subtitle, on a new signing operation. Canceling it returns `USER_CANCELED`. If Keystore discards the operation again, the result has `errorCode: 'SIGNATURE_OPERATION_EXPIRED'`. `verifyKeySignature()` behaves the same way.
+
 **Example - Requiring biometrics only (no PIN fallback):**
 
 ```javascript
