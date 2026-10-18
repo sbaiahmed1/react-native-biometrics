@@ -125,6 +125,13 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
     }
   }
 
+  private fun isInvalidOperationHandleError(error: Throwable): Boolean {
+    return generateSequence(error) { it.cause }.any {
+      it.message?.contains("INVALID_OPERATION_HANDLE") == true ||
+        it.message?.contains("invalid operation handle", ignoreCase = true) == true
+    }
+  }
+
   private fun mapBiometricPromptErrorCode(errorCode: Int): String {
     return when (errorCode) {
       BiometricPrompt.ERROR_USER_CANCELED -> "USER_CANCELED"
@@ -1377,11 +1384,8 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
       debugLog("verifyKeySignature - Key requires authentication, proceeding with biometric prompt")
 
       // Create signature instance and initialize it with the private key
-      val signature = Signature.getInstance(BiometricUtils.getSignatureAlgorithm(privateKey))
-      signature.initSign(privateKey)
-
-      // Create CryptoObject with the signature for authentication-required keys
-      val cryptoObject = BiometricPrompt.CryptoObject(signature)
+      val initialSignature = Signature.getInstance(BiometricUtils.getSignatureAlgorithm(privateKey))
+      initialSignature.initSign(privateKey)
 
       // For authentication-required keys, we need biometric authentication before signing
       val executor = ContextCompat.getMainExecutor(context)
@@ -1447,104 +1451,130 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
         return
       }
 
-      val biometricPrompt = BiometricPrompt(activity, executor, object : BiometricPrompt.AuthenticationCallback() {
-        override fun onAuthenticationSucceeded(authResult: BiometricPrompt.AuthenticationResult) {
-          debugLog("verifyKeySignature - Authentication succeeded, generating signature")
+      fun promptAndSign(signature: Signature, allowReprompt: Boolean) {
+        val biometricPrompt = BiometricPrompt(activity, executor, object : BiometricPrompt.AuthenticationCallback() {
+          override fun onAuthenticationSucceeded(authResult: BiometricPrompt.AuthenticationResult) {
+            debugLog("verifyKeySignature - Authentication succeeded, generating signature")
 
-          // Prefer the signature bound to the authentication result. On API 30+ the
-          // CryptoObject is returned even for device-credential authentication; a null
-          // signature only means the platform did not bind the CryptoObject, in which
-          // case the pre-initialized signature is the best remaining option.
-          val cryptoSignature = authResult.cryptoObject?.signature
-          val authenticatedSignature = cryptoSignature ?: signature
+            // Prefer the signature bound to the authentication result. On API 30+ the
+            // CryptoObject is returned even for device-credential authentication; a null
+            // signature only means the platform did not bind the CryptoObject, in which
+            // case the pre-initialized signature is the best remaining option.
+            val cryptoSignature = authResult.cryptoObject?.signature
+            val authenticatedSignature = cryptoSignature ?: signature
 
-          // CryptoObject presence does not indicate how the user authenticated —
-          // classify device-credential usage from the reported authentication type.
-          val usedDeviceCredential = authResult.authenticationType ==
-            BiometricPrompt.AUTHENTICATION_RESULT_TYPE_DEVICE_CREDENTIAL
+            // CryptoObject presence does not indicate how the user authenticated —
+            // classify device-credential usage from the reported authentication type.
+            val usedDeviceCredential = authResult.authenticationType ==
+              BiometricPrompt.AUTHENTICATION_RESULT_TYPE_DEVICE_CREDENTIAL
 
-          if (cryptoSignature == null) {
-            debugLog("verifyKeySignature - CryptoObject not bound to result, signing with pre-initialized signature")
-          }
-
-          fun resolveSuccess(signatureBytes: ByteArray) {
-            val signatureString = BiometricUtils.encodeBase64(signatureBytes)
-
-            val result = Arguments.createMap()
-            result.putBoolean("success", true)
-            result.putString("signature", signatureString)
-            result.putBoolean("fallbackUsed", usedDeviceCredential)
-            result.putString("biometricStrength", if (usedDeviceCredential) "device_credential" else authenticatorResult.actualStrength)
-
-            val authTypeValue = when (authResult.authenticationType) {
-              BiometricPrompt.AUTHENTICATION_RESULT_TYPE_DEVICE_CREDENTIAL -> 1
-              BiometricPrompt.AUTHENTICATION_RESULT_TYPE_BIOMETRIC -> 2
-              BiometricPrompt.AUTHENTICATION_RESULT_TYPE_UNKNOWN -> -1
-              else -> 0
+            if (cryptoSignature == null) {
+              debugLog("verifyKeySignature - CryptoObject not bound to result, signing with pre-initialized signature")
             }
-            result.putInt("authType", authTypeValue)
 
-            debugLog("verifyKeySignature completed successfully (deviceCredential=$usedDeviceCredential)")
-            promise.resolve(result)
-          }
+            fun resolveSuccess(signatureBytes: ByteArray) {
+              val signatureString = BiometricUtils.encodeBase64(signatureBytes)
 
-          val mainHandler = Handler(Looper.getMainLooper())
+              val result = Arguments.createMap()
+              result.putBoolean("success", true)
+              result.putString("signature", signatureString)
+              result.putBoolean("fallbackUsed", usedDeviceCredential)
+              result.putString("biometricStrength", if (usedDeviceCredential) "device_credential" else authenticatorResult.actualStrength)
 
-          // Delay the first sign() slightly so a late-delivered auth token can reach Keystore
-          // before the CryptoObject-bound operation is finished (see companion constants).
-          // The delay is hidden by the prompt dismissal animation.
-          mainHandler.postDelayed({
-            try {
-              authenticatedSignature.update(dataBytes)
-              resolveSuccess(authenticatedSignature.sign())
-            } catch (e: Exception) {
-              if (!isUserNotAuthenticatedError(e)) {
-                debugLog("verifyKeySignature - Signature generation failed: ${e.message}")
-                val message = "Failed to generate signature: ${e.message ?: "Unknown error"}"
-                promise.resolve(createSignatureErrorResult(message, "SIGNATURE_CREATION_FAILED"))
-                return@postDelayed
+              val authTypeValue = when (authResult.authenticationType) {
+                BiometricPrompt.AUTHENTICATION_RESULT_TYPE_DEVICE_CREDENTIAL -> 1
+                BiometricPrompt.AUTHENTICATION_RESULT_TYPE_BIOMETRIC -> 2
+                BiometricPrompt.AUTHENTICATION_RESULT_TYPE_UNKNOWN -> -1
+                else -> 0
               }
+              result.putInt("authType", authTypeValue)
 
-              // A failed sign() aborts the bound Keystore operation, so it cannot be reused.
-              // Retry once on a freshly initialized Signature after another short delay — by
-              // then the auth token is registered, and Keystore implementations that validate
-              // by recent authentication (rather than strict per-operation challenge) accept it.
-              debugLog("verifyKeySignature - KEY_USER_NOT_AUTHENTICATED after successful auth, retrying with fresh signature")
-              mainHandler.postDelayed({
-                try {
-                  val retrySignature = Signature.getInstance(BiometricUtils.getSignatureAlgorithm(privateKey))
-                  retrySignature.initSign(privateKey)
-                  retrySignature.update(dataBytes)
-                  resolveSuccess(retrySignature.sign())
-                } catch (retryError: Exception) {
-                  debugLog("verifyKeySignature - Retry after KEY_USER_NOT_AUTHENTICATED failed: ${retryError.message}")
-                  val code = if (isUserNotAuthenticatedError(retryError)) "KEY_USER_NOT_AUTHENTICATED" else "SIGNATURE_CREATION_FAILED"
-                  val message = "Failed to generate signature: ${retryError.message ?: "Unknown error"}"
-                  promise.resolve(createSignatureErrorResult(message, code))
-                }
-              }, SIGN_RETRY_DELAY_MS)
+              debugLog("verifyKeySignature completed successfully (deviceCredential=$usedDeviceCredential)")
+              promise.resolve(result)
             }
-          }, AUTH_TOKEN_PROPAGATION_DELAY_MS)
-        }
 
-        override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
-          debugLog("verifyKeySignature - Authentication error: $errorCode - $errString")
-          val mappedErrorCode = mapBiometricPromptErrorCode(errorCode)
-          val message = "Authentication failed: $errString"
-          promise.resolve(createSignatureErrorResult(message, mappedErrorCode))
-        }
+            val mainHandler = Handler(Looper.getMainLooper())
 
-        override fun onAuthenticationFailed() {
-          debugLog("verifyKeySignature - Authentication failed - allowing retry")
-          // Do not resolve promise here - this allows the user to retry
-          // The promise will only be resolved on success or unrecoverable error
-        }
-      })
+            // Delay the first sign() slightly so a late-delivered auth token can reach Keystore
+            // before the CryptoObject-bound operation is finished (see companion constants).
+            // The delay is hidden by the prompt dismissal animation.
+            mainHandler.postDelayed({
+              try {
+                authenticatedSignature.update(dataBytes)
+                resolveSuccess(authenticatedSignature.sign())
+              } catch (e: Exception) {
+                if (isInvalidOperationHandleError(e)) {
+                  if (!allowReprompt) {
+                    debugLog("verifyKeySignature - INVALID_OPERATION_HANDLE again after the second prompt")
+                    val message = "Failed to generate signature: ${e.message ?: "Unknown error"}"
+                    promise.resolve(createSignatureErrorResult(message, "SIGNATURE_OPERATION_EXPIRED"))
+                    return@postDelayed
+                  }
+
+                  // Keystore drops the operation if the prompt stays open too long (seen with StrongBox keys).
+                  debugLog("verifyKeySignature - INVALID_OPERATION_HANDLE after successful auth, prompting again with a fresh signature")
+                  try {
+                    val repromptSignature = Signature.getInstance(BiometricUtils.getSignatureAlgorithm(privateKey))
+                    repromptSignature.initSign(privateKey)
+                    promptAndSign(repromptSignature, allowReprompt = false)
+                  } catch (repromptError: Exception) {
+                    debugLog("verifyKeySignature - Second prompt could not start: ${repromptError.message}")
+                    val message = "Failed to generate signature: ${repromptError.message ?: "Unknown error"}"
+                    promise.resolve(createSignatureErrorResult(message, "SIGNATURE_CREATION_FAILED"))
+                  }
+                  return@postDelayed
+                }
+
+                if (!isUserNotAuthenticatedError(e)) {
+                  debugLog("verifyKeySignature - Signature generation failed: ${e.message}")
+                  val message = "Failed to generate signature: ${e.message ?: "Unknown error"}"
+                  promise.resolve(createSignatureErrorResult(message, "SIGNATURE_CREATION_FAILED"))
+                  return@postDelayed
+                }
+
+                // A failed sign() aborts the bound Keystore operation, so it cannot be reused.
+                // Retry once on a freshly initialized Signature after another short delay — by
+                // then the auth token is registered, and Keystore implementations that validate
+                // by recent authentication (rather than strict per-operation challenge) accept it.
+                debugLog("verifyKeySignature - KEY_USER_NOT_AUTHENTICATED after successful auth, retrying with fresh signature")
+                mainHandler.postDelayed({
+                  try {
+                    val retrySignature = Signature.getInstance(BiometricUtils.getSignatureAlgorithm(privateKey))
+                    retrySignature.initSign(privateKey)
+                    retrySignature.update(dataBytes)
+                    resolveSuccess(retrySignature.sign())
+                  } catch (retryError: Exception) {
+                    debugLog("verifyKeySignature - Retry after KEY_USER_NOT_AUTHENTICATED failed: ${retryError.message}")
+                    val code = if (isUserNotAuthenticatedError(retryError)) "KEY_USER_NOT_AUTHENTICATED" else "SIGNATURE_CREATION_FAILED"
+                    val message = "Failed to generate signature: ${retryError.message ?: "Unknown error"}"
+                    promise.resolve(createSignatureErrorResult(message, code))
+                  }
+                }, SIGN_RETRY_DELAY_MS)
+              }
+            }, AUTH_TOKEN_PROPAGATION_DELAY_MS)
+          }
+
+          override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
+            debugLog("verifyKeySignature - Authentication error: $errorCode - $errString")
+            val mappedErrorCode = mapBiometricPromptErrorCode(errorCode)
+            val message = "Authentication failed: $errString"
+            promise.resolve(createSignatureErrorResult(message, mappedErrorCode))
+          }
+
+          override fun onAuthenticationFailed() {
+            debugLog("verifyKeySignature - Authentication failed - allowing retry")
+            // Do not resolve promise here - this allows the user to retry
+            // The promise will only be resolved on success or unrecoverable error
+          }
+        })
+
+        biometricPrompt.authenticate(promptInfo, BiometricPrompt.CryptoObject(signature))
+      }
 
       // Show biometric prompt on main thread with CryptoObject
       Handler(Looper.getMainLooper()).post {
         try {
-          biometricPrompt.authenticate(promptInfo, cryptoObject)
+          promptAndSign(initialSignature, allowReprompt = true)
         } catch (e: Exception) {
           debugLog("verifyKeySignature failed to show biometric prompt: ${e.message}")
           val message = "Failed to show biometric prompt: ${e.message ?: "Unknown error"}"

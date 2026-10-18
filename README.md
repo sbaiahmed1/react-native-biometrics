@@ -1412,6 +1412,8 @@ type SignatureOptions = {
 
 **`biometricStrength` has no effect on the signing prompt.** Android Keystore keys can only be unlocked by Class 3 (strong) biometrics or the device credential (`KeyProperties` has no weak-biometric auth type), and a `BiometricPrompt` that carries a `CryptoObject` throws if Class 2 (weak) biometrics are allowed. `signWithOptions` therefore shows the authenticators the key was created with, whatever you pass here. Camera-based face unlock is Class 2 on most phones, so it does not appear in the signing prompt even with `BiometricStrength.Weak`; fingerprint does, and so does Class 3 face unlock on the few phones that have it. To let face-unlock users sign anyway, authenticate them first with `authenticateWithOptions({ biometricStrength: BiometricStrength.Weak })` and then call `sign()` on a key created with `createKeysWithOptions({ requireAuthentication: false })`. That signature is tied to the biometric only by your app's flow, not by the hardware, so treat it as a weaker guarantee.
 
+**Android can show a second prompt.** Some devices, StrongBox phones in particular, discard the signing operation when the prompt is open too long, so signing fails even though the user authenticated. `signWithOptions` then shows the prompt once more, with the same title and subtitle, on a new signing operation. Canceling it returns `USER_CANCELED`. If Keystore discards the operation again, the result has `errorCode: 'SIGNATURE_OPERATION_EXPIRED'`. `verifyKeySignature()` behaves the same way.
+
 **Example - Requiring biometrics only (no PIN fallback):**
 ```javascript
 import { signWithOptions, BiometricStrength, InputEncoding } from '@sbaiahmed1/react-native-biometrics';
@@ -1752,6 +1754,7 @@ On Android, `isSensorAvailable()` resolves with `available: false` and one of th
 | `ACTIVITY_NOT_AVAILABLE` | `signWithOptions()`: there is no active activity to show the prompt in. | Android |
 | `PROMPT_ERROR` | `signWithOptions()`: the biometric prompt could not be shown. | Android |
 | `KEY_USER_NOT_AUTHENTICATED` | Keystore rejected the signing operation despite successful authentication (OEM auth-token delivery bug; automatically retried before this is returned — prompt the user to try again) | Android |
+| `SIGNATURE_OPERATION_EXPIRED` | Keystore discarded the signing operation after a successful prompt, usually because the prompt was open too long (seen with StrongBox keys). Returned only after an automatic second prompt failed the same way. Prompt the user to try again. | Android |
 | `BIOMETRY_CURRENT_SET_CHANGED` | `signWithOptions()`: biometric enrollment changed since a key created with `biometricStrength: 'strong'` was made, so the key must be recreated. | iOS |
 | `USER_CANCEL` | `signWithOptions()`: the user canceled authentication. | iOS |
 | `AUTHENTICATION_FAILED` | `signWithOptions()`: authentication failed. | iOS |
