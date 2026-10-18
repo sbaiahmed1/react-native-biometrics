@@ -48,6 +48,9 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
     // See https://issuetracker.google.com/issues/129937212
     const val AUTH_TOKEN_PROPAGATION_DELAY_MS = 150L
     const val SIGN_RETRY_DELAY_MS = 250L
+
+    // Lets StrongBox finish tearing down the dropped operation before the second prompt begins a new one.
+    const val REPROMPT_DELAY_MS = 500L
   }
 
   // Data class for biometric state tracking
@@ -1513,15 +1516,17 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
 
                   // Keystore drops the operation if the prompt stays open too long (seen with StrongBox keys).
                   debugLog("verifyKeySignature - INVALID_OPERATION_HANDLE after successful auth, prompting again with a fresh signature")
-                  try {
-                    val repromptSignature = Signature.getInstance(BiometricUtils.getSignatureAlgorithm(privateKey))
-                    repromptSignature.initSign(privateKey)
-                    promptAndSign(repromptSignature, allowReprompt = false)
-                  } catch (repromptError: Exception) {
-                    debugLog("verifyKeySignature - Second prompt could not start: ${repromptError.message}")
-                    val message = "Failed to generate signature: ${repromptError.message ?: "Unknown error"}"
-                    promise.resolve(createSignatureErrorResult(message, "SIGNATURE_CREATION_FAILED"))
-                  }
+                  mainHandler.postDelayed({
+                    try {
+                      val repromptSignature = Signature.getInstance(BiometricUtils.getSignatureAlgorithm(privateKey))
+                      repromptSignature.initSign(privateKey)
+                      promptAndSign(repromptSignature, allowReprompt = false)
+                    } catch (repromptError: Exception) {
+                      debugLog("verifyKeySignature - Second prompt could not start: ${repromptError.message}")
+                      val message = "Failed to generate signature: ${repromptError.message ?: "Unknown error"}"
+                      promise.resolve(createSignatureErrorResult(message, "SIGNATURE_CREATION_FAILED"))
+                    }
+                  }, REPROMPT_DELAY_MS)
                   return@postDelayed
                 }
 
