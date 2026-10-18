@@ -1103,10 +1103,9 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
 
         val promptInfo = promptInfoBuilder.build()
 
-        // Create signature instance and CryptoObject for authentication-required keys
-        val testSignature = java.security.Signature.getInstance(BiometricUtils.getSignatureAlgorithm(privateKey))
-        testSignature.initSign(privateKey)
-        val cryptoObject = BiometricPrompt.CryptoObject(testSignature)
+        // Create the signature instance for the first prompt's CryptoObject
+        val initialSignature = java.security.Signature.getInstance(BiometricUtils.getSignatureAlgorithm(privateKey))
+        initialSignature.initSign(privateKey)
 
         val activity = context.currentActivity as? FragmentActivity
         if (activity == null || activity.isFinishing || activity.isDestroyed) {
@@ -1117,73 +1116,96 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
           return
         }
 
-        val biometricPrompt = BiometricPrompt(activity, executor, object : BiometricPrompt.AuthenticationCallback() {
-          override fun onAuthenticationSucceeded(authResult: BiometricPrompt.AuthenticationResult) {
-            debugLog("validateKeyIntegrity - Authentication succeeded, performing signature test")
+        fun promptAndTest(testSignature: java.security.Signature, allowReprompt: Boolean) {
+          val biometricPrompt = BiometricPrompt(activity, executor, object : BiometricPrompt.AuthenticationCallback() {
+            override fun onAuthenticationSucceeded(authResult: BiometricPrompt.AuthenticationResult) {
+              debugLog("validateKeyIntegrity - Authentication succeeded, performing signature test")
 
-            try {
-              // Use the authenticated signature from the CryptoObject
-              val authenticatedSignature = authResult.cryptoObject?.signature
-              if (authenticatedSignature == null) {
-                debugLog("validateKeyIntegrity - No authenticated signature available")
+              try {
+                // Use the authenticated signature from the CryptoObject
+                val authenticatedSignature = authResult.cryptoObject?.signature
+                if (authenticatedSignature == null) {
+                  debugLog("validateKeyIntegrity - No authenticated signature available")
+                  integrityChecks.putBoolean("signatureTestPassed", false)
+                  val errorResult = Arguments.createMap()
+                  errorResult.putString("error", "No authenticated signature available")
+                  errorResult.putMap("integrityChecks", integrityChecks)
+                  promise.resolve(errorResult)
+                  return
+                }
+
+                val testData = "integrity_test_data".toByteArray()
+                authenticatedSignature.update(testData)
+                val signatureBytes = authenticatedSignature.sign()
+
+                // Verify the signature
+                val verifySignature = java.security.Signature.getInstance(BiometricUtils.getSignatureAlgorithm(publicKey))
+                verifySignature.initVerify(publicKey)
+                verifySignature.update(testData)
+                val isValid = verifySignature.verify(signatureBytes)
+
+                integrityChecks.putBoolean("signatureTestPassed", isValid)
+
+                val successResult = Arguments.createMap()
+
+                successResult.putBoolean("valid", isValid)
+                successResult.putBoolean("keyExists", true)
+                successResult.putMap("keyAttributes", result.getMap("keyAttributes"))
+                successResult.putMap("integrityChecks", integrityChecks)
+                debugLog("validateKeyIntegrity completed - valid: ${isValid}")
+                promise.resolve(successResult)
+
+              } catch (e: Exception) {
+                if (allowReprompt && isInvalidOperationHandleError(e)) {
+                  // Keystore drops the operation if the prompt stays open too long (seen with StrongBox keys).
+                  debugLog("validateKeyIntegrity - INVALID_OPERATION_HANDLE after successful auth, prompting again with a fresh signature")
+                  Handler(Looper.getMainLooper()).postDelayed({
+                    try {
+                      val repromptSignature = java.security.Signature.getInstance(BiometricUtils.getSignatureAlgorithm(privateKey))
+                      repromptSignature.initSign(privateKey)
+                      promptAndTest(repromptSignature, allowReprompt = false)
+                    } catch (repromptError: Exception) {
+                      debugLog("validateKeyIntegrity - Second prompt could not start: ${repromptError.message}")
+                      integrityChecks.putBoolean("signatureTestPassed", false)
+                      val errorResult = Arguments.createMap()
+                      errorResult.putMap("integrityChecks", integrityChecks)
+                      promise.resolve(errorResult)
+                    }
+                  }, REPROMPT_DELAY_MS)
+                  return
+                }
+
+                debugLog("validateKeyIntegrity - Signature test failed: ${e.message}")
                 integrityChecks.putBoolean("signatureTestPassed", false)
                 val errorResult = Arguments.createMap()
-                errorResult.putString("error", "No authenticated signature available")
                 errorResult.putMap("integrityChecks", integrityChecks)
                 promise.resolve(errorResult)
-                return
               }
+            }
 
-              val testData = "integrity_test_data".toByteArray()
-              authenticatedSignature.update(testData)
-              val signatureBytes = authenticatedSignature.sign()
-
-              // Verify the signature
-              val verifySignature = java.security.Signature.getInstance(BiometricUtils.getSignatureAlgorithm(publicKey))
-              verifySignature.initVerify(publicKey)
-              verifySignature.update(testData)
-              val isValid = verifySignature.verify(signatureBytes)
-
-              integrityChecks.putBoolean("signatureTestPassed", isValid)
-
-              val successResult = Arguments.createMap()
-
-              successResult.putBoolean("valid", isValid)
-              successResult.putBoolean("keyExists", true)
-              successResult.putMap("keyAttributes", result.getMap("keyAttributes"))
-              successResult.putMap("integrityChecks", integrityChecks)
-              debugLog("validateKeyIntegrity completed - valid: ${isValid}")
-              promise.resolve(successResult)
-
-            } catch (e: Exception) {
-              debugLog("validateKeyIntegrity - Signature test failed: ${e.message}")
+            override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
+              debugLog("validateKeyIntegrity - Authentication error: $errorCode - $errString")
               integrityChecks.putBoolean("signatureTestPassed", false)
               val errorResult = Arguments.createMap()
+              errorResult.putString("error", "Authentication failed: $errString")
               errorResult.putMap("integrityChecks", integrityChecks)
               promise.resolve(errorResult)
             }
-          }
 
-          override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
-            debugLog("validateKeyIntegrity - Authentication error: $errorCode - $errString")
-            integrityChecks.putBoolean("signatureTestPassed", false)
-            val errorResult = Arguments.createMap()
-            errorResult.putString("error", "Authentication failed: $errString")
-            errorResult.putMap("integrityChecks", integrityChecks)
-            promise.resolve(errorResult)
-          }
+            override fun onAuthenticationFailed() {
+              debugLog("validateKeyIntegrity - Authentication failed - allowing retry")
+              // Do not resolve promise here - this allows the user to retry
+              // The promise will only be resolved on success or unrecoverable error
+            }
+          })
 
-          override fun onAuthenticationFailed() {
-            debugLog("validateKeyIntegrity - Authentication failed - allowing retry")
-            // Do not resolve promise here - this allows the user to retry
-            // The promise will only be resolved on success or unrecoverable error
-          }
-        })
+          biometricPrompt.authenticate(promptInfo, BiometricPrompt.CryptoObject(testSignature))
+        }
 
         // Show biometric prompt on main thread with CryptoObject
         Handler(Looper.getMainLooper()).post {
           try {
-            biometricPrompt.authenticate(promptInfo, cryptoObject)
+            promptAndTest(initialSignature, allowReprompt = true)
           } catch (e: Exception) {
             debugLog("validateKeyIntegrity failed to show biometric prompt: ${e.message}")
             result.putString("error", "Failed to show biometric prompt: ${e.message}")

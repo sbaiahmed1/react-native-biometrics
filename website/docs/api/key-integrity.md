@@ -12,6 +12,8 @@ const validateKeyIntegrity = (keyAlias?: string): Promise<KeyIntegrityResult> =>
 
 Performs comprehensive validation of key integrity including format checks, accessibility tests, signature validation, and hardware backing verification. On Android API 31+, the result also reports `strongBoxBacked` in `integrityChecks` when the backing type can be distinguished.
 
+If the key requires authentication, the signature test shows a prompt first. On Android, it can show a second prompt when Keystore discards the signing operation, as described under `signWithOptions()` below. If that attempt fails too, `signatureTestPassed` is `false`.
+
 ## `verifyKeySignature()`
 
 ```typescript
