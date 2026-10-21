@@ -11,98 +11,75 @@ import {
 } from 'react-native';
 import { AuthType, BiometricStrength, type BiometryType } from './types';
 
-export function isSensorAvailable(options?: {
-  biometricStrength?: BiometricStrength;
-}): Promise<BiometricSensorInfo> {
-  logger.debug('Checking sensor availability', 'isSensorAvailable');
+/**
+ * True in development builds. Bundlers and test setups that don't define
+ * `__DEV__` count as release builds instead of throwing a ReferenceError.
+ */
+function isDev(): boolean {
+  return typeof __DEV__ !== 'undefined' && __DEV__;
+}
 
-  if (Platform.OS === 'android') {
-    const biometricStrength =
-      options?.biometricStrength || BiometricStrength.Strong;
-    return ReactNativeBiometrics.isSensorAvailable(biometricStrength)
-      .then((result) => {
-        logger.info(
-          'Sensor availability check completed',
-          'isSensorAvailable',
-          {
-            available: result.available,
-            biometryType: result.biometryType,
-            isDeviceSecure: result.isDeviceSecure,
-          }
-        );
-        return result;
-      })
-      .catch((error) => {
-        logger.error(
-          'Sensor availability check failed',
-          'isSensorAvailable',
-          error
-        );
-        throw error;
-      });
+/**
+ * Runs a native call with the library's standard logging. Logging only
+ * happens in development builds, so it compiles out of release bundles,
+ * where this is just `call()`.
+ */
+function logged<T>(
+  context: string,
+  data: object | undefined,
+  call: () => Promise<T>
+): Promise<T> {
+  if (!isDev()) {
+    return call();
   }
-
-  // For iOS, we still call without parameters as iOS doesn't support biometric strength
-  return ReactNativeBiometrics.isSensorAvailable()
+  logger.debug(`${context} started`, context, data);
+  return call()
     .then((result) => {
-      logger.info('Sensor availability check completed', 'isSensorAvailable', {
-        available: result.available,
-        biometryType: result.biometryType,
-        isDeviceSecure: result.isDeviceSecure,
-      });
+      logger.info(`${context} completed`, context, result);
       return result;
     })
     .catch((error) => {
-      logger.error(
-        'Sensor availability check failed',
-        'isSensorAvailable',
-        error
-      );
+      logger.error(`${context} failed`, context, error, data);
       throw error;
     });
+}
+
+function stripAuthType<T extends { authType?: unknown }>(
+  result: T,
+  returnAuthType?: boolean
+): T {
+  if (returnAuthType) {
+    return result;
+  }
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { authType: _, ...cleanResult } = result;
+  return cleanResult as T;
+}
+
+export function isSensorAvailable(options?: {
+  biometricStrength?: BiometricStrength;
+}): Promise<BiometricSensorInfo> {
+  return logged('isSensorAvailable', options, () =>
+    // iOS doesn't support biometric strength, so it is called without parameters
+    Platform.OS === 'android'
+      ? ReactNativeBiometrics.isSensorAvailable(
+          options?.biometricStrength || BiometricStrength.Strong
+        )
+      : ReactNativeBiometrics.isSensorAvailable()
+  );
 }
 
 export function simplePrompt(
   promptMessage: string,
   options?: { biometricStrength?: BiometricStrength }
 ): Promise<BiometricAuthResult> {
-  logger.debug('Starting simple biometric prompt', 'simplePrompt', {
-    promptMessage,
-    biometricStrength: options?.biometricStrength,
-  });
-  if (Platform.OS === 'android') {
-    return ReactNativeBiometrics.simplePrompt(
-      promptMessage,
-      options?.biometricStrength
-    )
-      .then((result) => {
-        logger.info('Simple prompt completed', 'simplePrompt', {
-          success: result,
-        });
-        return result;
-      })
-      .catch((error) => {
-        logger.error('Simple prompt failed', 'simplePrompt', error, {
-          promptMessage,
-          biometricStrength: options?.biometricStrength,
-        });
-        throw error;
-      });
-  }
-  // iOS and other platforms ignore biometricStrength and use default behavior
-  return ReactNativeBiometrics.simplePrompt(promptMessage)
-    .then((result) => {
-      logger.info('Simple prompt completed', 'simplePrompt', {
-        success: result,
-      });
-      return result;
-    })
-    .catch((error) => {
-      logger.error('Simple prompt failed', 'simplePrompt', error, {
-        promptMessage,
-      });
-      throw error;
-    });
+  const biometricStrength = options?.biometricStrength;
+  return logged('simplePrompt', { promptMessage, biometricStrength }, () =>
+    // iOS and other platforms ignore biometricStrength and use default behavior
+    Platform.OS === 'android'
+      ? ReactNativeBiometrics.simplePrompt(promptMessage, biometricStrength)
+      : ReactNativeBiometrics.simplePrompt(promptMessage)
+  );
 }
 
 export { AuthType, BiometricStrength, BiometryTypes } from './types';
@@ -111,66 +88,22 @@ export type { BiometryType } from './types';
 export function authenticateWithOptions(
   options: BiometricAuthOptions
 ): Promise<BiometricAuthResult> {
-  logger.debug(
-    'Starting authentication with options',
-    'authenticateWithOptions'
-  );
-
   const { returnAuthType, ...nativeOptions } = options;
 
-  const stripAuthType = (result: BiometricAuthResult): BiometricAuthResult => {
-    if (!returnAuthType) {
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const { authType: _, ...cleanResult } = result;
-      return cleanResult;
+  return logged('authenticateWithOptions', undefined, () => {
+    if (Platform.OS === 'android' && nativeOptions.biometricStrength) {
+      return ReactNativeBiometrics.authenticateWithOptions(nativeOptions).then(
+        (result) => stripAuthType(result, returnAuthType)
+      );
     }
-    return result;
-  };
 
-  if (Platform.OS === 'android' && nativeOptions.biometricStrength) {
-    return ReactNativeBiometrics.authenticateWithOptions(nativeOptions)
-      .then((result) => {
-        logger.info(
-          'Authentication with options completed',
-          'authenticateWithOptions',
-          {
-            success: result.success,
-          }
-        );
-        return stripAuthType(result);
-      })
-      .catch((error) => {
-        logger.error(
-          'Authentication with options failed',
-          'authenticateWithOptions',
-          error
-        );
-        throw error;
-      });
-  }
-
-  // For iOS or Android without biometricStrength, remove biometricStrength from options
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { biometricStrength: _, ...cleanOptions } = nativeOptions;
-  return ReactNativeBiometrics.authenticateWithOptions(cleanOptions)
-    .then((result) => {
-      logger.info(
-        'Authentication with options completed',
-        'authenticateWithOptions',
-        {
-          success: result.success,
-        }
-      );
-      return stripAuthType(result);
-    })
-    .catch((error) => {
-      logger.error(
-        'Authentication with options failed',
-        'authenticateWithOptions',
-        error
-      );
-      throw error;
-    });
+    // For iOS or Android without biometricStrength, remove biometricStrength from options
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { biometricStrength: _, ...cleanOptions } = nativeOptions;
+    return ReactNativeBiometrics.authenticateWithOptions(cleanOptions).then(
+      (result) => stripAuthType(result, returnAuthType)
+    );
+  });
 }
 
 export function createKeys(
@@ -180,41 +113,24 @@ export function createKeys(
   allowDeviceCredentials?: boolean,
   failIfExists?: boolean
 ): Promise<KeyCreationResult> {
-  logger.debug('Creating biometric keys', 'createKeys', {
-    keyAlias,
-    keyType,
-    biometricStrength,
-    allowDeviceCredentials,
-    failIfExists,
-  });
-  return ReactNativeBiometrics.createKeys(
-    keyAlias,
-    keyType,
-    biometricStrength,
-    allowDeviceCredentials ?? false,
-    failIfExists ?? false
-  )
-    .then((result) => {
-      logger.info('Keys created successfully', 'createKeys', {
+  return logged(
+    'createKeys',
+    {
+      keyAlias,
+      keyType,
+      biometricStrength,
+      allowDeviceCredentials,
+      failIfExists,
+    },
+    () =>
+      ReactNativeBiometrics.createKeys(
         keyAlias,
         keyType,
         biometricStrength,
-        allowDeviceCredentials,
-        failIfExists,
-        publicKeyLength: result.publicKey?.length,
-      });
-      return result;
-    })
-    .catch((error) => {
-      logger.error('Key creation failed', 'createKeys', error, {
-        keyAlias,
-        keyType,
-        biometricStrength,
-        allowDeviceCredentials,
-        failIfExists,
-      });
-      throw error;
-    });
+        allowDeviceCredentials ?? false,
+        failIfExists ?? false
+      )
+  );
 }
 
 /**
@@ -248,6 +164,7 @@ export function createKeysWithOptions(
   } = options;
 
   if (
+    isDev() &&
     !requireAuthentication &&
     (biometricStrength !== undefined || allowDeviceCredentials)
   ) {
@@ -257,88 +174,44 @@ export function createKeysWithOptions(
     );
   }
 
-  logger.debug('Creating keys with options', 'createKeysWithOptions', {
-    keyAlias,
-    keyType,
-    requireAuthentication,
-    biometricStrength,
-    allowDeviceCredentials,
-    failIfExists,
-  });
-  return ReactNativeBiometrics.createKeysWithOptions({
-    keyAlias: keyAlias || undefined,
-    keyType,
-    requireAuthentication,
-    biometricStrength: requireAuthentication ? biometricStrength : undefined,
-    allowDeviceCredentials: requireAuthentication
-      ? allowDeviceCredentials
-      : false,
-    failIfExists,
-  })
-    .then((result) => {
-      logger.info('Keys created successfully', 'createKeysWithOptions', {
-        keyAlias,
+  return logged(
+    'createKeysWithOptions',
+    {
+      keyAlias,
+      keyType,
+      requireAuthentication,
+      biometricStrength,
+      allowDeviceCredentials,
+      failIfExists,
+    },
+    () =>
+      ReactNativeBiometrics.createKeysWithOptions({
+        keyAlias: keyAlias || undefined,
         keyType,
         requireAuthentication,
-        publicKeyLength: result.publicKey?.length,
-      });
-      return result;
-    })
-    .catch((error) => {
-      logger.error('Key creation failed', 'createKeysWithOptions', error, {
-        keyAlias,
-        keyType,
-        requireAuthentication,
-      });
-      throw error;
-    });
+        biometricStrength: requireAuthentication
+          ? biometricStrength
+          : undefined,
+        allowDeviceCredentials: requireAuthentication
+          ? allowDeviceCredentials
+          : false,
+        failIfExists,
+      })
+  );
 }
 
 export function deleteKeys(keyAlias?: string): Promise<KeyDeletionResult> {
-  logger.debug('Deleting biometric keys', 'deleteKeys', { keyAlias });
-  return ReactNativeBiometrics.deleteKeys(keyAlias)
-    .then((result) => {
-      logger.info('Keys deletion completed', 'deleteKeys', {
-        keyAlias,
-        success: result.success,
-      });
-      return result;
-    })
-    .catch((error) => {
-      logger.error('Key deletion failed', 'deleteKeys', error, { keyAlias });
-      throw error;
-    });
+  return logged('deleteKeys', { keyAlias }, () =>
+    ReactNativeBiometrics.deleteKeys(keyAlias)
+  );
 }
 
 export function validateKeyIntegrity(
   keyAlias?: string
 ): Promise<KeyIntegrityResult> {
-  logger.debug('Validating key integrity', 'validateKeyIntegrity', {
-    keyAlias,
-  });
-  return ReactNativeBiometrics.validateKeyIntegrity(keyAlias)
-    .then((result) => {
-      logger.info(
-        'Key integrity validation completed',
-        'validateKeyIntegrity',
-        {
-          keyAlias,
-          valid: result.valid,
-          keyExists: result.keyExists,
-          integrityChecks: result.integrityChecks,
-        }
-      );
-      return result;
-    })
-    .catch((error) => {
-      logger.error(
-        'Key integrity validation failed',
-        'validateKeyIntegrity',
-        error,
-        { keyAlias }
-      );
-      throw error;
-    });
+  return logged('validateKeyIntegrity', { keyAlias }, () =>
+    ReactNativeBiometrics.validateKeyIntegrity(keyAlias)
+  );
 }
 
 export function verifyKeySignature(
@@ -349,44 +222,18 @@ export function verifyKeySignature(
   cancelButtonText?: string,
   returnAuthType?: boolean
 ): Promise<SignatureResult> {
-  const resolvedKeyAlias = keyAlias || null;
-  logger.debug('Verifying key signature', 'verifyKeySignature', {
-    keyAlias,
-    dataLength: data.length,
-  });
-  return ReactNativeBiometrics.verifyKeySignature(
-    resolvedKeyAlias,
-    data,
-    promptTitle,
-    promptSubtitle,
-    cancelButtonText
-  )
-    .then((result) => {
-      logger.info(
-        'Key signature verification completed',
-        'verifyKeySignature',
-        {
-          keyAlias,
-          success: result.success,
-          hasSignature: !!result.signature,
-        }
-      );
-      if (!returnAuthType) {
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        const { authType: _, ...cleanResult } = result;
-        return cleanResult;
-      }
-      return result;
-    })
-    .catch((error) => {
-      logger.error(
-        'Key signature verification failed',
-        'verifyKeySignature',
-        error,
-        { keyAlias }
-      );
-      throw error;
-    });
+  return logged(
+    'verifyKeySignature',
+    { keyAlias, dataLength: data.length },
+    () =>
+      ReactNativeBiometrics.verifyKeySignature(
+        keyAlias || null,
+        data,
+        promptTitle,
+        promptSubtitle,
+        cancelButtonText
+      ).then((result) => stripAuthType(result, returnAuthType))
+  );
 }
 
 /**
@@ -425,6 +272,7 @@ export function signWithOptions(
   const resolvedKeyAlias = keyAlias || null;
 
   if (
+    isDev() &&
     Platform.OS === 'android' &&
     biometricStrength === BiometricStrength.Weak
   ) {
@@ -434,74 +282,41 @@ export function signWithOptions(
     );
   }
 
-  logger.debug('Signing with options', 'signWithOptions', {
-    keyAlias,
-    dataLength: data.length,
-    inputEncoding,
-    biometricStrength,
-    disableDeviceFallback,
-  });
-
-  const stripAuthType = (result: SignatureResult): SignatureResult => {
-    if (!returnAuthType) {
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const { authType: _, ...cleanResult } = result;
-      return cleanResult;
-    }
-    return result;
-  };
-
-  // On Android, use the new method with options
-  if (Platform.OS === 'android') {
-    return ReactNativeBiometrics.verifyKeySignatureWithOptions(
-      resolvedKeyAlias,
-      data,
-      promptTitle,
-      promptSubtitle,
-      cancelButtonText,
+  return logged(
+    'signWithOptions',
+    {
+      keyAlias,
+      dataLength: data.length,
+      inputEncoding,
       biometricStrength,
       disableDeviceFallback,
-      inputEncoding
-    )
-      .then((result: SignatureResult) => {
-        logger.info('Sign with options completed', 'signWithOptions', {
-          keyAlias,
-          success: result.success,
-          hasSignature: !!result.signature,
-        });
-        return stripAuthType(result);
-      })
-      .catch((error: Error) => {
-        logger.error('Sign with options failed', 'signWithOptions', error, {
-          keyAlias,
-        });
-        throw error;
-      });
-  }
-
-  // On iOS, use the standard method with inputEncoding
-  return ReactNativeBiometrics.verifyKeySignatureWithEncoding(
-    resolvedKeyAlias,
-    data,
-    promptTitle,
-    promptSubtitle,
-    cancelButtonText,
-    inputEncoding
-  )
-    .then((result: SignatureResult) => {
-      logger.info('Sign with options completed', 'signWithOptions', {
-        keyAlias,
-        success: result.success,
-        hasSignature: !!result.signature,
-      });
-      return stripAuthType(result);
-    })
-    .catch((error: Error) => {
-      logger.error('Sign with options failed', 'signWithOptions', error, {
-        keyAlias,
-      });
-      throw error;
-    });
+    },
+    () => {
+      const request: Promise<SignatureResult> =
+        Platform.OS === 'android'
+          ? // On Android, use the new method with options
+            ReactNativeBiometrics.verifyKeySignatureWithOptions(
+              resolvedKeyAlias,
+              data,
+              promptTitle,
+              promptSubtitle,
+              cancelButtonText,
+              biometricStrength,
+              disableDeviceFallback,
+              inputEncoding
+            )
+          : // On iOS, use the standard method with inputEncoding
+            ReactNativeBiometrics.verifyKeySignatureWithEncoding(
+              resolvedKeyAlias,
+              data,
+              promptTitle,
+              promptSubtitle,
+              cancelButtonText,
+              inputEncoding
+            );
+      return request.then((result) => stripAuthType(result, returnAuthType));
+    }
+  );
 }
 
 /**
@@ -523,31 +338,17 @@ export function signWithOptions(
 export function sign(options: SignOptions): Promise<SignatureResult> {
   const { keyAlias, data, inputEncoding = 'utf8', algorithm } = options;
 
-  logger.debug('Signing data without authentication', 'sign', {
-    keyAlias,
-    dataLength: data.length,
-    inputEncoding,
-    algorithm,
-  });
-  return ReactNativeBiometrics.signData({
-    keyAlias: keyAlias || undefined,
-    data,
-    inputEncoding,
-    algorithm,
-  })
-    .then((result) => {
-      logger.info('Sign completed', 'sign', {
-        keyAlias,
-        success: result.success,
-        hasSignature: !!result.signature,
-        errorCode: result.errorCode,
-      });
-      return result;
-    })
-    .catch((error) => {
-      logger.error('Sign failed', 'sign', error, { keyAlias });
-      throw error;
-    });
+  return logged(
+    'sign',
+    { keyAlias, dataLength: data.length, inputEncoding, algorithm },
+    () =>
+      ReactNativeBiometrics.signData({
+        keyAlias: keyAlias || undefined,
+        data,
+        inputEncoding,
+        algorithm,
+      })
+  );
 }
 
 export function validateSignature(
@@ -555,68 +356,32 @@ export function validateSignature(
   data: string,
   signature: string
 ): Promise<SignatureValidationResult> {
-  logger.debug('Validating signature', 'validateSignature', {
-    keyAlias,
-    dataLength: data.length,
-    signatureLength: signature.length,
-  });
-  return ReactNativeBiometrics.validateSignature(keyAlias, data, signature)
-    .then((result) => {
-      logger.info('Signature validation completed', 'validateSignature', {
-        keyAlias,
-        valid: result.valid,
-      });
-      return result;
-    })
-    .catch((error) => {
-      logger.error('Signature validation failed', 'validateSignature', error, {
-        keyAlias,
-      });
-      throw error;
-    });
+  return logged(
+    'validateSignature',
+    {
+      keyAlias,
+      dataLength: data.length,
+      signatureLength: signature.length,
+    },
+    () => ReactNativeBiometrics.validateSignature(keyAlias, data, signature)
+  );
 }
 
 export function sha256(
   data: string,
   inputEncoding: 'utf8' | 'base64' = 'utf8'
 ): Promise<Sha256Result> {
-  logger.debug('Computing SHA256', 'sha256', {
-    dataLength: data.length,
-    inputEncoding,
-  });
-  return ReactNativeBiometrics.sha256(data, inputEncoding)
-    .then((result) => {
-      logger.info('SHA256 completed', 'sha256');
-      return result;
-    })
-    .catch((error) => {
-      logger.error('SHA256 failed', 'sha256', error);
-      throw error;
-    });
+  return logged('sha256', { dataLength: data.length, inputEncoding }, () =>
+    ReactNativeBiometrics.sha256(data, inputEncoding)
+  );
 }
 
 export function getKeyAttributes(
   keyAlias?: string
 ): Promise<KeyAttributesResult> {
-  logger.debug('Getting key attributes', 'getKeyAttributes', { keyAlias });
-  return ReactNativeBiometrics.getKeyAttributes(keyAlias)
-    .then((result) => {
-      logger.info('Key attributes retrieved', 'getKeyAttributes', {
-        keyAlias,
-        exists: result.exists,
-        attributes: result.attributes,
-      });
-      return result;
-    })
-    .catch((error) => {
-      logger.error(
-        'Key attributes retrieval failed',
-        'getKeyAttributes',
-        error,
-        { keyAlias }
-      );
-      throw error;
-    });
+  return logged('getKeyAttributes', { keyAlias }, () =>
+    ReactNativeBiometrics.getKeyAttributes(keyAlias)
+  );
 }
 
 /**
@@ -624,21 +389,11 @@ export function getKeyAttributes(
  * biometric prompt.
  */
 export function keyExists(keyAlias?: string): Promise<boolean> {
-  logger.debug('Checking key existence', 'keyExists', { keyAlias });
-  return ReactNativeBiometrics.getKeyAttributes(keyAlias || undefined)
-    .then((result) => {
-      logger.info('Key existence check completed', 'keyExists', {
-        keyAlias,
-        exists: result.exists,
-      });
-      return result.exists;
-    })
-    .catch((error) => {
-      logger.error('Key existence check failed', 'keyExists', error, {
-        keyAlias,
-      });
-      throw error;
-    });
+  return logged('keyExists', { keyAlias }, () =>
+    ReactNativeBiometrics.getKeyAttributes(keyAlias || undefined).then(
+      (result) => result.exists
+    )
+  );
 }
 
 /**
@@ -657,168 +412,57 @@ export function keyExists(keyAlias?: string): Promise<boolean> {
  * creation time for those keys (Android is unaffected).
  */
 export function getPublicKey(keyAlias?: string): Promise<PublicKeyResult> {
-  logger.debug('Getting public key', 'getPublicKey', { keyAlias });
-  return ReactNativeBiometrics.getPublicKey(keyAlias || undefined)
-    .then((result) => {
-      logger.info('Public key retrieved', 'getPublicKey', {
-        keyAlias,
-        keyType: result.keyType,
-        publicKeyLength: result.publicKey?.length,
-      });
-      return result;
-    })
-    .catch((error) => {
-      logger.error('Public key retrieval failed', 'getPublicKey', error, {
-        keyAlias,
-      });
-      throw error;
-    });
+  return logged('getPublicKey', { keyAlias }, () =>
+    ReactNativeBiometrics.getPublicKey(keyAlias || undefined)
+  );
 }
 
 // Key management configuration
 export function configureKeyAlias(keyAlias: string): Promise<void> {
-  logger.debug('Configuring key alias', 'configureKeyAlias', { keyAlias });
-  return ReactNativeBiometrics.configureKeyAlias(keyAlias)
-    .then((result) => {
-      logger.info('Key alias configured successfully', 'configureKeyAlias', {
-        keyAlias,
-      });
-      return result;
-    })
-    .catch((error) => {
-      logger.error(
-        'Key alias configuration failed',
-        'configureKeyAlias',
-        error,
-        { keyAlias }
-      );
-      throw error;
-    });
+  return logged('configureKeyAlias', { keyAlias }, () =>
+    ReactNativeBiometrics.configureKeyAlias(keyAlias)
+  );
 }
 
 export function getDefaultKeyAlias(): Promise<string> {
-  logger.debug('Getting default key alias', 'getDefaultKeyAlias');
-  return ReactNativeBiometrics.getDefaultKeyAlias()
-    .then((result) => {
-      logger.info('Default key alias retrieved', 'getDefaultKeyAlias', {
-        keyAlias: result,
-      });
-      return result;
-    })
-    .catch((error) => {
-      logger.error(
-        'Failed to get default key alias',
-        'getDefaultKeyAlias',
-        error
-      );
-      throw error;
-    });
+  return logged('getDefaultKeyAlias', undefined, () =>
+    ReactNativeBiometrics.getDefaultKeyAlias()
+  );
 }
 
 export function getAllKeys(customAlias?: string): Promise<GetAllKeysResult> {
-  logger.debug('Getting all keys', 'getAllKeys', { customAlias });
-  return ReactNativeBiometrics.getAllKeys(customAlias)
-    .then((result) => {
-      logger.info('All keys retrieved', 'getAllKeys', {
-        keyCount: result.keys?.length || 0,
-        customAlias,
-      });
-      return result;
-    })
-    .catch((error) => {
-      logger.error('Failed to get all keys', 'getAllKeys', error);
-      throw error;
-    });
+  return logged('getAllKeys', { customAlias }, () =>
+    ReactNativeBiometrics.getAllKeys(customAlias)
+  );
 }
 
 // Debugging utilities
 export function getDiagnosticInfo(): Promise<DiagnosticInfo> {
-  logger.debug('Getting diagnostic information', 'getDiagnosticInfo');
-  return ReactNativeBiometrics.getDiagnosticInfo()
-    .then((result) => {
-      logger.info('Diagnostic information retrieved', 'getDiagnosticInfo', {
-        platform: result.platform,
-        osVersion: result.osVersion,
-        deviceModel: result.deviceModel,
-        biometricCapabilities: result.biometricCapabilities,
-      });
-      return result;
-    })
-    .catch((error) => {
-      logger.error(
-        'Failed to get diagnostic information',
-        'getDiagnosticInfo',
-        error
-      );
-      throw error;
-    });
+  return logged('getDiagnosticInfo', undefined, () =>
+    ReactNativeBiometrics.getDiagnosticInfo()
+  );
 }
 
 export function runBiometricTest(): Promise<BiometricTestResult> {
-  logger.debug('Running biometric test', 'runBiometricTest');
-  return ReactNativeBiometrics.runBiometricTest()
-    .then((result) => {
-      logger.info('Biometric test completed', 'runBiometricTest', {
-        success: result.success,
-        errorCount: result.errors?.length || 0,
-        warningCount: result.warnings?.length || 0,
-      });
-      return result;
-    })
-    .catch((error) => {
-      logger.error('Biometric test failed', 'runBiometricTest', error);
-      throw error;
-    });
+  return logged('runBiometricTest', undefined, () =>
+    ReactNativeBiometrics.runBiometricTest()
+  );
 }
 
 export function setDebugMode(enabled: boolean): Promise<void> {
-  logger.debug('Setting debug mode', 'setDebugMode', { enabled });
-
   // Enable/disable centralized logging based on debug mode
   logger.setEnabled(enabled);
-  if (enabled) {
-    logger.setLevel(LogLevel.DEBUG);
-  } else {
-    logger.setLevel(LogLevel.INFO);
-  }
+  logger.setLevel(enabled ? LogLevel.DEBUG : LogLevel.INFO);
 
-  return ReactNativeBiometrics.setDebugMode(enabled)
-    .then((result) => {
-      logger.info('Debug mode updated', 'setDebugMode', { enabled });
-      return result;
-    })
-    .catch((error) => {
-      logger.error('Failed to set debug mode', 'setDebugMode', error, {
-        enabled,
-      });
-      throw error;
-    });
+  return logged('setDebugMode', { enabled }, () =>
+    ReactNativeBiometrics.setDebugMode(enabled)
+  );
 }
 
 export function getDeviceIntegrityStatus(): Promise<DeviceIntegrityResult> {
-  logger.debug('Getting device integrity status', 'getDeviceIntegrityStatus');
-
-  return ReactNativeBiometrics.getDeviceIntegrityStatus()
-    .then((result) => {
-      logger.info(
-        'Device integrity status retrieved',
-        'getDeviceIntegrityStatus',
-        {
-          isCompromised: result.isCompromised,
-          riskLevel: result.riskLevel,
-          hasRuntimeHooks: result.hasRuntimeHooks,
-        }
-      );
-      return result;
-    })
-    .catch((error) => {
-      logger.error(
-        'Failed to get device integrity status',
-        'getDeviceIntegrityStatus',
-        error
-      );
-      throw error;
-    });
+  return logged('getDeviceIntegrityStatus', undefined, () =>
+    ReactNativeBiometrics.getDeviceIntegrityStatus()
+  );
 }
 
 // Configuration types
@@ -829,30 +473,14 @@ export type BiometricConfig = {
 
 // Initialize library with configuration
 export function configure(config: BiometricConfig): Promise<void> {
-  logger.debug('Configuring library', 'configure', config);
-
-  if (config.keyAlias) {
-    return configureKeyAlias(config.keyAlias)
-      .then((result) => {
-        logger.info('Library configuration completed', 'configure', config);
-        return result;
-      })
-      .catch((error) => {
-        logger.error(
-          'Library configuration failed',
-          'configure',
-          error,
-          config
-        );
-        throw error;
-      });
+  const { keyAlias } = config;
+  if (keyAlias) {
+    return logged('configure', config, () => configureKeyAlias(keyAlias));
   }
 
-  logger.info(
-    'Library configuration completed (no key alias)',
-    'configure',
-    config
-  );
+  if (isDev()) {
+    logger.info('configure completed (no key alias)', 'configure', config);
+  }
   return Promise.resolve();
 }
 
@@ -1164,10 +792,12 @@ export type { BiometricChangeEvent };
 export function subscribeToBiometricChanges(
   callback: (event: BiometricChangeEvent) => void
 ): EventSubscription {
-  logger.debug(
-    'Subscribing to biometric changes',
-    'subscribeToBiometricChanges'
-  );
+  if (isDev()) {
+    logger.debug(
+      'Subscribing to biometric changes',
+      'subscribeToBiometricChanges'
+    );
+  }
 
   // New architecture: events emitted through the codegen event emitter are
   // only delivered to its own subscribers, never to DeviceEventEmitter.
@@ -1197,10 +827,12 @@ export function subscribeToBiometricChanges(
 export function unsubscribeFromBiometricChanges(
   subscription: EventSubscription
 ): void {
-  logger.debug(
-    'Unsubscribing from biometric changes',
-    'unsubscribeFromBiometricChanges'
-  );
+  if (isDev()) {
+    logger.debug(
+      'Unsubscribing from biometric changes',
+      'unsubscribeFromBiometricChanges'
+    );
+  }
   subscription.remove();
 }
 
@@ -1211,11 +843,9 @@ export function unsubscribeFromBiometricChanges(
  * @returns Promise that resolves when detection is started
  */
 export function startBiometricChangeDetection(): Promise<void> {
-  logger.debug(
-    'Starting biometric change detection',
-    'startBiometricChangeDetection'
+  return logged('startBiometricChangeDetection', undefined, () =>
+    ReactNativeBiometrics.startBiometricChangeDetection()
   );
-  return ReactNativeBiometrics.startBiometricChangeDetection();
 }
 
 /**
@@ -1225,9 +855,7 @@ export function startBiometricChangeDetection(): Promise<void> {
  * @returns Promise that resolves when detection is stopped
  */
 export function stopBiometricChangeDetection(): Promise<void> {
-  logger.debug(
-    'Stopping biometric change detection',
-    'stopBiometricChangeDetection'
+  return logged('stopBiometricChangeDetection', undefined, () =>
+    ReactNativeBiometrics.stopBiometricChangeDetection()
   );
-  return ReactNativeBiometrics.stopBiometricChangeDetection();
 }

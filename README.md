@@ -1259,10 +1259,13 @@ const setDebugMode = (enabled: boolean): Promise<void> => {
 - When enabled, all library operations will log detailed information
 - **iOS**: Check Xcode console for `[ReactNativeBiometrics Debug]` messages
 - **Android**: Check Logcat for `ReactNativeBiometrics Debug` tags
+- The native messages above appear in any build; the JS log entries (`getLogs()`, Metro console) only appear in development builds
 
 ### Logging & Monitoring
 
 The library includes a comprehensive centralized logging system for debugging and monitoring biometric operations.
+
+The library only logs in development builds (when `__DEV__` is true). Release builds compile its logging out, so in production library calls produce no log entries; use the returned `errorCode` values and rejections to track failures there. See the [logging guide](docs/LOGGING.md#development-and-release-builds).
 
 #### `enableLogging(enabled: boolean)`
 

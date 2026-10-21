@@ -5,6 +5,8 @@ sidebar_label: Logging
 
 The library includes a comprehensive centralized logging system for debugging and monitoring biometric operations.
 
+The library only logs in development builds (when `__DEV__` is true). Release builds compile its logging out, so in production these functions don't produce any entries from library calls. See [Development and Release Builds](../guides/logging.md#development-and-release-builds).
+
 ## `enableLogging()`
 
 Enables or disables the centralized logging system.

@@ -6,6 +6,7 @@
   "module": "./lib/module/index.js",
   "source": "src/index",
   "react-native": "src/index",
+  "sideEffects": false,
   "exports": {
     ".": {
       "source": "./src/index.tsx",

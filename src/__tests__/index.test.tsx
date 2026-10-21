@@ -816,6 +816,116 @@ describe('ReactNativeBiometrics', () => {
     });
   });
 
+  describe('Logging in development and release builds', () => {
+    const NativeBiometrics: any = jest.requireMock(
+      '../NativeReactNativeBiometrics'
+    );
+    const globals = globalThis as { __DEV__?: boolean };
+    const originalDev = globals.__DEV__;
+
+    beforeEach(() => {
+      Biometrics.configureLogger({
+        enabled: true,
+        level: Biometrics.LogLevel.DEBUG,
+      });
+      Biometrics.clearLogs();
+      for (const method of ['debug', 'info', 'error'] as const) {
+        jest.spyOn(console, method).mockImplementation(() => {});
+      }
+    });
+
+    afterEach(() => {
+      globals.__DEV__ = originalDev;
+      Biometrics.configureLogger({
+        enabled: false,
+        level: Biometrics.LogLevel.INFO,
+      });
+      Biometrics.clearLogs();
+      jest.restoreAllMocks();
+    });
+
+    it('logs start and completion under the function name in development', async () => {
+      await Biometrics.deleteKeys('alias1');
+
+      const logs = Biometrics.getLogs();
+      expect(logs.map((entry) => [entry.level, entry.context])).toEqual([
+        [Biometrics.LogLevel.DEBUG, 'deleteKeys'],
+        [Biometrics.LogLevel.INFO, 'deleteKeys'],
+      ]);
+      expect(logs[0]?.data).toEqual({ keyAlias: 'alias1' });
+    });
+
+    it('does not log anything in release builds, even failures', async () => {
+      globals.__DEV__ = false;
+
+      await Biometrics.deleteKeys('alias1');
+      NativeBiometrics.deleteKeys.mockImplementationOnce(() =>
+        Promise.reject(new Error('Native delete failed'))
+      );
+      await expect(Biometrics.deleteKeys('alias1')).rejects.toThrow(
+        'Native delete failed'
+      );
+
+      expect(Biometrics.getLogs()).toEqual([]);
+    });
+
+    it('logs failures with their call data in development', async () => {
+      NativeBiometrics.deleteKeys.mockImplementationOnce(() =>
+        Promise.reject(new Error('Native delete failed'))
+      );
+      await expect(Biometrics.deleteKeys('alias1')).rejects.toThrow(
+        'Native delete failed'
+      );
+
+      expect(Biometrics.getLogs().at(-1)).toMatchObject({
+        level: Biometrics.LogLevel.ERROR,
+        context: 'deleteKeys',
+        data: { keyAlias: 'alias1' },
+      });
+    });
+
+    it('loads and runs with __DEV__ undefined, treating it as a release build', async () => {
+      // react-native itself needs __DEV__ to load, so reuse the instance that
+      // is already loaded and load only the library fresh without it.
+      const reactNative = jest.requireActual('react-native');
+      delete globals.__DEV__;
+      jest.resetModules();
+      jest.doMock('react-native', () => reactNative);
+      try {
+        const lib = await import('../index');
+        lib.configureLogger({ enabled: true, level: lib.LogLevel.DEBUG });
+        // Use the native event emitter path: React Native's own
+        // DeviceEventEmitter fallback also needs __DEV__.
+        jest.requireMock<any>(
+          '../NativeReactNativeBiometrics'
+        ).onBiometricChange = jest.fn(() => ({ remove: jest.fn() }));
+
+        // Every __DEV__ check in the library, none of which may throw.
+        await expect(lib.deleteKeys('alias1')).resolves.toBeDefined();
+        await expect(
+          lib.createKeysWithOptions({
+            requireAuthentication: false,
+            allowDeviceCredentials: true,
+          })
+        ).resolves.toBeDefined();
+        await expect(
+          lib.signWithOptions({
+            data: 'data',
+            biometricStrength: lib.BiometricStrength.Weak,
+          })
+        ).resolves.toBeDefined();
+        await expect(lib.configure({})).resolves.toBeUndefined();
+        lib.unsubscribeFromBiometricChanges(
+          lib.subscribeToBiometricChanges(() => {})
+        );
+
+        expect(lib.getLogs()).toEqual([]);
+      } finally {
+        jest.dontMock('react-native');
+      }
+    });
+  });
+
   describe('Device Integrity', () => {
     it('should return secure device integrity status', async () => {
       const result = await Biometrics.getDeviceIntegrityStatus();
