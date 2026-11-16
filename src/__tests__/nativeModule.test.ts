@@ -1,7 +1,7 @@
 /**
  * Resolution of the native module: TurboModule first, then the legacy
  * NativeModules entry, then a stand-in that rejects every call with a clear
- * error (Expo Go, web, an app not rebuilt after install).
+ * error (Expo Go, an app not rebuilt after install).
  */
 
 import type * as Biometrics from '../index';
