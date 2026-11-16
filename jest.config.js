@@ -1,6 +1,9 @@
 module.exports = {
   preset: 'react-native',
-  testMatch: ['**/src/__tests__/**/*.test.ts?(x)'],
+  testMatch: [
+    '<rootDir>/src/__tests__/**/*.test.ts?(x)',
+    '<rootDir>/plugin/src/__tests__/**/*.test.ts',
+  ],
   transform: {
     '^.+\\.(ts|tsx)$': ['ts-jest', { tsconfig: 'tsconfig.jest.json' }],
   },

@@ -56,7 +56,7 @@
   "scripts": {
     "example": "yarn workspace @sbaiahmed1/react-native-biometrics-example",
     "test": "jest",
-    "typecheck": "tsc",
+    "typecheck": "tsc && tsc -p plugin/tsconfig.test.json",
     "lint": "eslint \"**/*.{js,ts,tsx}\"",
     "clean": "del-cli android/build example/android example/ios example/.expo lib plugin/build",
     "prepare": "bob build && yarn build:plugin",
