@@ -31,7 +31,7 @@ import androidx.core.content.edit
 
 /**
  * Shared implementation for ReactNativeBiometrics that contains all the core logic.
- * This class is used by both old architecture and new architecture implementations.
+ * The TurboModule in ReactNativeBiometricsModule delegates every call here.
  */
 class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationContext) {
 
@@ -1859,62 +1859,6 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
         promise.resolve(errorResult)
       }
     }.start()
-  }
-
-  /**
-   * Creates a signature for the given payload using the specified key alias.
-   * This method is used by the old architecture module.
-   */
-  fun createSignature(payload: String, keyAlias: String?, biometricStrength: String?, promise: Promise) {
-    createSignature(payload, keyAlias, biometricStrength, false, promise)
-  }
-
-  fun createSignature(payload: String, keyAlias: String?, biometricStrength: String?, disableDeviceFallback: Boolean, promise: Promise) {
-    debugLog("createSignature called with keyAlias: ${keyAlias ?: "default"}, biometricStrength: ${biometricStrength ?: "strong"}, disableDeviceFallback: $disableDeviceFallback")
-
-    // Validate payload parameter
-    if (payload.isEmpty()) {
-      debugLog("createSignature failed - payload is empty")
-      val errorResult = Arguments.createMap()
-      errorResult.putBoolean("success", false)
-      errorResult.putString("error", "Payload cannot be empty")
-      promise.resolve(errorResult)
-      return
-    }
-
-    // Delegate to verifyKeySignature with default prompt messages
-    verifyKeySignature(keyAlias, payload, "Biometric Authentication", "Use your biometric to sign", "Cancel", biometricStrength, disableDeviceFallback, promise)
-  }
-
-  /**
-   * Verifies a signature against the given payload using the specified key alias.
-   * This method is used by the old architecture module.
-   */
-  fun verifySignature(signature: String, payload: String, keyAlias: String?, promise: Promise) {
-    debugLog("verifySignature called with keyAlias: ${keyAlias ?: "default"}")
-
-    // Validate signature parameter
-    if (signature.isEmpty()) {
-      debugLog("verifySignature failed - signature is empty")
-      val errorResult = Arguments.createMap()
-      errorResult.putBoolean("valid", false)
-      errorResult.putString("error", "Signature cannot be empty")
-      promise.resolve(errorResult)
-      return
-    }
-
-    // Validate payload parameter
-    if (payload.isEmpty()) {
-      debugLog("verifySignature failed - payload is empty")
-      val errorResult = Arguments.createMap()
-      errorResult.putBoolean("valid", false)
-      errorResult.putString("error", "Payload cannot be empty")
-      promise.resolve(errorResult)
-      return
-    }
-
-    // Delegate to validateSignature
-    validateSignature(keyAlias, payload, signature, promise)
   }
 
   // Biometric change detection methods

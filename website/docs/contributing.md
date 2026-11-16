@@ -52,20 +52,15 @@ To run the example app on iOS:
 yarn example ios
 ```
 
-By default the example runs the **new architecture on iOS** and the **old architecture on Android**. This covers both JS event-emitter paths, but on the Android native side only `android/src/oldarch` is built — `android/src/newarch` is **not** exercised by the default configuration. To validate it, set `android.newArchEnabled` to `true` in `example/app.json` (the same works in reverse for `ios.newArchEnabled`), then regenerate and rebuild that platform:
+The library is a TurboModule and only supports the new architecture, which the example app uses on both platforms.
 
-```sh
-yarn example expo prebuild --clean --platform android   # or ios
-yarn example android                                    # or ios
-```
-
-To confirm which architecture the app is running, check the Metro logs for a message like this:
+To confirm the app is running the new architecture, check the Metro logs for a message like this:
 
 ```sh
 Running "main" with {"fabric":true,"initialProps":{"concurrentRoot":true},"rootTag":1}
 ```
 
-`"fabric":true` means the new architecture; on Android you should see `"fabric":false` (old architecture).
+`"fabric":true` means the new architecture.
 
 Make sure your code passes TypeScript and ESLint. Run the following to verify:
 

@@ -47,8 +47,7 @@
 - #️⃣ **Native SHA-256 Hashing** - Platform-native SHA-256 via `sha256()` function
 - 📦 **Lightweight** - Minimal dependencies and optimized for performance
 - 🎯 **TypeScript** - Full TypeScript support with detailed type definitions
-- 🔄 **New Architecture** - Compatible with React Native's new architecture (TurboModules)
-- ✅ **Old Architecture** - Compatible with React Native's old architecture
+- 🔄 **New Architecture** - Built as a TurboModule for React Native's new architecture
 - 🌟 **Expo Compatible** - Works seamlessly with Expo development workflow
 - 📱 **Modern** - Made with Swift and Kotlin for iOS and Android respectively
 - 🚀 **Easy Integration** - Simple setup with comprehensive documentation
@@ -56,9 +55,11 @@
 
 ## 📋 Requirements
 
-| Platform     | Minimum Version | Recommended |
-|--------------|-----------------|-------------|
-| React Native | 0.68+           | 0.75+       |
+| Platform     | Minimum Version |
+|--------------|-----------------|
+| React Native | 0.76+           |
+
+The library is a TurboModule and requires React Native's [new architecture](https://reactnative.dev/architecture/landing-page). Since version 1.0 the old architecture is not supported; apps still on it can stay on version 0.17.x.
 
 ### Supported Biometric Types
 

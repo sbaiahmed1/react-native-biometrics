@@ -1,4 +1,3 @@
-import { NativeModules } from 'react-native';
 import NativeReactNativeBiometrics, {
   type Spec,
 } from './NativeReactNativeBiometrics';
@@ -44,8 +43,6 @@ function createUnavailableModule(): Spec {
 }
 
 const nativeModule: Spec =
-  NativeReactNativeBiometrics ??
-  (NativeModules.ReactNativeBiometrics as Spec | undefined) ??
-  createUnavailableModule();
+  NativeReactNativeBiometrics ?? createUnavailableModule();
 
 export default nativeModule;

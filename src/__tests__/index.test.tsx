@@ -230,6 +230,35 @@ describe('ReactNativeBiometrics', () => {
     });
   });
 
+  // A TurboModule locates the promise callbacks after the arguments it
+  // actually received, so a call with fewer arguments than the spec declares
+  // crashes on iOS. Arguments a platform ignores must still be passed.
+  describe('native call arity', () => {
+    const NativeBiometrics: any = jest.requireMock(
+      '../NativeReactNativeBiometrics'
+    );
+    const originalOS = Platform.OS;
+
+    afterEach(() => {
+      Platform.OS = originalOS;
+    });
+
+    it.each(['ios', 'android'] as const)(
+      'passes every spec argument on %s',
+      async (os) => {
+        Platform.OS = os;
+
+        await Biometrics.isSensorAvailable();
+        expect(NativeBiometrics.isSensorAvailable.mock.lastCall).toHaveLength(
+          1
+        );
+
+        await Biometrics.simplePrompt('Authenticate');
+        expect(NativeBiometrics.simplePrompt.mock.lastCall).toHaveLength(2);
+      }
+    );
+  });
+
   describe('Authentication', () => {
     it('should authenticate with simple prompt', async () => {
       const result = await Biometrics.simplePrompt('Authenticate');
@@ -1524,11 +1553,10 @@ describe('Biometric Change Events', () => {
 
   afterEach(() => {
     delete NativeBiometrics.onBiometricChange;
-    delete reactNative().NativeModules.ReactNativeBiometrics;
     jest.restoreAllMocks();
   });
 
-  it('should subscribe via the TurboModule event emitter when available (new architecture)', () => {
+  it('should subscribe via the TurboModule event emitter', () => {
     const mockSubscription = { remove: jest.fn() };
     NativeBiometrics.onBiometricChange = jest.fn(() => mockSubscription);
 
@@ -1537,31 +1565,6 @@ describe('Biometric Change Events', () => {
 
     expect(NativeBiometrics.onBiometricChange).toHaveBeenCalledWith(callback);
     expect(subscription).toBe(mockSubscription);
-  });
-
-  it('should subscribe via NativeEventEmitter when the native module exists (old architecture)', () => {
-    const { NativeEventEmitter, NativeModules } = reactNative();
-    NativeModules.ReactNativeBiometrics = {
-      addListener: jest.fn(),
-      removeListeners: jest.fn(),
-    };
-    const nativeEmitterAddListener = jest.spyOn(
-      NativeEventEmitter.prototype,
-      'addListener'
-    );
-
-    const callback = jest.fn();
-    const subscription = Biometrics.subscribeToBiometricChanges(callback);
-
-    expect(nativeEmitterAddListener).toHaveBeenCalledWith(
-      'onBiometricChange',
-      callback
-    );
-    // The native addListener call is what un-gates iOS RCTEventEmitter emission.
-    expect(
-      NativeModules.ReactNativeBiometrics.addListener
-    ).toHaveBeenCalledWith('onBiometricChange');
-    subscription.remove();
   });
 
   it('should fall back to DeviceEventEmitter without the native module', () => {

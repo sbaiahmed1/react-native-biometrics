@@ -1,12 +1,18 @@
 import Foundation
 import LocalAuthentication
-import React
 import Security
 import CryptoKit
 import CryptoTokenKit
 
-@objc(ReactNativeBiometrics)
-class ReactNativeBiometrics: RCTEventEmitter {
+/// Native implementation behind the `ReactNativeBiometrics` TurboModule.
+/// `ReactNativeBiometrics.mm` owns one instance and forwards every call here,
+/// so this file stays free of React Native types.
+@objc(ReactNativeBiometricsImpl)
+public class ReactNativeBiometricsImpl: NSObject {
+
+  /// Set by the TurboModule; called with the `onBiometricChange` event body.
+  @objc public var onBiometricChange: (([String: Any]) -> Void)?
+
 
   private var configuredKeyAlias: String?
   private var biometricChangeObserver: NSObjectProtocol?
@@ -19,7 +25,7 @@ class ReactNativeBiometrics: RCTEventEmitter {
     let domainState: Data?
   }
 
-  override init() {
+  @objc public override init() {
     super.init()
     // Load configured key alias from UserDefaults
     configuredKeyAlias = UserDefaults.standard.string(forKey: "ReactNativeBiometricsKeyAlias")
@@ -94,83 +100,38 @@ class ReactNativeBiometrics: RCTEventEmitter {
     return storedDomainState != currentDomainState
   }
 
-  @objc
-  override static func requiresMainQueueSetup() -> Bool {
-    return false
-  }
-
-  // MARK: - Event Emitter Support
-
-  override func supportedEvents() -> [String]! {
-    return ["onBiometricChange"]
-  }
-
-  override func startObserving() {
-    // Called when JS side starts listening
-    ReactNativeBiometricDebug.debugLog("Started observing biometric changes")
-    if biometricChangeObserver == nil {
-      lastBiometricState = getCurrentBiometricState()
-      setupBiometricChangeDetection()
-    }
-  }
-
-  override func stopObserving() {
-    // Called when JS side stops listening
-    ReactNativeBiometricDebug.debugLog("Stopped observing biometric changes")
-    if let observer = biometricChangeObserver {
-      NotificationCenter.default.removeObserver(observer)
-      biometricChangeObserver = nil
-      lastBiometricState = nil
-    }
-  }
-
-  @objc
-  override func addListener(_ eventName: String) {
-    super.addListener(eventName)
-  }
-
-  @objc
-  override func removeListeners(_ count: Double) {
-    super.removeListeners(count)
-  }
-
   // MARK: - Biometric Change Detection Control
 
   @objc
-  func startBiometricChangeDetection(_ resolve: @escaping RCTPromiseResolveBlock,
-                                     rejecter reject: @escaping RCTPromiseRejectBlock) {
-    // On iOS, detection auto-starts when listeners are added via startObserving()
-    // This method is provided for API consistency with Android
-    // Manually trigger setup if not already started
+  public func startBiometricChangeDetection(_ resolve: @escaping PromiseResolveBlock,
+                                     rejecter reject: @escaping PromiseRejectBlock) {
     if biometricChangeObserver == nil {
       lastBiometricState = getCurrentBiometricState()
       setupBiometricChangeDetection()
-      ReactNativeBiometricDebug.debugLog("Manual start: biometric change detection started")
+      ReactNativeBiometricDebug.debugLog("Biometric change detection started")
     } else {
-      ReactNativeBiometricDebug.debugLog("Manual start: detection already running")
+      ReactNativeBiometricDebug.debugLog("Biometric change detection already running")
     }
     resolve(nil)
   }
 
   @objc
-  func stopBiometricChangeDetection(_ resolve: @escaping RCTPromiseResolveBlock,
-                                    rejecter reject: @escaping RCTPromiseRejectBlock) {
-    // On iOS, detection auto-stops when listeners are removed via stopObserving()
-    // This method is provided for API consistency with Android
+  public func stopBiometricChangeDetection(_ resolve: @escaping PromiseResolveBlock,
+                                    rejecter reject: @escaping PromiseRejectBlock) {
     if let observer = biometricChangeObserver {
       NotificationCenter.default.removeObserver(observer)
       biometricChangeObserver = nil
       lastBiometricState = nil
-      ReactNativeBiometricDebug.debugLog("Manual stop: biometric change detection stopped")
+      ReactNativeBiometricDebug.debugLog("Biometric change detection stopped")
     } else {
-      ReactNativeBiometricDebug.debugLog("Manual stop: detection not running")
+      ReactNativeBiometricDebug.debugLog("Biometric change detection not running")
     }
     resolve(nil)
   }
 
   @objc
-  func isSensorAvailable(_ resolve: @escaping RCTPromiseResolveBlock,
-                         rejecter reject: @escaping RCTPromiseRejectBlock) {
+  public func isSensorAvailable(_ resolve: @escaping PromiseResolveBlock,
+                         rejecter reject: @escaping PromiseRejectBlock) {
     ReactNativeBiometricDebug.debugLog("isSensorAvailable called")
     let context = LAContext()
     var error: NSError?
@@ -226,9 +187,9 @@ class ReactNativeBiometrics: RCTEventEmitter {
   }
   
   @objc
-  func simplePrompt(_ reason: NSString,
-                    resolver resolve: @escaping RCTPromiseResolveBlock,
-                    rejecter reject: @escaping RCTPromiseRejectBlock) {
+  public func simplePrompt(_ reason: NSString,
+                    resolver resolve: @escaping PromiseResolveBlock,
+                    rejecter reject: @escaping PromiseRejectBlock) {
     ReactNativeBiometricDebug.debugLog("simplePrompt called with reason: \(reason)")
     let context = LAContext()
     
@@ -276,9 +237,9 @@ class ReactNativeBiometrics: RCTEventEmitter {
   }
 
   @objc
-  func authenticateWithOptions(_ options: NSDictionary,
-                               resolver resolve: @escaping RCTPromiseResolveBlock,
-                               rejecter reject: @escaping RCTPromiseRejectBlock) {
+  public func authenticateWithOptions(_ options: NSDictionary,
+                               resolver resolve: @escaping PromiseResolveBlock,
+                               rejecter reject: @escaping PromiseRejectBlock) {
     ReactNativeBiometricDebug.debugLog("authenticateWithOptions called with options: \(options)")
     let context = LAContext()
     
@@ -361,25 +322,25 @@ class ReactNativeBiometrics: RCTEventEmitter {
   // MARK: - Debugging Utilities
   
   @objc
-  func getDiagnosticInfo(_ resolve: @escaping RCTPromiseResolveBlock,
-                         rejecter reject: @escaping RCTPromiseRejectBlock) {
+  public func getDiagnosticInfo(_ resolve: @escaping PromiseResolveBlock,
+                         rejecter reject: @escaping PromiseRejectBlock) {
     ReactNativeBiometricDebug.debugLog("getDiagnosticInfo called")
     let result = ReactNativeBiometricDebug.getDiagnosticInfo()
     resolve(result)
   }
   
   @objc
-  func runBiometricTest(_ resolve: @escaping RCTPromiseResolveBlock,
-                        rejecter reject: @escaping RCTPromiseRejectBlock) {
+  public func runBiometricTest(_ resolve: @escaping PromiseResolveBlock,
+                        rejecter reject: @escaping PromiseRejectBlock) {
     ReactNativeBiometricDebug.debugLog("runBiometricTest called")
     let result = ReactNativeBiometricDebug.runBiometricTest()
     resolve(result)
   }
   
   @objc
-  func setDebugMode(_ enabled: Bool,
-                    resolver resolve: @escaping RCTPromiseResolveBlock,
-                    rejecter reject: @escaping RCTPromiseRejectBlock) {
+  public func setDebugMode(_ enabled: Bool,
+                    resolver resolve: @escaping PromiseResolveBlock,
+                    rejecter reject: @escaping PromiseRejectBlock) {
     // Store debug mode state
     UserDefaults.standard.set(enabled, forKey: "ReactNativeBiometricsDebugMode")
     
@@ -393,9 +354,9 @@ class ReactNativeBiometrics: RCTEventEmitter {
   }
   
   @objc
-  func configureKeyAlias(_ keyAlias: NSString,
-                         resolver resolve: @escaping RCTPromiseResolveBlock,
-                         rejecter reject: @escaping RCTPromiseRejectBlock) {
+  public func configureKeyAlias(_ keyAlias: NSString,
+                         resolver resolve: @escaping PromiseResolveBlock,
+                         rejecter reject: @escaping PromiseRejectBlock) {
     ReactNativeBiometricDebug.debugLog("configureKeyAlias called with: \(keyAlias)")
     
     // Validate key alias
@@ -414,8 +375,8 @@ class ReactNativeBiometrics: RCTEventEmitter {
   }
   
   @objc
-  func getDefaultKeyAlias(_ resolve: @escaping RCTPromiseResolveBlock,
-                          rejecter reject: @escaping RCTPromiseRejectBlock) {
+  public func getDefaultKeyAlias(_ resolve: @escaping PromiseResolveBlock,
+                          rejecter reject: @escaping PromiseRejectBlock) {
     let defaultAlias = getKeyAlias()
     ReactNativeBiometricDebug.debugLog("getDefaultKeyAlias returning: \(defaultAlias)")
     resolve(defaultAlias)
@@ -425,13 +386,13 @@ class ReactNativeBiometrics: RCTEventEmitter {
   // Debug and diagnostic utilities have been moved to ReactNativeBiometricDebug
   
   @objc
-  func createKeys(_ keyAlias: NSString?,
+  public func createKeys(_ keyAlias: NSString?,
                   keyType: NSString?,
                   biometricStrength: NSString?,
                   allowDeviceCredentials: NSNumber?,
                   failIfExists: NSNumber?,
-                  resolver resolve: @escaping RCTPromiseResolveBlock,
-                  rejecter reject: @escaping RCTPromiseRejectBlock) {
+                  resolver resolve: @escaping PromiseResolveBlock,
+                  rejecter reject: @escaping PromiseRejectBlock) {
     createKeysInternal(keyAlias: keyAlias as String?,
                        keyType: keyType as String?,
                        biometricStrength: biometricStrength as String?,
@@ -443,9 +404,9 @@ class ReactNativeBiometrics: RCTEventEmitter {
   }
 
   @objc
-  func createKeysWithOptions(_ options: NSDictionary,
-                             resolver resolve: @escaping RCTPromiseResolveBlock,
-                             rejecter reject: @escaping RCTPromiseRejectBlock) {
+  public func createKeysWithOptions(_ options: NSDictionary,
+                             resolver resolve: @escaping PromiseResolveBlock,
+                             rejecter reject: @escaping PromiseRejectBlock) {
     createKeysInternal(keyAlias: options["keyAlias"] as? String,
                        keyType: options["keyType"] as? String,
                        biometricStrength: options["biometricStrength"] as? String,
@@ -462,8 +423,8 @@ class ReactNativeBiometrics: RCTEventEmitter {
                                   allowDeviceCredentials deviceCredentialsFallback: Bool,
                                   failIfExists failIfKeyExists: Bool,
                                   requireAuthentication: Bool,
-                                  resolve: @escaping RCTPromiseResolveBlock,
-                                  reject: @escaping RCTPromiseRejectBlock) {
+                                  resolve: @escaping PromiseResolveBlock,
+                                  reject: @escaping PromiseRejectBlock) {
     ReactNativeBiometricDebug.debugLog("createKeys called with keyAlias: \(keyAlias ?? "default"), keyType: \(keyType ?? "ec256"), biometricStrength: \(biometricStrength ?? "strong"), allowDeviceCredentials: \(deviceCredentialsFallback), failIfExists: \(failIfKeyExists), requireAuthentication: \(requireAuthentication)")
 
     let keyTag = getKeyAlias(keyAlias)
@@ -597,9 +558,9 @@ class ReactNativeBiometrics: RCTEventEmitter {
   }
   
   @objc
-  func deleteKeys(_ keyAlias: NSString?,
-                  resolver resolve: @escaping RCTPromiseResolveBlock,
-                  rejecter reject: @escaping RCTPromiseRejectBlock) {
+  public func deleteKeys(_ keyAlias: NSString?,
+                  resolver resolve: @escaping PromiseResolveBlock,
+                  rejecter reject: @escaping PromiseRejectBlock) {
     ReactNativeBiometricDebug.debugLog("deleteKeys called with keyAlias: \(keyAlias ?? "default")")
     
     let keyTag = getKeyAlias(keyAlias as String?)
@@ -649,9 +610,9 @@ class ReactNativeBiometrics: RCTEventEmitter {
   }
   
   @objc
-  func getPublicKey(_ keyAlias: NSString?,
-                    resolver resolve: @escaping RCTPromiseResolveBlock,
-                    rejecter reject: @escaping RCTPromiseRejectBlock) {
+  public func getPublicKey(_ keyAlias: NSString?,
+                    resolver resolve: @escaping PromiseResolveBlock,
+                    rejecter reject: @escaping PromiseRejectBlock) {
     ReactNativeBiometricDebug.debugLog("getPublicKey called with keyAlias: \(keyAlias ?? "default")")
 
     let keyTag = getKeyAlias(keyAlias as String?)
@@ -710,9 +671,9 @@ class ReactNativeBiometrics: RCTEventEmitter {
   }
 
   @objc
-  func getAllKeys(_ customAlias: NSString?,
-                  resolver resolve: @escaping RCTPromiseResolveBlock,
-                  rejecter reject: @escaping RCTPromiseRejectBlock) {
+  public func getAllKeys(_ customAlias: NSString?,
+                  resolver resolve: @escaping PromiseResolveBlock,
+                  rejecter reject: @escaping PromiseRejectBlock) {
     ReactNativeBiometricDebug.debugLog("getAllKeys called with customAlias: \(customAlias ?? "nil")")
     
     // Query to find all keys in the Keychain
@@ -801,9 +762,9 @@ class ReactNativeBiometrics: RCTEventEmitter {
   }
   
   @objc
-  func validateKeyIntegrity(_ keyAlias: NSString?,
-                            resolver resolve: @escaping RCTPromiseResolveBlock,
-                            rejecter reject: @escaping RCTPromiseRejectBlock) {
+  public func validateKeyIntegrity(_ keyAlias: NSString?,
+                            resolver resolve: @escaping PromiseResolveBlock,
+                            rejecter reject: @escaping PromiseRejectBlock) {
     ReactNativeBiometricDebug.debugLog("validateKeyIntegrity called with keyAlias: \(keyAlias ?? "default")")
     
     let keyTag = getKeyAlias(keyAlias as String?)
@@ -995,18 +956,18 @@ class ReactNativeBiometrics: RCTEventEmitter {
   }
   
   @objc
-  func verifyKeySignature(_ keyAlias: NSString?,
+  public func verifyKeySignature(_ keyAlias: NSString?,
                           data: NSString,
                           promptTitle: NSString?,
                           promptSubtitle: NSString?,
                           cancelButtonText: NSString?,
-                          resolver resolve: @escaping RCTPromiseResolveBlock,
-                          rejecter reject: @escaping RCTPromiseRejectBlock) {
+                          resolver resolve: @escaping PromiseResolveBlock,
+                          rejecter reject: @escaping PromiseRejectBlock) {
     verifyKeySignatureWithEncoding(keyAlias, data: data, promptTitle: promptTitle, promptSubtitle: promptSubtitle, cancelButtonText: cancelButtonText, inputEncoding: "utf8", resolver: resolve, rejecter: reject)
   }
 
   @objc
-  func verifyKeySignatureWithOptions(_ keyAlias: NSString?,
+  public func verifyKeySignatureWithOptions(_ keyAlias: NSString?,
                           data: NSString,
                           promptTitle: NSString?,
                           promptSubtitle: NSString?,
@@ -1014,20 +975,20 @@ class ReactNativeBiometrics: RCTEventEmitter {
                           biometricStrength: NSString?,
                           disableDeviceFallback: NSNumber?,
                           inputEncoding: NSString?,
-                          resolver resolve: @escaping RCTPromiseResolveBlock,
-                          rejecter reject: @escaping RCTPromiseRejectBlock) {
+                          resolver resolve: @escaping PromiseResolveBlock,
+                          rejecter reject: @escaping PromiseRejectBlock) {
     verifyKeySignatureWithEncoding(keyAlias, data: data, promptTitle: promptTitle, promptSubtitle: promptSubtitle, cancelButtonText: cancelButtonText, inputEncoding: inputEncoding, resolver: resolve, rejecter: reject)
   }
 
   @objc
-  func verifyKeySignatureWithEncoding(_ keyAlias: NSString?,
+  public func verifyKeySignatureWithEncoding(_ keyAlias: NSString?,
                           data: NSString,
                           promptTitle: NSString?,
                           promptSubtitle: NSString?,
                           cancelButtonText: NSString?,
                           inputEncoding: NSString?,
-                          resolver resolve: @escaping RCTPromiseResolveBlock,
-                          rejecter reject: @escaping RCTPromiseRejectBlock) {
+                          resolver resolve: @escaping PromiseResolveBlock,
+                          rejecter reject: @escaping PromiseRejectBlock) {
     let encoding = (inputEncoding as String?) ?? "utf8"
     ReactNativeBiometricDebug.debugLog("verifyKeySignature called with keyAlias: \(keyAlias ?? "default"), inputEncoding: \(encoding)")
 
@@ -1198,9 +1159,9 @@ class ReactNativeBiometrics: RCTEventEmitter {
    * KEY_REQUIRES_AUTHENTICATION instead of prompting.
    */
   @objc
-  func signData(_ options: NSDictionary,
-                resolver resolve: @escaping RCTPromiseResolveBlock,
-                rejecter reject: @escaping RCTPromiseRejectBlock) {
+  public func signData(_ options: NSDictionary,
+                resolver resolve: @escaping PromiseResolveBlock,
+                rejecter reject: @escaping PromiseRejectBlock) {
     let keyAlias = options["keyAlias"] as? String
     let encoding = (options["inputEncoding"] as? String ?? "utf8").lowercased()
     let requestedAlgorithm = options["algorithm"] as? String
@@ -1304,11 +1265,11 @@ class ReactNativeBiometrics: RCTEventEmitter {
   }
 
   @objc
-  func validateSignature(_ keyAlias: NSString?,
+  public func validateSignature(_ keyAlias: NSString?,
                          data: NSString,
                          signature: NSString,
-                         resolver resolve: @escaping RCTPromiseResolveBlock,
-                         rejecter reject: @escaping RCTPromiseRejectBlock) {
+                         resolver resolve: @escaping PromiseResolveBlock,
+                         rejecter reject: @escaping PromiseRejectBlock) {
     ReactNativeBiometricDebug.debugLog("validateSignature called with keyAlias: \(keyAlias ?? "default")")
     
     // Enhanced input validation
@@ -1397,10 +1358,10 @@ class ReactNativeBiometrics: RCTEventEmitter {
   }
   
   @objc
-  func sha256(_ data: NSString,
+  public func sha256(_ data: NSString,
               inputEncoding: NSString?,
-              resolver resolve: @escaping RCTPromiseResolveBlock,
-              rejecter reject: @escaping RCTPromiseRejectBlock) {
+              resolver resolve: @escaping PromiseResolveBlock,
+              rejecter reject: @escaping PromiseRejectBlock) {
     let encoding = (inputEncoding as String?) ?? "utf8"
 
     let dataBytes: Data
@@ -1424,9 +1385,9 @@ class ReactNativeBiometrics: RCTEventEmitter {
   }
 
   @objc
-  func getKeyAttributes(_ keyAlias: NSString?,
-                        resolver resolve: @escaping RCTPromiseResolveBlock,
-                        rejecter reject: @escaping RCTPromiseRejectBlock) {
+  public func getKeyAttributes(_ keyAlias: NSString?,
+                        resolver resolve: @escaping PromiseResolveBlock,
+                        rejecter reject: @escaping PromiseRejectBlock) {
     ReactNativeBiometricDebug.debugLog("getKeyAttributes called with keyAlias: \(keyAlias ?? "default")")
     
     let keyTag = getKeyAlias(keyAlias as String?)
@@ -1528,8 +1489,8 @@ class ReactNativeBiometrics: RCTEventEmitter {
   }
   
   @objc
-  func getDeviceIntegrityStatus(_ resolver: @escaping RCTPromiseResolveBlock,
-                                rejecter reject: @escaping RCTPromiseRejectBlock) {
+  public func getDeviceIntegrityStatus(_ resolver: @escaping PromiseResolveBlock,
+                                rejecter reject: @escaping PromiseRejectBlock) {
     ReactNativeBiometricDebug.debugLog("getDeviceIntegrityStatus called")
 
     // The global function from Utils.swift; includes a localhost port probe,
@@ -1631,7 +1592,7 @@ class ReactNativeBiometrics: RCTEventEmitter {
         "enrolled": currentState.enrolledCount > 0
       ]
 
-      sendEvent(withName: "onBiometricChange", body: event)
+      onBiometricChange?(event)
       lastBiometricState = currentState
       ReactNativeBiometricDebug.debugLog("Biometric state changed: \(changeType)")
     }

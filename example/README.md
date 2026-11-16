@@ -24,9 +24,9 @@ The first run generates the native project automatically: on iOS this includes `
 yarn example expo prebuild --clean
 ```
 
-## Architecture coverage
+## Architecture
 
-By default the app runs the **new architecture on iOS** and the **old architecture on Android** (`ios.newArchEnabled` / `android.newArchEnabled` in `app.json`). That covers both JS event-emitter paths and the library's `android/src/oldarch` module; the `android/src/newarch` module is only exercised if you set `android.newArchEnabled` to `true`, re-run `expo prebuild --clean --platform android`, and rebuild.
+The library is a TurboModule, so the app runs React Native's new architecture on both platforms.
 
 ## What's inside
 

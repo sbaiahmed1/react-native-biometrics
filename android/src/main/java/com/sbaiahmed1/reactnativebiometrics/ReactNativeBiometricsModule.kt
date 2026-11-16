@@ -4,12 +4,10 @@ import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReactMethod
 import com.facebook.react.bridge.ReadableMap
-import com.facebook.react.bridge.WritableMap
-import com.facebook.react.modules.core.DeviceEventManagerModule
 
 /**
- * New Architecture (TurboModule) implementation of ReactNativeBiometricsModule
- * This extends the generated NativeReactNativeBiometricsSpec from codegen
+ * TurboModule implementation. Extends the codegen-generated
+ * NativeReactNativeBiometricsSpec.
  */
 class ReactNativeBiometricsModule(reactContext: ReactApplicationContext) :
   NativeReactNativeBiometricsSpec(reactContext) {
@@ -19,34 +17,10 @@ class ReactNativeBiometricsModule(reactContext: ReactApplicationContext) :
   }
 
   private val sharedImpl = ReactNativeBiometricsSharedImpl(reactContext)
-  private var listenerCount = 0
 
   init {
-    // Initialize biometric change detection with BOTH new and old event emission for compatibility
-    sharedImpl.setBiometricChangeListener { event ->
-      // Method 1: New architecture - use codegen-generated emitOnBiometricChange
-      try {
-        emitOnBiometricChange(event)
-        android.util.Log.d("ReactNativeBiometrics", "Emitted via new arch method")
-      } catch (e: Exception) {
-        android.util.Log.e("ReactNativeBiometrics", "Failed to emit via new arch: ${e.message}")
-      }
-
-      // Method 2: Old architecture - use DeviceEventManagerModule for NativeEventEmitter compatibility
-      try {
-        reactApplicationContext
-          .getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter::class.java)
-          ?.emit("onBiometricChange", event)
-        android.util.Log.d("ReactNativeBiometrics", "Emitted via DeviceEventManagerModule")
-      } catch (e: Exception) {
-        android.util.Log.e("ReactNativeBiometrics", "Failed to emit via DeviceEventManagerModule: ${e.message}")
-      }
-    }
-
-    // Note: Detection is now manually controlled via start/stopBiometricChangeDetection
-    // Auto-start was removed to give users explicit control
-
-
+    // Detection is not started here: JS calls startBiometricChangeDetection().
+    sharedImpl.setBiometricChangeListener { event -> emitOnBiometricChange(event) }
   }
 
   override fun getName() = NAME
@@ -160,27 +134,6 @@ class ReactNativeBiometricsModule(reactContext: ReactApplicationContext) :
   @ReactMethod
   override fun getDeviceIntegrityStatus(promise: Promise) {
     sharedImpl.getDeviceIntegrityStatus(promise)
-  }
-
-  // Event emitter support for biometric changes
-  // Note: emitOnBiometricChange is now provided by the generated NativeReactNativeBiometricsSpec
-
-  @ReactMethod
-  fun addListener(eventName: String) {
-    // Increment listener count and start detection when first listener is added
-    listenerCount++
-    if (listenerCount == 1) {
-      sharedImpl.startBiometricChangeDetection()
-    }
-  }
-
-  @ReactMethod
-  fun removeListeners(count: Double) {
-    // Decrement listener count and stop detection when all listeners are removed
-    listenerCount = maxOf(0, listenerCount - count.toInt())
-    if (listenerCount == 0) {
-      sharedImpl.stopBiometricChangeDetection()
-    }
   }
 
   @ReactMethod
