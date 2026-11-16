@@ -235,7 +235,7 @@ export interface Spec extends TurboModule {
   readonly onBiometricChange: EventEmitter<BiometricChangeEvent>;
 }
 
-// `get` rather than `getEnforcing`: a missing module (Expo Go, web) must not
+// `get` rather than `getEnforcing`: a missing module (Expo Go) must not
 // throw at import time. `./nativeModule` adds the old-architecture fallback
 // and a clear error when neither is available.
 export default TurboModuleRegistry.get<Spec>('ReactNativeBiometrics');

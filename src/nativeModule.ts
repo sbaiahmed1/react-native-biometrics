@@ -13,7 +13,7 @@ const UNAVAILABLE_MESSAGE =
   '(and run `pod install` on iOS).';
 
 /**
- * Stands in for the native module when it isn't linked (Expo Go, web, a
+ * Stands in for the native module when it isn't linked (Expo Go, a
  * stale native build). Importing the library keeps working; every native
  * call rejects with a `NATIVE_MODULE_UNAVAILABLE` error explaining how to
  * fix it, instead of the import crashing with a generic registry error.
