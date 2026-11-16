@@ -41,6 +41,8 @@ The library ships with an Expo config plugin. Instead of editing native files ma
 }
 ```
 
+The library contains native code, so it does not run in **Expo Go**. Use a [development build](https://docs.expo.dev/develop/development-builds/introduction/) (`npx expo run:ios`, `npx expo run:android`, or EAS Build). In Expo Go the import still works, but every call rejects with `NATIVE_MODULE_UNAVAILABLE`.
+
 Then apply the changes by regenerating the native projects with `npx expo prebuild`. For a full regeneration use `npx expo prebuild --clean` — but note it deletes the `ios/` and `android/` directories, including any manual native edits. `npx expo run:ios` / `run:android` only run prebuild when the native directories are missing, so they won't pick up plugin changes on an existing project by themselves.
 
 | Option | Type | Default | Description |

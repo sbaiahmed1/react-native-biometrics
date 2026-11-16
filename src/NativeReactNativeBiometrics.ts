@@ -1,4 +1,4 @@
-import { TurboModuleRegistry, NativeModules } from 'react-native';
+import { TurboModuleRegistry } from 'react-native';
 import { type TurboModule } from 'react-native/Libraries/TurboModule/RCTExport';
 import type { EventEmitter } from 'react-native/Libraries/Types/CodegenTypes';
 
@@ -235,6 +235,7 @@ export interface Spec extends TurboModule {
   readonly onBiometricChange: EventEmitter<BiometricChangeEvent>;
 }
 
-export default TurboModuleRegistry.getEnforcing<Spec>(
-  'ReactNativeBiometrics'
-) ?? NativeModules.ReactNativeBiometrics;
+// `get` rather than `getEnforcing`: a missing module (Expo Go, web) must not
+// throw at import time. `./nativeModule` adds the old-architecture fallback
+// and a clear error when neither is available.
+export default TurboModuleRegistry.get<Spec>('ReactNativeBiometrics');

@@ -1,5 +1,5 @@
 import type { BiometricChangeEvent } from './NativeReactNativeBiometrics';
-import ReactNativeBiometrics from './NativeReactNativeBiometrics';
+import ReactNativeBiometrics from './nativeModule';
 import { type LogEntry, logger, LogLevel } from './logger';
 // Biometric Change Detection API
 import {
