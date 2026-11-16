@@ -26,6 +26,14 @@ if (!result.success && result.errorCode === 'KEY_NOT_FOUND') {
 }
 ```
 
+## Setup codes
+
+Every function rejects with this code when the native module is missing — in Expo Go, on web, or when the app wasn't rebuilt after installing the library. This applies even to functions that otherwise resolve with an `errorCode`, such as `isSensorAvailable()`.
+
+| Code | Description | Platform |
+|------|-------------|----------|
+| `NATIVE_MODULE_UNAVAILABLE` | The native module isn't linked. Use a development build instead of Expo Go, or rebuild the app (and run `pod install` on iOS). | Both |
+
 ## Same condition, different code
 
 | Condition | iOS | Android |

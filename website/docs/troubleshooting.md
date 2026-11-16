@@ -4,6 +4,10 @@ title: Troubleshooting
 
 ## Common Issues
 
+### Expo
+
+- **`NATIVE_MODULE_UNAVAILABLE`**: The native module isn't in the running binary. Expo Go can't load it, so use a development build (`npx expo run:ios`, `npx expo run:android`, or EAS Build). If you're already on a development build, rebuild it after installing or upgrading the library.
+
 ### iOS
 
 - **"Biometry is not available"**: Ensure Face ID/Touch ID is set up in device settings
