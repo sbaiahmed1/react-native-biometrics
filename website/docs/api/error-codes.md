@@ -28,7 +28,7 @@ if (!result.success && result.errorCode === 'KEY_NOT_FOUND') {
 
 ## Setup codes
 
-Every function rejects with this code when the native module is missing — in Expo Go, on web, or when the app wasn't rebuilt after installing the library. This applies even to functions that otherwise resolve with an `errorCode`, such as `isSensorAvailable()`.
+Calls that need the native module reject with this code when it is missing — in Expo Go, on web, or when the app wasn't rebuilt after installing the library. This applies even to functions that otherwise resolve with an `errorCode`, such as `isSensorAvailable()`. APIs that run only in JavaScript keep working: `configure()` without a `keyAlias`, `getLogs()`, `clearLogs()`, and `subscribeToBiometricChanges()` (which never fires). Don't treat their success as a sign that biometrics are available.
 
 | Code | Description | Platform |
 |------|-------------|----------|
