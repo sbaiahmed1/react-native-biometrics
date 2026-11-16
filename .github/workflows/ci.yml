@@ -116,8 +116,9 @@ jobs:
           yarn turbo run build:android --cache-dir="${{ env.TURBO_CACHE_DIR }}"
 
   build-ios:
-    runs-on: self-hosted
+    runs-on: macos-latest
     env:
+      XCODE_VERSION: 26
       TURBO_CACHE_DIR: .turbo/ios
       RCT_USE_RN_DEP: 1
       RCT_USE_PREBUILT_RNCORE: 1
@@ -144,17 +145,11 @@ jobs:
             echo "turbo_cache_hit=1" >> $GITHUB_ENV
           fi
 
-      - name: Check toolchain
+      - name: Use appropriate Xcode version
         if: env.turbo_cache_hit != 1
-        run: |
-          xcodebuild -version
-          pod --version
-
-      - name: Clean stale artifacts
-        if: env.turbo_cache_hit != 1
-        run: |
-          rm -rf example/ios example/android example/.expo
-          rm -rf ~/Library/Developer/Xcode/DerivedData
+        uses: maxim-lobanov/setup-xcode@60606e260d2fc5762a71e64e74b2174e8ea3c8bd # v1.6.0
+        with:
+          xcode-version: ${{ env.XCODE_VERSION }}
 
       - name: Build config plugin
         if: env.turbo_cache_hit != 1
@@ -166,5 +161,6 @@ jobs:
           yarn example expo prebuild --platform ios
 
       - name: Build example for iOS
+        if: env.turbo_cache_hit != 1
         run: |
           yarn turbo run build:ios --cache-dir="${{ env.TURBO_CACHE_DIR }}"
