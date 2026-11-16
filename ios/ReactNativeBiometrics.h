@@ -1,9 +1,7 @@
-#import <React/RCTBridgeModule.h>
-#import <React/RCTEventEmitter.h>
+#import <ReactNativeBiometricsSpec/ReactNativeBiometricsSpec.h>
 
-// React Native Biometrics Module Header
-// Swift implementation bridged through Objective-C
-
-@interface ReactNativeBiometrics : RCTEventEmitter <RCTBridgeModule>
+// TurboModule entry point. The implementation lives in Swift
+// (ReactNativeBiometricsImpl); this class only forwards to it.
+@interface ReactNativeBiometrics : NativeReactNativeBiometricsSpecBase <NativeReactNativeBiometricsSpec>
 
 @end

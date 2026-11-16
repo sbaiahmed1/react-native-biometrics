@@ -7,12 +7,10 @@
     "userInterfaceStyle": "light",
     "ios": {
       "bundleIdentifier": "sbaiahmed1.reactnativebiometrics.example",
-      "newArchEnabled": true,
       "supportsTablet": true
     },
     "android": {
       "package": "sbaiahmed1.reactnativebiometrics.example",
-      "newArchEnabled": false,
       "edgeToEdgeEnabled": true
     },
     "plugins": [

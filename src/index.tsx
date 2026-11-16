@@ -5,8 +5,6 @@ import { type LogEntry, logger, LogLevel } from './logger';
 import {
   DeviceEventEmitter,
   type EventSubscription,
-  NativeEventEmitter,
-  NativeModules,
   Platform,
 } from 'react-native';
 import { AuthType, BiometricStrength, type BiometryType } from './types';
@@ -60,12 +58,12 @@ export function isSensorAvailable(options?: {
   biometricStrength?: BiometricStrength;
 }): Promise<BiometricSensorInfo> {
   return logged('isSensorAvailable', options, () =>
-    // iOS doesn't support biometric strength, so it is called without parameters
-    Platform.OS === 'android'
-      ? ReactNativeBiometrics.isSensorAvailable(
-          options?.biometricStrength || BiometricStrength.Strong
-        )
-      : ReactNativeBiometrics.isSensorAvailable()
+    // iOS ignores biometricStrength, but every argument in the spec must still
+    // be passed: a TurboModule locates the promise callbacks after the
+    // arguments it actually received.
+    ReactNativeBiometrics.isSensorAvailable(
+      options?.biometricStrength || BiometricStrength.Strong
+    )
   );
 }
 
@@ -75,10 +73,8 @@ export function simplePrompt(
 ): Promise<BiometricAuthResult> {
   const biometricStrength = options?.biometricStrength;
   return logged('simplePrompt', { promptMessage, biometricStrength }, () =>
-    // iOS and other platforms ignore biometricStrength and use default behavior
-    Platform.OS === 'android'
-      ? ReactNativeBiometrics.simplePrompt(promptMessage, biometricStrength)
-      : ReactNativeBiometrics.simplePrompt(promptMessage)
+    // iOS ignores biometricStrength; it is passed anyway (see isSensorAvailable).
+    ReactNativeBiometrics.simplePrompt(promptMessage, biometricStrength)
   );
 }
 
@@ -799,23 +795,12 @@ export function subscribeToBiometricChanges(
     );
   }
 
-  // New architecture: events emitted through the codegen event emitter are
-  // only delivered to its own subscribers, never to DeviceEventEmitter.
   if (typeof ReactNativeBiometrics.onBiometricChange === 'function') {
     return ReactNativeBiometrics.onBiometricChange(callback);
   }
 
-  // Old architecture: NativeEventEmitter invokes the native addListener
-  // method — required on iOS, where RCTEventEmitter drops events while its
-  // listener count is zero — and both platforms auto-start detection when
-  // the first listener attaches.
-  if (NativeModules.ReactNativeBiometrics != null) {
-    return new NativeEventEmitter(
-      NativeModules.ReactNativeBiometrics
-    ).addListener('onBiometricChange', callback);
-  }
-
-  // Environments without the native module (e.g. web).
+  // The native module is not linked (Expo Go, a stale build): nothing will
+  // emit, but callers still get a subscription they can remove.
   return DeviceEventEmitter.addListener('onBiometricChange', callback);
 }
 

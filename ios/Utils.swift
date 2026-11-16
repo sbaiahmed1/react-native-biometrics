@@ -3,8 +3,12 @@ import Foundation
 import Security
 import LocalAuthentication
 import MachO
-import React
 import UIKit
+
+/// Same shapes as React Native's `RCTPromiseResolveBlock` and
+/// `RCTPromiseRejectBlock`, declared here so the Swift code does not import React.
+public typealias PromiseResolveBlock = (Any?) -> Void
+public typealias PromiseRejectBlock = (String?, String?, Error?) -> Void
 
 /**
  * Determines the appropriate signature algorithm based on key type
@@ -88,11 +92,11 @@ public func performBiometricAuthentication(
  * Handles errors by rejecting the promise with proper error information
  * - Parameters:
  *   - error: The ReactNativeBiometricsError to handle
- *   - reject: The RCT promise reject block
+ *   - reject: The promise reject block
  */
 public func handleError(
   _ error: ReactNativeBiometricsError,
-  reject: RCTPromiseRejectBlock
+  reject: PromiseRejectBlock
 ) {
   let errorInfo = error.errorInfo
   ReactNativeBiometricDebug.debugLog("Error: \(errorInfo.code) - \(errorInfo.message)")
@@ -103,11 +107,11 @@ public func handleError(
  * Handles errors by resolving the promise with error information in the result
  * - Parameters:
  *   - error: The ReactNativeBiometricsError to handle
- *   - resolve: The RCT promise resolve block
+ *   - resolve: The promise resolve block
  */
 public func handleErrorWithResult(
   _ error: ReactNativeBiometricsError,
-  resolve: @escaping RCTPromiseResolveBlock
+  resolve: @escaping PromiseResolveBlock
 ) {
   let errorInfo = error.errorInfo
   ReactNativeBiometricDebug.debugLog("Error: \(errorInfo.code) - \(errorInfo.message)")

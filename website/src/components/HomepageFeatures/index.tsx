@@ -77,13 +77,10 @@ const FeatureList: FeatureItem[] = [
     ),
   },
   {
-    title: 'New & Old Architecture',
+    title: 'New Architecture',
     emoji: '🔄',
     description: (
-      <>
-        TurboModule-based with full backward compatibility for the old
-        architecture.
-      </>
+      <>Built as a TurboModule for React Native's new architecture.</>
     ),
   },
   {

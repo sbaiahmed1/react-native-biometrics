@@ -236,6 +236,6 @@ export interface Spec extends TurboModule {
 }
 
 // `get` rather than `getEnforcing`: a missing module (Expo Go) must not
-// throw at import time. `./nativeModule` adds the old-architecture fallback
-// and a clear error when neither is available.
+// throw at import time. `./nativeModule` substitutes a stand-in that rejects
+// every call with a clear error.
 export default TurboModuleRegistry.get<Spec>('ReactNativeBiometrics');
