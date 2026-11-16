@@ -295,7 +295,7 @@ The library ships with an Expo config plugin. Instead of editing native files ma
 }
 ```
 
-The library contains native code, so it does not run in **Expo Go**. Use a [development build](https://docs.expo.dev/develop/development-builds/introduction/) (`npx expo run:ios`, `npx expo run:android`, or EAS Build). In Expo Go the import still works, but every call rejects with `NATIVE_MODULE_UNAVAILABLE`.
+The library contains native code, so it does not run in **Expo Go**. Use a [development build](https://docs.expo.dev/develop/development-builds/introduction/) (`npx expo run:ios`, `npx expo run:android`, or EAS Build). In Expo Go the import still works, but calls that need the native module reject with `NATIVE_MODULE_UNAVAILABLE`.
 
 Then apply the changes by regenerating the native projects with `npx expo prebuild`. For a full regeneration use `npx expo prebuild --clean` — but note it deletes the `ios/` and `android/` directories, including any manual native edits. `npx expo run:ios` / `run:android` only run prebuild when the native directories are missing, so they won't pick up plugin changes on an existing project by themselves.
 
@@ -1687,7 +1687,7 @@ if (!result.success && result.errorCode === 'KEY_NOT_FOUND') {
 
 #### Setup codes
 
-Every function rejects with this code when the native module is missing — in Expo Go, on web, or when the app wasn't rebuilt after installing the library. This applies even to functions that otherwise resolve with an `errorCode`, such as `isSensorAvailable()`.
+Calls that need the native module reject with this code when it is missing — in Expo Go, on web, or when the app wasn't rebuilt after installing the library. This applies even to functions that otherwise resolve with an `errorCode`, such as `isSensorAvailable()`. APIs that run only in JavaScript keep working: `configure()` without a `keyAlias`, `getLogs()`, `clearLogs()`, and `subscribeToBiometricChanges()` (which never fires). Don't treat their success as a sign that biometrics are available.
 
 | Code | Description | Platform |
 |------|-------------|----------|
