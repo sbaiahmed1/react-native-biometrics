@@ -6,7 +6,7 @@ title: Installation
 
 | Platform     | Minimum Version |
 |--------------|-----------------|
-| React Native | 0.76+           |
+| React Native | 0.81+           |
 
 The library is a TurboModule and requires React Native's [new architecture](https://reactnative.dev/architecture/landing-page). Since version 1.0 the old architecture is not supported; apps still on it can stay on version 0.17.x.
 
@@ -110,6 +110,6 @@ import { AuthType, BiometricStrength } from '@sbaiahmed1/react-native-biometrics
 
 Version 1.0 removes support for the old architecture. When upgrading from 0.17 or earlier:
 
-- **React Native 0.76 or newer** with the new architecture enabled is required. In Expo, remove any `"newArchEnabled": false` from your app config.
+- **React Native 0.81 or newer** (Expo SDK 54 or newer) with the new architecture enabled is required. In Expo, remove any `"newArchEnabled": false` from your app config.
 - **Rebuild the native app** after upgrading (`pod install` on iOS, or `npx expo prebuild --clean`).
 - **Biometric change detection no longer starts on its own on iOS.** Subscribing with `subscribeToBiometricChanges()` used to start detection on iOS. Call `startBiometricChangeDetection()` after subscribing, as Android already required.
