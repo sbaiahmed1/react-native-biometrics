@@ -10,8 +10,7 @@
       "supportsTablet": true
     },
     "android": {
-      "package": "sbaiahmed1.reactnativebiometrics.example",
-      "edgeToEdgeEnabled": true
+      "package": "sbaiahmed1.reactnativebiometrics.example"
     },
     "plugins": [
       [
