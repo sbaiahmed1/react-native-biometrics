@@ -44,7 +44,7 @@
 
 | Platform     | Minimum Version |
 |--------------|-----------------|
-| React Native | 0.76+           |
+| React Native | 0.81+           |
 
 The library is a TurboModule and requires React Native's [new architecture](https://reactnative.dev/architecture/landing-page). Since version 1.0 the old architecture is not supported; apps still on it can stay on version 0.17.x.
 
