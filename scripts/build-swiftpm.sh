@@ -11,6 +11,8 @@
 # does not declare, or a Swift file that only compiles with CocoaPods' settings.
 #
 # Usage: scripts/build-swiftpm.sh [work-dir]
+#   work-dir              Where to create the test app. It is kept afterwards.
+#                         Without it, a temporary directory is used and removed.
 #   REACT_NATIVE_VERSION  React Native version of the test app (default 0.88.1)
 #   CONFIGURATION         Debug or Release (default Debug)
 
@@ -22,8 +24,14 @@ CONFIGURATION="${CONFIGURATION:-Debug}"
 APP_NAME="SwiftPMTest"
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-WORK_DIR="${1:-$(mktemp -d)}"
-mkdir -p "$WORK_DIR"
+if [ $# -ge 1 ]; then
+  # A work directory passed on the command line is kept for inspection.
+  WORK_DIR="$1"
+  mkdir -p "$WORK_DIR"
+else
+  WORK_DIR="$(mktemp -d)"
+  trap 'rm -rf "$WORK_DIR"' EXIT
+fi
 WORK_DIR="$(cd "$WORK_DIR" && pwd)"
 
 echo "==> Packing the library"
