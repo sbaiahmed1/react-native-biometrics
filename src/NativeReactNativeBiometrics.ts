@@ -1,6 +1,8 @@
-import { TurboModuleRegistry } from 'react-native';
-import { type TurboModule } from 'react-native/Libraries/TurboModule/RCTExport';
-import type { EventEmitter } from 'react-native/Libraries/Types/CodegenTypes';
+import {
+  TurboModuleRegistry,
+  type CodegenTypes,
+  type TurboModule,
+} from 'react-native';
 
 export type BiometricChangeEvent = {
   timestamp: number;
@@ -232,7 +234,7 @@ export interface Spec extends TurboModule {
   // Stop biometric change detection
   stopBiometricChangeDetection(): Promise<void>;
   // Event emitter for biometric changes
-  readonly onBiometricChange: EventEmitter<BiometricChangeEvent>;
+  readonly onBiometricChange: CodegenTypes.EventEmitter<BiometricChangeEvent>;
 }
 
 // `get` rather than `getEnforcing`: a missing module (Expo Go) must not

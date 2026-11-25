@@ -11,12 +11,12 @@
     "build:ios": "xcodebuild ONLY_ACTIVE_ARCH=YES -workspace ios/ReactNativeBiometricsExample.xcworkspace -UseNewBuildSystem=YES -scheme ReactNativeBiometricsExample -configuration Debug -sdk iphonesimulator -derivedDataPath ios/build -quiet"
   },
   "dependencies": {
-    "expo": "~56.0.24",
-    "react": "19.2.3",
-    "react-native": "0.85.3"
+    "expo": "~58.0.26",
+    "react": "19.3.0",
+    "react-native": "0.88.1"
   },
   "devDependencies": {
-    "expo-dev-client": "~56.0.28",
+    "expo-dev-client": "~58.0.21",
     "react-native-monorepo-config": "^0.4.0"
   },
   "engines": {

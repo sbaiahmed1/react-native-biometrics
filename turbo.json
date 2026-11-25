@@ -28,8 +28,7 @@
         "metro.config.js",
         "index.js",
         "*.tsx",
-        "src/**",
-        "plugins/**"
+        "src/**"
       ],
       "outputs": []
     },
@@ -46,8 +45,7 @@
         "metro.config.js",
         "index.js",
         "*.tsx",
-        "src/**",
-        "plugins/**"
+        "src/**"
       ],
       "outputs": []
     }
