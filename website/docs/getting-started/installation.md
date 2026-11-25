@@ -72,19 +72,15 @@ cd ios && pod install
 
 ### Swift Package Manager
 
-React Native 0.88 and newer can build iOS dependencies with Swift Package Manager instead of CocoaPods. The library ships a `Package.swift`, so React Native's SwiftPM autolinking picks it up without extra configuration. Use this in place of step 2; do not run `pod install` as well.
+React Native 0.88 and newer can build iOS dependencies with Swift Package Manager instead of CocoaPods. The library ships a `Package.swift`, so React Native's SwiftPM autolinking picks it up without extra configuration.
 
-If the app already builds with SwiftPM, sync the new dependency:
+If the app already builds with SwiftPM, sync the new dependency in place of step 2:
 
 ```bash
 npx react-native spm
 ```
 
-If the app still uses CocoaPods and you want to migrate it, convert it first. This removes the CocoaPods integration from the project:
-
-```bash
-npx react-native spm add --deintegrate
-```
+Moving an app from CocoaPods to SwiftPM is an app-wide migration that this library does not change. Follow the [React Native SwiftPM guide](https://github.com/facebook/react-native/blob/v0.88.1/packages/react-native/scripts/spm/__docs__/spm-scripts.md), which also covers apps that keep other CocoaPods dependencies and apps that use Expo's autolinking.
 
 The `NSFaceIDUsageDescription` key from step 1 is still required. Projects that stay on CocoaPods need no change.
 
