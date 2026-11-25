@@ -7,7 +7,20 @@
     "userInterfaceStyle": "light",
     "ios": {
       "bundleIdentifier": "sbaiahmed1.reactnativebiometrics.example",
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "UIApplicationSceneManifest": {
+          "UIApplicationSupportsMultipleScenes": false,
+          "UISceneConfigurations": {
+            "UIWindowSceneSessionRoleApplication": [
+              {
+                "UISceneConfigurationName": "Default",
+                "UISceneDelegateClassName": "SceneDelegate"
+              }
+            ]
+          }
+        }
+      }
     },
     "android": {
       "package": "sbaiahmed1.reactnativebiometrics.example"
@@ -18,7 +31,8 @@
         {
           "faceIDPermission": "This app uses Face ID to demonstrate secure biometric authentication."
         }
-      ]
+      ],
+      "./plugins/withSceneDelegate.js"
     ]
   }
 }
