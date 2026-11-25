@@ -164,3 +164,25 @@ jobs:
         if: env.turbo_cache_hit != 1
         run: |
           yarn turbo run build:ios --cache-dir="${{ env.TURBO_CACHE_DIR }}"
+
+  build-ios-swiftpm:
+    runs-on: macos-latest
+    env:
+      XCODE_VERSION: 26
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup
+        uses: ./.github/actions/setup
+
+      - name: Use appropriate Xcode version
+        uses: maxim-lobanov/setup-xcode@60606e260d2fc5762a71e64e74b2174e8ea3c8bd # v1.6.0
+        with:
+          xcode-version: ${{ env.XCODE_VERSION }}
+
+      # The example app builds with CocoaPods. This creates a throwaway React
+      # Native app, installs the packed library and builds it with SwiftPM.
+      - name: Build with Swift Package Manager
+        run: scripts/build-swiftpm.sh "$RUNNER_TEMP/swiftpm"
+
