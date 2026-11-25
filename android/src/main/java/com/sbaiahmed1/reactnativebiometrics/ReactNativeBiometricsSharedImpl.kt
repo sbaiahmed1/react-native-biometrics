@@ -59,9 +59,12 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
     val enrolled: Boolean,
     val biometryType: String,
     val keyCount: Int,
-    val statusCode: Int,
-    val timestamp: Long
+    val statusCode: Int
   ) {
+    // Declared in the body so it is not part of equals(): two snapshots taken
+    // at different times must compare equal when nothing else changed.
+    val timestamp: Long = System.currentTimeMillis()
+
     fun toWritableMap(): WritableMap {
       val map = Arguments.createMap()
       map.putBoolean("available", available)
@@ -1928,8 +1931,7 @@ class ReactNativeBiometricsSharedImpl(private val context: ReactApplicationConte
       enrolled = enrolled,
       biometryType = biometryType,
       keyCount = keyCount,
-      statusCode = canAuthenticateResult,
-      timestamp = System.currentTimeMillis()
+      statusCode = canAuthenticateResult
     )
   }
 

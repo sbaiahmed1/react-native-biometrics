@@ -8,7 +8,7 @@ export type BiometricChangeEvent = {
     | 'BIOMETRIC_ENABLED'
     | 'BIOMETRIC_DISABLED'
     | 'ENROLLMENT_CHANGED'
-    | 'HARDWARE_CHANGED'
+    | 'HARDWARE_UNAVAILABLE'
     | 'STATE_CHANGED';
   biometryType: string;
   available: boolean;
