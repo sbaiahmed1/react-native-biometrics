@@ -278,7 +278,7 @@ The implementation tracks multiple state indicators to maximize change detection
 **Platform Limitations:**
 Android's `BiometricManager.canAuthenticate()` has limitations:
 - Returns same status (BIOMETRIC_SUCCESS) whether device has 1 or 5 fingerprints enrolled
-- Cannot detect when additional fingerprints are added to an already-enrolled device
+- Cannot detect when additional fingerprints are added to an already-enrolled device: adding a second fingerprint emits no change event
 - Can only reliably detect:
   - First enrollment (None → Enrolled)
   - Complete removal of all enrollments (Enrolled → None)

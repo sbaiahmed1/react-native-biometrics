@@ -114,6 +114,10 @@ interface BiometricChangeEvent {
 - `HARDWARE_UNAVAILABLE`: Biometric hardware changed
 - `STATE_CHANGED`: General state change
 
+:::note Android
+Android reports enrollment only as enrolled or not enrolled. Adding another fingerprint to a device that already has one does not emit an event. See the [platform limitations](../guides/biometric-change-detection.md) in the guide.
+:::
+
 **Complete Example:**
 
 ```javascript
