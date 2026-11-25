@@ -3,6 +3,7 @@ import LocalAuthentication
 import Security
 import CryptoKit
 import CryptoTokenKit
+import UIKit
 
 /// Native implementation behind the `ReactNativeBiometrics` TurboModule.
 /// `ReactNativeBiometrics.mm` owns one instance and forwards every call here,

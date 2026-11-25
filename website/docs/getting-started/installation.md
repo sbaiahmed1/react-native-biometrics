@@ -70,6 +70,16 @@ With the plugin in place, the manual **iOS Setup** and **Android Setup** permiss
 cd ios && pod install
 ```
 
+### Swift Package Manager
+
+React Native 0.88 and newer can build iOS dependencies with Swift Package Manager instead of CocoaPods. The library ships a `Package.swift`, so React Native's SwiftPM autolinking picks it up without extra configuration:
+
+```bash
+npx react-native spm add
+```
+
+The `NSFaceIDUsageDescription` key from step 1 is still required. CocoaPods projects need no change.
+
 ## Android Setup
 
 1. **Add permissions to `android/app/src/main/AndroidManifest.xml`:**

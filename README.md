@@ -39,6 +39,7 @@
 - 🛡️ **Device integrity** checks for rooted and jailbroken devices
 - 🔔 **Biometric change detection** for enrollment changes
 - 🎯 **TypeScript**, a TurboModule for the new architecture, and an Expo config plugin
+- 📦 **CocoaPods and Swift Package Manager** on iOS
 
 ## 📋 Requirements
 
