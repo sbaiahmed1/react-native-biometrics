@@ -1,25 +1,35 @@
 {
   "$schema": "https://turbo.build/schema.json",
-  "globalDependencies": [".nvmrc", ".yarnrc.yml"],
-  "globalEnv": ["NODE_ENV"],
+  "globalDependencies": [
+    ".nvmrc",
+    ".yarnrc.yml",
+    "package.json",
+    "*.podspec",
+    "app.plugin.js",
+    "android/**",
+    "!android/build/**",
+    "ios/**",
+    "src/**",
+    "plugin/src/**",
+    "plugin/tsconfig.json"
+  ],
+  "globalEnv": [
+    "NODE_ENV"
+  ],
   "pipeline": {
     "build:android": {
-      "env": ["ANDROID_HOME"],
+      "env": [
+        "ANDROID_HOME"
+      ],
       "inputs": [
         "package.json",
-        "android",
-        "!android/build",
-        "src/*.ts",
-        "src/*.tsx",
-        "app.plugin.js",
-        "plugin/src/**",
-        "plugin/tsconfig.json",
-        "example/package.json",
-        "example/app.json",
-        "example/android",
-        "!example/android/.gradle",
-        "!example/android/build",
-        "!example/android/app/build"
+        "app.json",
+        "babel.config.js",
+        "metro.config.js",
+        "index.js",
+        "*.tsx",
+        "src/**",
+        "plugins/**"
       ],
       "outputs": []
     },
@@ -31,18 +41,13 @@
       ],
       "inputs": [
         "package.json",
-        "*.podspec",
-        "ios",
-        "src/*.ts",
-        "src/*.tsx",
-        "app.plugin.js",
-        "plugin/src/**",
-        "plugin/tsconfig.json",
-        "example/package.json",
-        "example/app.json",
-        "example/ios",
-        "!example/ios/build",
-        "!example/ios/Pods"
+        "app.json",
+        "babel.config.js",
+        "metro.config.js",
+        "index.js",
+        "*.tsx",
+        "src/**",
+        "plugins/**"
       ],
       "outputs": []
     }
