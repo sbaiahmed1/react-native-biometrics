@@ -33,10 +33,13 @@
     "./package.json": "./package.json"
   },
   "files": [
+    "Package.swift",
     "src",
     "lib",
     "android",
     "ios",
+    "spm-headers",
+    "spm-support",
     "cpp",
     "app.plugin.js",
     "plugin/build/**",
@@ -148,6 +151,9 @@
     "expo": {
       "optional": true
     }
+  },
+  "swiftpmConfig": {
+    "name": "ReactNativeBiometrics"
   },
   "workspaces": [
     "example",
